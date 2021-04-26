@@ -14,7 +14,7 @@ async def test_get_fees_filters(storage, exchange_key) -> None:
     fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
     filters = Filters(
         price=Price(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0')),
-        size=Size(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0'))
+        size=Size(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0')),
     )
     exchange = fakes.Exchange(
         exchange_info=ExchangeInfo(fees={exchange_key: fees}, filters={exchange_key: filters})
@@ -27,12 +27,15 @@ async def test_get_fees_filters(storage, exchange_key) -> None:
         assert out_filters == filters
 
 
-@pytest.mark.parametrize('patterns,borrow,expected_output', [
-    (None, False, ['eth', 'btc', 'ltc']),
-    (None, True, ['eth', 'btc']),
-    (['*'], False, ['eth', 'btc', 'ltc']),
-    (['btc'], False, ['btc']),
-])
+@pytest.mark.parametrize(
+    'patterns,borrow,expected_output',
+    [
+        (None, False, ['eth', 'btc', 'ltc']),
+        (None, True, ['eth', 'btc']),
+        (['*'], False, ['eth', 'btc', 'ltc']),
+        (['btc'], False, ['btc']),
+    ],
+)
 async def test_list_assets(storage, patterns, borrow, expected_output) -> None:
     exchange = fakes.Exchange(
         exchange_info=ExchangeInfo(
@@ -45,26 +48,27 @@ async def test_list_assets(storage, patterns, borrow, expected_output) -> None:
             filters={
                 'eth-btc': Filters(),
                 'ltc-btc': Filters(),
-            }
+            },
         )
     )
 
     async with Informant(storage=storage, exchanges=[exchange]) as informant:
-        assert informant.list_assets(
-            'exchange', patterns=patterns, borrow=borrow
-        ) == expected_output
+        assert (
+            informant.list_assets('exchange', patterns=patterns, borrow=borrow) == expected_output
+        )
 
 
-@pytest.mark.parametrize('symbols,patterns,expected_output', [
-    (['eth-btc', 'ltc-btc'], None, ['eth-btc', 'ltc-btc']),
-    (['eth-btc', 'ltc-btc', 'ltc-eth'], ['*-btc'], ['eth-btc', 'ltc-btc']),
-    (['eth-btc', 'ltc-btc', 'ltc-eth'], ['eth-btc', 'ltc-btc'], ['eth-btc', 'ltc-btc']),
-    (['eth-btc', 'ltc-eur'], ['*-*'], ['eth-btc', 'ltc-eur']),
-])
+@pytest.mark.parametrize(
+    'symbols,patterns,expected_output',
+    [
+        (['eth-btc', 'ltc-btc'], None, ['eth-btc', 'ltc-btc']),
+        (['eth-btc', 'ltc-btc', 'ltc-eth'], ['*-btc'], ['eth-btc', 'ltc-btc']),
+        (['eth-btc', 'ltc-btc', 'ltc-eth'], ['eth-btc', 'ltc-btc'], ['eth-btc', 'ltc-btc']),
+        (['eth-btc', 'ltc-eur'], ['*-*'], ['eth-btc', 'ltc-eur']),
+    ],
+)
 async def test_list_symbols(storage, symbols, patterns, expected_output) -> None:
-    exchange = fakes.Exchange(
-        exchange_info=ExchangeInfo(filters={s: Filters() for s in symbols})
-    )
+    exchange = fakes.Exchange(exchange_info=ExchangeInfo(filters={s: Filters() for s in symbols}))
 
     async with Informant(storage=storage, exchanges=[exchange]) as informant:
         output = informant.list_symbols('exchange', patterns)

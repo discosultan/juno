@@ -14,11 +14,11 @@ from tests import fakes
 
 filters = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
-    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
+    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
 )
 exchange_info = ExchangeInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
-    filters={'__all__': filters}
+    filters={'__all__': filters},
 )
 order_client_id = str(uuid4())
 
@@ -32,37 +32,47 @@ async def test_buy() -> None:
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
-        task = asyncio.create_task(broker.buy(
-            exchange='exchange',
-            account='spot',
-            symbol='eth-btc',
-            size=Decimal('0.25'),
-            test=False,
-        ))
-        exchange.orders_queue.put_nowait(OrderUpdate.New(
-            client_id=order_client_id,
-        ))
-        exchange.orders_queue.put_nowait(OrderUpdate.Match(
-            client_id=order_client_id,
-            fill=Fill(
-                price=Decimal('1.0'),
-                size=Decimal('0.2'),
-                quote=Decimal('0.2'),
-                fee=Decimal('0.02'),
-                fee_asset='eth',
-            ),
-        ))
-        exchange.orders_queue.put_nowait(OrderUpdate.Done(
-            time=1,
-            client_id=order_client_id,
-        ))
+        task = asyncio.create_task(
+            broker.buy(
+                exchange='exchange',
+                account='spot',
+                symbol='eth-btc',
+                size=Decimal('0.25'),
+                test=False,
+            )
+        )
+        exchange.orders_queue.put_nowait(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        exchange.orders_queue.put_nowait(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('0.2'),
+                    quote=Decimal('0.2'),
+                    fee=Decimal('0.02'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        exchange.orders_queue.put_nowait(
+            OrderUpdate.Done(
+                time=1,
+                client_id=order_client_id,
+            )
+        )
         res = await task
     assert res == OrderResult(
         time=1,
         status=OrderStatus.FILLED,
-        fills=[Fill.with_computed_quote(
-            price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
-        )]
+        fills=[
+            Fill.with_computed_quote(
+                price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
+            )
+        ],
     )
     assert len(exchange.place_order_calls) == 1
     assert exchange.place_order_calls[0]['size'] == Decimal('0.2')

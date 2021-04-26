@@ -5,8 +5,17 @@ from typing import AsyncIterable, AsyncIterator, Optional
 from uuid import uuid4
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    OrderResult,
+    OrderType,
+    OrderUpdate,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
 )
 
 
@@ -66,9 +75,7 @@ class Exchange(ABC):
 
     @abstractmethod
     @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         yield  # type: ignore
 
     @abstractmethod

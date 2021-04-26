@@ -46,14 +46,14 @@ class Ema:
         if self._adjust:
             self._prices.append(price)
             numerator = sum(
-                (self._a_inv**i * p for i, p in enumerate(reversed(self._prices))),
+                (self._a_inv ** i * p for i, p in enumerate(reversed(self._prices))),
                 Decimal('0.0'),
             )
             # self._denominator = sum(
             #     (self._a_inv**i for i in range(len(self._prices))),
             #     Decimal('0.0'),
             # )
-            self._denominator += self._a_inv**(len(self._prices) - 1)
+            self._denominator += self._a_inv ** (len(self._prices) - 1)
             self.value = numerator / self._denominator
         else:
             if self._t == 1:

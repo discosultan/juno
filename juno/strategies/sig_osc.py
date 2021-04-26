@@ -74,13 +74,25 @@ class SigOsc(Signal):
             )
 
     def _osc_enforce(self, advice: Advice) -> Advice:
-        return Advice.LIQUIDATE if (
-            advice is Advice.LONG and not self._osc.oversold
-            or advice is Advice.SHORT and not self._osc.overbought
-        ) else advice
+        return (
+            Advice.LIQUIDATE
+            if (
+                advice is Advice.LONG
+                and not self._osc.oversold
+                or advice is Advice.SHORT
+                and not self._osc.overbought
+            )
+            else advice
+        )
 
     def _osc_prevent(self, advice: Advice) -> Advice:
-        return Advice.LIQUIDATE if (
-            advice is Advice.LONG and self._osc.overbought
-            or advice is Advice.SHORT and self._osc.oversold
-        ) else advice
+        return (
+            Advice.LIQUIDATE
+            if (
+                advice is Advice.LONG
+                and self._osc.overbought
+                or advice is Advice.SHORT
+                and self._osc.oversold
+            )
+            else advice
+        )

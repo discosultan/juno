@@ -70,13 +70,15 @@ class Market(Broker):
                 )
             elif self._user.can_place_market_order_quote(exchange):
                 res = await self._fill(
-                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
-                    quote=quote
+                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY, quote=quote
                 )
             else:
                 res = await self._fill(
-                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
-                    size=Fill.total_size(await self._get_buy_fills(exchange, symbol, quote=quote))
+                    exchange=exchange,
+                    account=account,
+                    symbol=symbol,
+                    side=Side.BUY,
+                    size=Fill.total_size(await self._get_buy_fills(exchange, symbol, quote=quote)),
                 )
         else:
             raise NotImplementedError()
@@ -105,7 +107,7 @@ class Market(Broker):
             res = OrderResult(
                 time=self._get_time_ms(),
                 status=OrderStatus.FILLED,
-                fills=await self._get_sell_fills(exchange, symbol, size=size)
+                fills=await self._get_sell_fills(exchange, symbol, size=size),
             )
         else:
             res = await self._fill(
@@ -137,9 +139,7 @@ class Market(Broker):
     ) -> list[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         async with self._orderbook.sync(exchange, symbol) as orderbook:
-            fills = orderbook.find_order_bids(
-                size=size, fee_rate=fees.taker, filters=filters
-            )
+            fills = orderbook.find_order_bids(size=size, fee_rate=fees.taker, filters=filters)
         self._validate_fills(exchange, symbol, fills)
         return fills
 

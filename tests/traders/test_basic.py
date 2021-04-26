@@ -5,8 +5,15 @@ from typing import cast
 import pytest
 
 from juno import (
-    Advice, BorrowInfo, Candle, Filters, MissedCandlePolicy, stop_loss, strategies, take_profit,
-    traders
+    Advice,
+    BorrowInfo,
+    Candle,
+    Filters,
+    MissedCandlePolicy,
+    stop_loss,
+    strategies,
+    take_profit,
+    traders,
 )
 from juno.asyncio import cancel
 from juno.strategies import Fixed, MidTrendPolicy
@@ -16,16 +23,17 @@ from tests import fakes
 
 
 async def test_upside_stop_loss() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('10.0')),  # Open long.
-            Candle(time=1, close=Decimal('20.0')),
-            Candle(time=2, close=Decimal('18.0')),
-            Candle(time=3, close=Decimal('8.0')),  # Trigger trailing stop loss (10%).
-            Candle(time=4, close=Decimal('10.0')),  # Close long (do not act).
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('10.0')),  # Open long.
+                Candle(time=1, close=Decimal('20.0')),
+                Candle(time=2, close=Decimal('18.0')),
+                Candle(time=3, close=Decimal('8.0')),  # Trigger trailing stop loss (10%).
+                Candle(time=4, close=Decimal('10.0')),  # Close long (do not act).
+            ]
+        }
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
         exchange='dummy',
@@ -56,15 +64,16 @@ async def test_upside_stop_loss() -> None:
 
 
 async def test_upside_trailing_stop_loss() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('10.0')),  # Open long.
-            Candle(time=1, close=Decimal('20.0')),
-            Candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop loss (10%).
-            Candle(time=3, close=Decimal('10.0')),  # Close long (do not act).
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('10.0')),  # Open long.
+                Candle(time=1, close=Decimal('20.0')),
+                Candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop loss (10%).
+                Candle(time=3, close=Decimal('10.0')),  # Close long (do not act).
+            ]
+        }
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
         exchange='dummy',
@@ -95,15 +104,16 @@ async def test_upside_trailing_stop_loss() -> None:
 
 
 async def test_downside_trailing_stop_loss() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('10.0')),  # Open short.
-            Candle(time=1, close=Decimal('5.0')),
-            Candle(time=2, close=Decimal('6.0')),  # Trigger trailing stop loss (10%).
-            Candle(time=3, close=Decimal('10.0')),  # Close short (do not act).
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('10.0')),  # Open short.
+                Candle(time=1, close=Decimal('5.0')),
+                Candle(time=2, close=Decimal('6.0')),  # Trigger trailing stop loss (10%).
+                Candle(time=3, close=Decimal('10.0')),  # Close short (do not act).
+            ]
+        }
+    )
     informant = fakes.Informant(
         filters=Filters(isolated_margin=True),
         borrow_info=BorrowInfo(limit=Decimal('1.0')),
@@ -138,15 +148,16 @@ async def test_downside_trailing_stop_loss() -> None:
 
 
 async def test_upside_take_profit() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('10.0')),  # Open long.
-            Candle(time=1, close=Decimal('12.0')),
-            Candle(time=2, close=Decimal('20.0')),  # Trigger take profit (50%).
-            Candle(time=3, close=Decimal('10.0')),  # Close long (do not act).
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('10.0')),  # Open long.
+                Candle(time=1, close=Decimal('12.0')),
+                Candle(time=2, close=Decimal('20.0')),  # Trigger take profit (50%).
+                Candle(time=3, close=Decimal('10.0')),  # Close long (do not act).
+            ]
+        }
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
         exchange='dummy',
@@ -176,15 +187,16 @@ async def test_upside_take_profit() -> None:
 
 
 async def test_downside_take_profit() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('10.0')),  # Open short.
-            Candle(time=1, close=Decimal('8.0')),
-            Candle(time=2, close=Decimal('4.0')),  # Trigger take profit (50%).
-            Candle(time=3, close=Decimal('10.0')),  # Close short (do not act).
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('10.0')),  # Open short.
+                Candle(time=1, close=Decimal('8.0')),
+                Candle(time=2, close=Decimal('4.0')),  # Trigger take profit (50%).
+                Candle(time=3, close=Decimal('10.0')),  # Close short (do not act).
+            ]
+        }
+    )
     informant = fakes.Informant(
         filters=Filters(isolated_margin=True),
         borrow_info=BorrowInfo(limit=Decimal('1.0')),
@@ -219,17 +231,18 @@ async def test_downside_take_profit() -> None:
 
 
 async def test_restart_on_missed_candle() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0),
-            Candle(time=1),
-            # 1 candle skipped.
-            Candle(time=3),  # Trigger restart.
-            Candle(time=4),
-            Candle(time=5),
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0),
+                Candle(time=1),
+                # 1 candle skipped.
+                Candle(time=3),  # Trigger restart.
+                Candle(time=4),
+                Candle(time=5),
+            ]
+        }
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
 
     config = traders.BasicConfig(
@@ -261,15 +274,16 @@ async def test_restart_on_missed_candle() -> None:
 
 
 async def test_assume_same_as_last_on_missed_candle() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0),
-            Candle(time=1),
-            # 2 candles skipped.
-            Candle(time=4),  # Generate new candles with previous data.
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0),
+                Candle(time=1),
+                # 2 candles skipped.
+                Candle(time=4),  # Generate new candles with previous data.
+            ]
+        }
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
         exchange='dummy',
@@ -295,15 +309,16 @@ async def test_assume_same_as_last_on_missed_candle() -> None:
 
 
 async def test_adjust_start_ignore_mid_trend() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('1.0')),
-            Candle(time=1, close=Decimal('1.0')),
-            Candle(time=2, close=Decimal('1.0')),
-            Candle(time=3, close=Decimal('1.0')),
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('1.0')),
+                Candle(time=1, close=Decimal('1.0')),
+                Candle(time=2, close=Decimal('1.0')),
+                Candle(time=3, close=Decimal('1.0')),
+            ]
+        }
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
         exchange='dummy',
@@ -329,15 +344,16 @@ async def test_adjust_start_ignore_mid_trend() -> None:
 
 
 async def test_adjust_start_persistence() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('1.0')),
-            Candle(time=1, close=Decimal('1.0')),
-            Candle(time=2, close=Decimal('1.0')),
-            Candle(time=3, close=Decimal('1.0')),
-        ]
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('1.0')),
+                Candle(time=1, close=Decimal('1.0')),
+                Candle(time=2, close=Decimal('1.0')),
+                Candle(time=3, close=Decimal('1.0')),
+            ]
+        }
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
         exchange='dummy',
@@ -367,8 +383,7 @@ async def test_adjust_start_persistence() -> None:
 async def test_persist_and_resume(storage: fakes.Storage) -> None:
     chandler = fakes.Chandler(
         candles={
-            ('dummy', 'eth-btc', 1):
-            [
+            ('dummy', 'eth-btc', 1): [
                 Candle(time=0),
                 Candle(time=1),
                 Candle(time=2),
@@ -376,11 +391,10 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
             ]
         },
         future_candles={
-            ('dummy', 'eth-btc', 1):
-            [
+            ('dummy', 'eth-btc', 1): [
                 Candle(time=4),
             ]
-        }
+        },
     )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
@@ -494,8 +508,7 @@ async def test_close_on_exit(
 ) -> None:
     chandler = fakes.Chandler(
         future_candles={
-            ('dummy', 'eth-btc', 1):
-            [
+            ('dummy', 'eth-btc', 1): [
                 Candle(time=0, close=Decimal('1.0')),  # Long.
                 Candle(time=1, close=Decimal('2.0')),
             ]
@@ -545,9 +558,9 @@ async def test_close_on_exit(
 
 
 async def test_open_new_positions() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]
-    })
+    chandler = fakes.Chandler(
+        candles={('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]}
+    )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
     config = traders.BasicConfig(
         exchange='dummy',

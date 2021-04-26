@@ -53,8 +53,7 @@ def test_mid_trend_ignore() -> None:
     assert target.update(Advice.LONG) is Advice.LONG
 
 
-def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
-) -> None:
+def test_mid_trend_ignore_starting_with_none_does_not_ignore_first() -> None:
     target = strategies.MidTrend(MidTrendPolicy.IGNORE)
     assert target.update(Advice.NONE) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
@@ -128,18 +127,27 @@ def test_mid_trend_persistence_combination() -> None:
     target1 = strategies.MidTrend(MidTrendPolicy.IGNORE)
     target2 = strategies.Persistence(level=1)
 
-    assert Advice.combine(
-        target1.update(Advice.SHORT),
-        target2.update(Advice.SHORT),
-    ) is Advice.NONE
-    assert Advice.combine(
-        target1.update(Advice.LONG),
-        target2.update(Advice.LONG),
-    ) is Advice.NONE
-    assert Advice.combine(
-        target1.update(Advice.LONG),
-        target2.update(Advice.LONG),
-    ) is Advice.LONG
+    assert (
+        Advice.combine(
+            target1.update(Advice.SHORT),
+            target2.update(Advice.SHORT),
+        )
+        is Advice.NONE
+    )
+    assert (
+        Advice.combine(
+            target1.update(Advice.LONG),
+            target2.update(Advice.LONG),
+        )
+        is Advice.NONE
+    )
+    assert (
+        Advice.combine(
+            target1.update(Advice.LONG),
+            target2.update(Advice.LONG),
+        )
+        is Advice.LONG
+    )
 
 
 def test_combine_advice() -> None:

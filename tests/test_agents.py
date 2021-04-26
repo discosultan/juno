@@ -89,10 +89,16 @@ async def test_backtest(mocker) -> None:
     assert stats.start == 0
     assert stats.end == 6
 
-    assert CoreStatistics.calculate_hodl_profit(
-        summary=res.summary, first_candle=candles[0], last_candle=candles[-1], fees=fees,
-        filters=filters
-    ) == 100
+    assert (
+        CoreStatistics.calculate_hodl_profit(
+            summary=res.summary,
+            first_candle=candles[0],
+            last_candle=candles[-1],
+            fees=fees,
+            filters=filters,
+        )
+        == 100
+    )
 
 
 # 1. was failing as quote was incorrectly calculated after closing a position.
@@ -104,19 +110,23 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo(
         fees={'__all__': Fees(maker=Decimal('0.001'), taker=Decimal('0.001'))},
-        filters={'__all__': Filters(
-            price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
-            size=Size(
-                min=Decimal('0.00100000'),
-                max=Decimal('100000.00000000'),
-                step=Decimal('0.00100000'),
+        filters={
+            '__all__': Filters(
+                price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
+                size=Size(
+                    min=Decimal('0.00100000'),
+                    max=Decimal('100000.00000000'),
+                    step=Decimal('0.00100000'),
+                ),
             )
-        )},
+        },
     )
-    exchange.stream_historical_candles.return_value = resolved_stream(*raw_to_type(
-        load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
-        list[Candle],
-    ))
+    exchange.stream_historical_candles.return_value = resolved_stream(
+        *raw_to_type(
+            load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
+            list[Candle],
+        )
+    )
 
     container = _get_container(exchange)
     agent = container.resolve(Backtest)

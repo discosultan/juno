@@ -34,9 +34,7 @@ class Macd:
     @property
     def maturity(self) -> int:
         return (
-            max(self._long_ema.maturity, self._short_ema.maturity)
-            + self._signal_ema.maturity
-            - 1
+            max(self._long_ema.maturity, self._short_ema.maturity) + self._signal_ema.maturity - 1
         )
 
     @property

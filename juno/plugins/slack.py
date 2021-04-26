@@ -49,26 +49,34 @@ class Slack(Plugin):
         @self._events.on(agent_name, 'positions_opened')
         async def on_positions_opened(positions: list[Position], summary: TradingSummary) -> None:
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
-                        'position',
-                        format_as_config(extract_public(p, exclude=['fills'])),
-                    ),
-                ) for p in positions)
+                *(
+                    send_message(
+                        format_message(
+                            f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
+                            'position',
+                            format_as_config(extract_public(p, exclude=['fills'])),
+                        ),
+                    )
+                    for p in positions
+                )
             )
 
         @self._events.on(agent_name, 'positions_closed')
         async def on_positions_closed(positions: list[Position], summary: TradingSummary) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'closed {"long" if isinstance(p, Position.Long) else "short"} '
-                        'position',
-                        format_as_config(extract_public(p, exclude=['open_fills', 'close_fills'])),
-                    ),
-                ) for p in positions)
+                *(
+                    send_message(
+                        format_message(
+                            f'closed {"long" if isinstance(p, Position.Long) else "short"} '
+                            'position',
+                            format_as_config(
+                                extract_public(p, exclude=['open_fills', 'close_fills'])
+                            ),
+                        ),
+                    )
+                    for p in positions
+                )
             )
             await send_message(
                 format_message('summary', format_as_config(extract_public(summary)))
@@ -78,7 +86,8 @@ class Slack(Plugin):
         async def on_finished(summary: TradingSummary) -> None:
             await send_message(
                 format_message(
-                    'finished with summary', format_as_config(extract_public(summary)),
+                    'finished with summary',
+                    format_as_config(extract_public(summary)),
                 ),
             )
 

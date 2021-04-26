@@ -127,7 +127,4 @@ class Filters:
 
     def min_size(self, price: Decimal) -> Decimal:
         size = self.min_notional.min_size_for_price(price)
-        return (
-            self.size.round_down(size) if size > self.size.min
-            else self.size.round_up(size)
-        )
+        return self.size.round_down(size) if size > self.size.min else self.size.round_up(size)

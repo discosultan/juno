@@ -16,11 +16,11 @@ from tests import fakes
 
 filters = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
-    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
+    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
 )
 exchange_info = ExchangeInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
-    filters={'__all__': filters}
+    filters={'__all__': filters},
 )
 order_client_id = str(uuid4())
 
@@ -43,11 +43,15 @@ async def test_insufficient_balance() -> None:
 
 async def test_buy() -> None:
     snapshot = Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
-    order_result = OrderResult(time=0, status=OrderStatus.FILLED, fills=[
-        Fill.with_computed_quote(
-            price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
-        ),
-    ])
+    order_result = OrderResult(
+        time=0,
+        status=OrderStatus.FILLED,
+        fills=[
+            Fill.with_computed_quote(
+                price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
+            ),
+        ],
+    )
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,

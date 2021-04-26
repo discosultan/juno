@@ -100,9 +100,7 @@ def test_load_from_env() -> None:
             'baz': 'b',
         },
         'qux': ['c', 'd'],
-        'quux': [{
-            'corge': 'e'
-        }],
+        'quux': [{'corge': 'e'}],
     }
     output = config.from_env(input_)
     assert output == expected_output
@@ -110,14 +108,10 @@ def test_load_from_env() -> None:
 
 def test_list_names() -> None:
     input_ = {
-        'foo': {
-            'bar': 'a'
-        },
+        'foo': {'bar': 'a'},
         'bars': ['b', 'c'],
         'baz': 'd',
-        'qux': [{
-            'bar': 'e'
-        }],
+        'qux': [{'bar': 'e'}],
         'dummy_bar': 'f',
         'dummy_bars': ['g'],
         'bar_baz': 'h',  # Shouldn't be included.

@@ -8,11 +8,23 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Generic, Iterable, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
+    Any,
+    Generic,
+    Iterable,
+    Optional,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
 )
 
 from typing_inspect import (
-    get_parameters, is_generic_type, is_optional_type, is_typevar, is_union_type
+    get_parameters,
+    is_generic_type,
+    is_optional_type,
+    is_typevar,
+    is_union_type,
 )
 
 ExcType = Optional[type[BaseException]]
@@ -50,11 +62,7 @@ def isnamedtuple(obj: Any) -> bool:
         obj = type(obj)
 
     # Note that '_fields' is present only if the tuple has at least 1 field.
-    return (
-        inspect.isclass(obj)
-        and issubclass(obj, tuple)
-        and bool(getattr(obj, '_fields', False))
-    )
+    return inspect.isclass(obj) and issubclass(obj, tuple) and bool(getattr(obj, '_fields', False))
 
 
 def isenum(obj: Any) -> bool:
@@ -64,7 +72,8 @@ def isenum(obj: Any) -> bool:
 def raw_to_type(value: Any, type_: Any) -> Any:
     tagged_type = (
         get_type_by_fully_qualified_name(vt)
-        if isinstance(value, dict) and (vt := value.get('__type__')) else None
+        if isinstance(value, dict) and (vt := value.get('__type__'))
+        else None
     )
     origin_type = get_root_origin(type_)
     resolved_type = tagged_type or origin_type or type_
@@ -99,13 +108,13 @@ def raw_to_type(value: Any, type_: Any) -> Any:
         return value
 
     if resolved_type is list:
-        sub_type, = get_args(type_)
+        (sub_type,) = get_args(type_)
         for i, sub_value in enumerate(value):
             value[i] = raw_to_type(sub_value, sub_type)
         return value
 
     if resolved_type is deque:
-        sub_type, = get_args(type_)
+        (sub_type,) = get_args(type_)
         return deque((raw_to_type(sv, sub_type) for sv in value), maxlen=len(value))
 
     if isnamedtuple(resolved_type):
@@ -219,15 +228,11 @@ def types_match(obj: Any, type_: type[Any]) -> bool:
 
     if isinstance(obj, (list, deque)):
         assert origin
-        subtype, = get_args(type_)
+        (subtype,) = get_args(type_)
         return all(types_match(so, subtype) for so in obj)
 
     # Try matching for a regular dataclass.
-    return all(
-        types_match(
-            getattr(obj, sn), st
-        ) for sn, st in get_type_hints(origin).items()
-    )
+    return all(types_match(getattr(obj, sn), st) for sn, st in get_type_hints(origin).items())
 
 
 def map_input_args(obj: Any, args: Iterable[Any]) -> dict[str, Any]:

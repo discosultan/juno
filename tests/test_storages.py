@@ -22,7 +22,8 @@ async def memory(loop):
 
 
 @pytest.mark.parametrize(
-    'items', [
+    'items',
+    [
         [
             Candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT),
             Candle(time=1),
@@ -33,7 +34,7 @@ async def memory(loop):
             Trade(time=3, price=Decimal('4.0'), size=Decimal('5.0')),
             Trade(time=6, price=Decimal('7.0'), size=Decimal('8.0')),
         ],
-    ]
+    ],
 )
 async def test_memory_store_objects_and_span(memory: storages.Memory, items) -> None:
     type_ = type(items[0])
@@ -45,7 +46,7 @@ async def test_memory_store_objects_and_span(memory: storages.Memory, items) -> 
     )
     output_spans, output_items = await asyncio.gather(
         list_async(memory.stream_time_series_spans('shard', 'key', start, end)),
-        list_async(memory.stream_time_series('shard', 'key', type_, start, end))
+        list_async(memory.stream_time_series('shard', 'key', type_, start, end)),
     )
 
     assert output_spans == [(start, end)]
@@ -55,7 +56,7 @@ async def test_memory_store_objects_and_span(memory: storages.Memory, items) -> 
 async def test_memory_stream_missing_series(memory: storages.Memory) -> None:
     output_spans, output_items = await asyncio.gather(
         list_async(memory.stream_time_series_spans('shard', 'key', 0, 10)),
-        list_async(memory.stream_time_series('shard', 'key', Candle, 0, 10))
+        list_async(memory.stream_time_series('shard', 'key', Candle, 0, 10)),
     )
 
     assert output_spans == []
@@ -66,7 +67,7 @@ async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> 
     await memory.store_time_series_and_span('shard', 'key', items=[], start=0, end=5)
     output_spans, output_items = await asyncio.gather(
         list_async(memory.stream_time_series_spans('shard', 'key', 0, 5)),
-        list_async(memory.stream_time_series('shard', 'key', Candle, 0, 5))
+        list_async(memory.stream_time_series('shard', 'key', Candle, 0, 5)),
     )
 
     assert output_spans == [(0, 5)]
@@ -84,34 +85,37 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
     assert output_spans == [(1, 4)]
 
 
-@pytest.mark.parametrize('item,type_', [
-    (Candle(time=1, close=Decimal('1.0')), Candle),
-    (ExchangeInfo(), ExchangeInfo),
-    (
-        {
-            'eth-btc': Ticker(
-                volume=Decimal('1.0'),
-                quote_volume=Decimal('0.1'),
-                price=Decimal('1.0'),
-            ),
-        },
-        dict[str, Ticker],
-    ),
-    ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, dict[str, Fees]),
-    (
-        Position.Long(
-            exchange='exchange',
-            symbol='eth-btc',
-            open_time=1,
-            open_fills=[Fill()],
-            close_time=2,
-            close_fills=[Fill()],
-            close_reason=CloseReason.STRATEGY,
+@pytest.mark.parametrize(
+    'item,type_',
+    [
+        (Candle(time=1, close=Decimal('1.0')), Candle),
+        (ExchangeInfo(), ExchangeInfo),
+        (
+            {
+                'eth-btc': Ticker(
+                    volume=Decimal('1.0'),
+                    quote_volume=Decimal('0.1'),
+                    price=Decimal('1.0'),
+                ),
+            },
+            dict[str, Ticker],
         ),
-        Position.Long,
-    ),
-    (TradingSummary(start=1, quote=Decimal('1.0'), quote_asset='btc'), TradingSummary),
-])
+        ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, dict[str, Fees]),
+        (
+            Position.Long(
+                exchange='exchange',
+                symbol='eth-btc',
+                open_time=1,
+                open_fills=[Fill()],
+                close_time=2,
+                close_fills=[Fill()],
+                close_reason=CloseReason.STRATEGY,
+            ),
+            Position.Long,
+        ),
+        (TradingSummary(start=1, quote=Decimal('1.0'), quote_asset='btc'), TradingSummary),
+    ],
+)
 async def test_memory_set_get(memory: storages.Memory, item, type_) -> None:
     await memory.set('shard', 'key', item)
     out_item = await memory.get('shard', 'key', type_)
@@ -142,8 +146,7 @@ async def test_memory_set_get_different(memory: storages.Memory) -> None:
     filters = {'foo': Filters()}
 
     await asyncio.gather(
-        memory.set('shard', 'fees', fees),
-        memory.set('shard', 'filters', filters)
+        memory.set('shard', 'fees', fees), memory.set('shard', 'filters', filters)
     )
     out_fees, out_filters = await asyncio.gather(
         memory.get('shard', 'fees', dict[str, Fees]),
@@ -178,9 +181,11 @@ async def test_memory_store_overlapping_time_series_concurrently(memory: storage
 
     tasks = []
     for start, end in spans:
-        tasks.append(memory.store_time_series_and_span(
-            'shard', 'key', [Item(i) for i in range(start, end)], start, end
-        ))
+        tasks.append(
+            memory.store_time_series_and_span(
+                'shard', 'key', [Item(i) for i in range(start, end)], start, end
+            )
+        )
     await asyncio.gather(*tasks)
 
     time_spans = await list_async(memory.stream_time_series_spans('shard', 'key'))

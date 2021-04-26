@@ -20,24 +20,18 @@ class Legacy(StopLoss):
 
     @property
     def upside_hit(self) -> bool:
-        return (
-            self._threshold > 0
-            and (
-                self._close
-                <= (self._highest_close_since_position if self._trail else self._close_at_position)
-                * (1 - self._threshold)
-            )
+        return self._threshold > 0 and (
+            self._close
+            <= (self._highest_close_since_position if self._trail else self._close_at_position)
+            * (1 - self._threshold)
         )
 
     @property
     def downside_hit(self) -> bool:
-        return (
-            self._threshold > 0
-            and (
-                self._close
-                >= (self._lowest_close_since_position if self._trail else self._close_at_position)
-                * (1 + self._threshold)
-            )
+        return self._threshold > 0 and (
+            self._close
+            >= (self._lowest_close_since_position if self._trail else self._close_at_position)
+            * (1 + self._threshold)
         )
 
     def clear(self, candle: Candle) -> None:

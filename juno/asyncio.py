@@ -6,8 +6,17 @@ import signal
 import traceback
 from dataclasses import dataclass, field
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Awaitable, Callable, Coroutine, Generic, Iterable, Optional,
-    TypeVar, cast
+    Any,
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generic,
+    Iterable,
+    Optional,
+    TypeVar,
+    cast,
 )
 
 _log = logging.getLogger(__name__)
@@ -96,8 +105,9 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
                 fut = asyncio.ensure_future(it.__anext__())
                 fut._orig_iter = it  # type: ignore
                 iter_next[it] = fut
-        done, _ = await asyncio.wait(iter_next.values(),  # type: ignore
-                                     return_when=asyncio.FIRST_COMPLETED)
+        done, _ = await asyncio.wait(
+            iter_next.values(), return_when=asyncio.FIRST_COMPLETED  # type: ignore
+        )
         for fut in done:
             iter_next[fut._orig_iter] = None  # type: ignore
             try:
@@ -108,9 +118,7 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
             yield ret
 
 
-async def map_async(
-    func: Callable[[T], U], async_iter: AsyncIterable[T]
-) -> AsyncIterable[U]:
+async def map_async(func: Callable[[T], U], async_iter: AsyncIterable[T]) -> AsyncIterable[U]:
     async for item in async_iter:
         yield func(item)
 
@@ -121,9 +129,7 @@ async def gather_dict(tasks: dict):
 
     return {
         key: result
-        for key, result in await asyncio.gather(
-            *(mark(key, coro) for key, coro in tasks.items())
-        )
+        for key, result in await asyncio.gather(*(mark(key, coro) for key, coro in tasks.items()))
     }
 
 
@@ -142,8 +148,8 @@ async def _cancel(task: asyncio.Task) -> None:
 
 
 def create_task_sigint_on_exception(coro: Coroutine) -> asyncio.Task:
-    """ Creates a new task.
-        Sends a SIGINT on unhandled exception.
+    """Creates a new task.
+    Sends a SIGINT on unhandled exception.
     """
 
     def callback(task: asyncio.Task) -> None:
@@ -159,8 +165,8 @@ def create_task_sigint_on_exception(coro: Coroutine) -> asyncio.Task:
 
 
 def create_task_cancel_owner_on_exception(coro: Coroutine) -> asyncio.Task:
-    """ Creates a new task.
-        Cancels the parent task in case the child task raises an unhandled exception.
+    """Creates a new task.
+    Cancels the parent task in case the child task raises an unhandled exception.
     """
     parent_task = asyncio.current_task()
 
@@ -307,6 +313,7 @@ class Event(Generic[T]):
     - passing data through set
     - autoclear after wait
     - timeout on wait"""
+
     def __init__(self, autoclear: bool = False) -> None:
         self._autoclear = autoclear
         self._event = asyncio.Event()

@@ -39,35 +39,43 @@ def plot(candles: list[Candle], summary: TradingSummary) -> None:
 
     traces = []
     # Candles.
-    traces.append(go.Ohlc(
-        x=times,
-        yaxis='y2',
-        open=[c.open for c in candles],
-        high=[c.high for c in candles],
-        low=[c.low for c in candles],
-        close=[c.close for c in candles],
-    ))
+    traces.append(
+        go.Ohlc(
+            x=times,
+            yaxis='y2',
+            open=[c.open for c in candles],
+            high=[c.high for c in candles],
+            low=[c.low for c in candles],
+            close=[c.close for c in candles],
+        )
+    )
     # Volume.
-    traces.append(go.Bar(
-        x=times,
-        y=[c.volume for c in candles],
-        yaxis='y',
-        marker={
-            'color': ['#006400' if c.close >= c.open else '#8b0000' for c in candles]
-        },
-    ))
+    traces.append(
+        go.Bar(
+            x=times,
+            y=[c.volume for c in candles],
+            yaxis='y',
+            marker={'color': ['#006400' if c.close >= c.open else '#8b0000' for c in candles]},
+        )
+    )
     # Openings.
-    traces.extend([
-        trace_position_openings(summary.list_positions(type_=Position.Long), 'triangle-up'),
-        trace_position_openings(summary.list_positions(type_=Position.Short), 'triangle-down'),
-    ])
+    traces.extend(
+        [
+            trace_position_openings(summary.list_positions(type_=Position.Long), 'triangle-up'),
+            trace_position_openings(summary.list_positions(type_=Position.Short), 'triangle-down'),
+        ]
+    )
     # Closings.
-    traces.extend([
-        trace_position_closings(summary.list_positions(reason=CloseReason.STRATEGY), 'yellow'),
-        trace_position_closings(summary.list_positions(reason=CloseReason.TAKE_PROFIT), 'purple'),
-        trace_position_closings(summary.list_positions(reason=CloseReason.STOP_LOSS), 'red'),
-        trace_position_closings(summary.list_positions(reason=CloseReason.CANCELLED), 'gray'),
-    ])
+    traces.extend(
+        [
+            trace_position_closings(summary.list_positions(reason=CloseReason.STRATEGY), 'yellow'),
+            trace_position_closings(
+                summary.list_positions(reason=CloseReason.TAKE_PROFIT), 'purple'
+            ),
+            trace_position_closings(summary.list_positions(reason=CloseReason.STOP_LOSS), 'red'),
+            trace_position_closings(summary.list_positions(reason=CloseReason.CANCELLED), 'gray'),
+        ]
+    )
     # Profit.
     traces.append(trace_profit_pct_changes(summary))
     # traces.append(trace_balance(summary))
@@ -140,8 +148,7 @@ def trace_balance(summary: TradingSummary) -> go.Scatter:
     balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
     times = list(
         map(
-            datetime_utcfromtimestamp_ms,
-            chain([summary.start], (p.close_time for p in positions))
+            datetime_utcfromtimestamp_ms, chain([summary.start], (p.close_time for p in positions))
         )
     )
     return go.Scatter(

@@ -47,7 +47,7 @@ async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) 
         [2, 4, 0, 0, [(2, 4)]],  # Empty if no trades.
         [0, 7, 0, 5, [(0, 7)]],  # Includes future trade.
         [0, 4, 0, 2, [(0, 4)]],  # Middle trades with cap at the end.
-    ]
+    ],
 )
 async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -> None:
     EXCHANGE = 'exchange'
@@ -89,9 +89,7 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
     assert stored_spans == espans
 
 
-async def test_stream_trades_no_duplicates_if_same_trade_from_rest_and_websocket(
-    storage
-) -> None:
+async def test_stream_trades_no_duplicates_if_same_trade_from_rest_and_websocket(storage) -> None:
     time = fakes.Time(1)
     exchange = fakes.Exchange(
         historical_trades=[Trade(time=0)],

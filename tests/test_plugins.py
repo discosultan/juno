@@ -53,8 +53,11 @@ async def send_test_events(events: Events):
         time=candle.time,
         fills=[
             Fill(
-                price=Decimal('1.0'), size=Decimal('1.0'), quote=Decimal('1.0'),
-                fee=Decimal('0.0'), fee_asset='btc'
+                price=Decimal('1.0'),
+                size=Decimal('1.0'),
+                quote=Decimal('1.0'),
+                fee=Decimal('0.0'),
+                fee_asset='btc',
             )
         ],
     )
@@ -64,8 +67,11 @@ async def send_test_events(events: Events):
         time=candle.time,
         fills=[
             Fill(
-                price=Decimal('2.0'), size=Decimal('1.0'), quote=Decimal('2.0'),
-                fee=Decimal('0.0'), fee_asset='eth'
+                price=Decimal('2.0'),
+                size=Decimal('1.0'),
+                quote=Decimal('2.0'),
+                fee=Decimal('0.0'),
+                fee_asset='eth',
             )
         ],
         reason=CloseReason.STRATEGY,

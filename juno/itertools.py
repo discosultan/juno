@@ -18,8 +18,9 @@ def merge_adjacent_spans(spans: Iterable[tuple[int, int]]) -> Iterable[tuple[int
         yield merged_start, merged_end  # type: ignore
 
 
-def generate_missing_spans(start: int, end: int,
-                           existing_spans: Iterable[tuple[int, int]]) -> Iterable[tuple[int, int]]:
+def generate_missing_spans(
+    start: int, end: int, existing_spans: Iterable[tuple[int, int]]
+) -> Iterable[tuple[int, int]]:
     # Initially assume entire span missing.
     missing_start, missing_end = start, end
 
@@ -47,9 +48,9 @@ def page(start: int, end: int, interval: int, limit: int) -> Iterable[tuple[int,
 def recursive_iter(obj: Any, keys: tuple[Any, ...] = ()) -> Iterable[tuple[tuple[Any, ...], Any]]:
     if isinstance(obj, dict):
         for k, v in obj.items():
-            yield from recursive_iter(v, keys + (k, ))
+            yield from recursive_iter(v, keys + (k,))
     elif isinstance(obj, (list, tuple)):
         for idx, item in enumerate(obj):
-            yield from recursive_iter(item, keys + (idx, ))
+            yield from recursive_iter(item, keys + (idx,))
     else:
         yield keys, obj

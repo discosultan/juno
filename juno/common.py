@@ -42,12 +42,7 @@ class Balance(NamedTuple):
 
     @property
     def significant(self) -> bool:
-        return (
-            self.available > 0
-            or self.hold > 0
-            or self.borrowed > 0
-            or self.interest > 0
-        )
+        return self.available > 0 or self.hold > 0 or self.borrowed > 0 or self.interest > 0
 
 
 @dataclass

@@ -28,15 +28,17 @@ class _MissingDepth(Exception):
 class Orderbook:
     class SyncContext:
         def __init__(
-            self,
-            symbol: str,
-            sides: Optional[dict[Side, dict[Decimal, Decimal]]] = None
+            self, symbol: str, sides: Optional[dict[Side, dict[Decimal, Decimal]]] = None
         ) -> None:
             self.symbol = symbol
-            self.sides = {
-                Side.BUY: {},
-                Side.SELL: {},
-            } if sides is None else sides
+            self.sides = (
+                {
+                    Side.BUY: {},
+                    Side.SELL: {},
+                }
+                if sides is None
+                else sides
+            )
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
 
@@ -64,17 +66,27 @@ class Orderbook:
                 for aprice, asize in self.list_asks():
                     if asize >= size:
                         fee = round_half_up(size * fee_rate, filters.base_precision)
-                        result.append(Fill.with_computed_quote(
-                            price=aprice, size=size, fee=fee, fee_asset=base_asset,
-                            precision=filters.quote_precision
-                        ))
+                        result.append(
+                            Fill.with_computed_quote(
+                                price=aprice,
+                                size=size,
+                                fee=fee,
+                                fee_asset=base_asset,
+                                precision=filters.quote_precision,
+                            )
+                        )
                         break
                     else:
                         fee = round_half_up(asize * fee_rate, filters.base_precision)
-                        result.append(Fill.with_computed_quote(
-                            price=aprice, size=asize, fee=fee, fee_asset=base_asset,
-                            precision=filters.quote_precision
-                        ))
+                        result.append(
+                            Fill.with_computed_quote(
+                                price=aprice,
+                                size=asize,
+                                fee=fee,
+                                fee_asset=base_asset,
+                                precision=filters.quote_precision,
+                            )
+                        )
                         size -= asize
             elif quote is not None:
                 for aprice, asize in self.list_asks():
@@ -83,18 +95,28 @@ class Orderbook:
                         size = filters.size.round_down(quote / aprice)
                         if size != 0:
                             fee = round_half_up(size * fee_rate, filters.base_precision)
-                            result.append(Fill.with_computed_quote(
-                                price=aprice, size=size, fee=fee, fee_asset=base_asset,
-                                precision=filters.quote_precision
-                            ))
+                            result.append(
+                                Fill.with_computed_quote(
+                                    price=aprice,
+                                    size=size,
+                                    fee=fee,
+                                    fee_asset=base_asset,
+                                    precision=filters.quote_precision,
+                                )
+                            )
                         break
                     else:
                         assert asize != 0
                         fee = round_half_up(asize * fee_rate, filters.base_precision)
-                        result.append(Fill.with_computed_quote(
-                            price=aprice, size=asize, fee=fee, fee_asset=base_asset,
-                            precision=filters.quote_precision
-                        ))
+                        result.append(
+                            Fill.with_computed_quote(
+                                price=aprice,
+                                size=asize,
+                                fee=fee,
+                                fee_asset=base_asset,
+                                precision=filters.quote_precision,
+                            )
+                        )
                         quote -= aquote
             return result
 
@@ -117,18 +139,28 @@ class Orderbook:
                     rsize = filters.size.round_down(size)
                     if size != 0:
                         fee = round_half_up(bprice * rsize * fee_rate, filters.quote_precision)
-                        result.append(Fill.with_computed_quote(
-                            price=bprice, size=rsize, fee=fee, fee_asset=quote_asset,
-                            precision=filters.quote_precision
-                        ))
+                        result.append(
+                            Fill.with_computed_quote(
+                                price=bprice,
+                                size=rsize,
+                                fee=fee,
+                                fee_asset=quote_asset,
+                                precision=filters.quote_precision,
+                            )
+                        )
                     break
                 else:
                     assert bsize != 0
                     fee = round_half_up(bprice * bsize * fee_rate, filters.quote_precision)
-                    result.append(Fill.with_computed_quote(
-                        price=bprice, size=bsize, fee=fee, fee_asset=quote_asset,
-                        precision=filters.quote_precision
-                    ))
+                    result.append(
+                        Fill.with_computed_quote(
+                            price=bprice,
+                            size=bsize,
+                            fee=fee,
+                            fee_asset=quote_asset,
+                            precision=filters.quote_precision,
+                        )
+                    )
                     size -= bsize
             return result
 
@@ -187,7 +219,7 @@ class Orderbook:
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),
             retry=retry_if_exception_type((ExchangeException, _MissingDepth)),
-            before_sleep=before_sleep_log(_log, logging.WARNING)
+            before_sleep=before_sleep_log(_log, logging.WARNING),
         ):
             with attempt:
                 async for depth in self._stream_depth(exchange, symbol):

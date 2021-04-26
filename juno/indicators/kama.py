@@ -55,7 +55,7 @@ class Kama:
                 er = Decimal('1.0')
             else:
                 er = abs(price - self._prices[0]) / diff_sum
-            sc = (er * (self._short_alpha - self._long_alpha) + self._long_alpha)**2
+            sc = (er * (self._short_alpha - self._long_alpha) + self._long_alpha) ** 2
 
             self.value += sc * (price - self.value)
 

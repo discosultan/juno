@@ -60,7 +60,7 @@ class Uniform(Constraint):
         if min_exponent != max_exponent:
             raise ValueError('Min and max must have same number of specified decimal places.')
 
-        self._factor = 10**abs(min_exponent)
+        self._factor = 10 ** abs(min_exponent)
 
         self._min_int = int(min_ * self._factor)
         self._max_int = int(max_ * self._factor)

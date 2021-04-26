@@ -145,19 +145,15 @@ def _calculate_statistics(
         annualized_return / annualized_volatility if annualized_volatility else Decimal('0.0')
     )
     sortino_ratio = (
-        annualized_return / annualized_downside_risk if annualized_downside_risk
+        annualized_return / annualized_downside_risk
+        if annualized_downside_risk
         else Decimal('0.0')
     )
-    cagr = (
-        (performance.iloc[-1] / performance.iloc[0])
-        ** (1 / (performance.size / 365))
-    ) - 1
+    cagr = ((performance.iloc[-1] / performance.iloc[0]) ** (1 / (performance.size / 365))) - 1
 
     # If benchmark provided, calculate alpha and beta.
     alpha, beta = 0.0, 0.0
-    covariance_matrix = pd.concat(
-        [g_returns, benchmark_g_returns], axis=1
-    ).dropna().cov(ddof=0)
+    covariance_matrix = pd.concat([g_returns, benchmark_g_returns], axis=1).dropna().cov(ddof=0)
     y = covariance_matrix.iloc[1].iloc[1]
     if y != 0:
         x = covariance_matrix.iloc[0].iloc[1]
@@ -173,5 +169,5 @@ def _calculate_statistics(
         sortino_ratio=sortino_ratio,
         cagr=cagr,
         alpha=alpha,
-        beta=beta
+        beta=beta,
     )

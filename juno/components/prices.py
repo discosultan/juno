@@ -57,6 +57,7 @@ class Prices:
                     quote_prices.append(candle.open)
                 quote_prices.append(candle.close)
             result[quote_asset] = quote_prices
+
         await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
 
         # Base -> fiat.
@@ -73,9 +74,12 @@ class Prices:
             assert base_asset not in result
             base_prices: list[Decimal] = []
             quote_prices = result[quote_asset]
-            async for price_i, candle in enumerate_async(self._chandler.stream_candles(
-                exchange, symbol, interval, start, end, fill_missing_with_last=True
-            ), 1):
+            async for price_i, candle in enumerate_async(
+                self._chandler.stream_candles(
+                    exchange, symbol, interval, start, end, fill_missing_with_last=True
+                ),
+                1,
+            ):
                 if len(base_prices) == 0:
                     base_prices.append(
                         candle.open
@@ -86,6 +90,7 @@ class Prices:
                     * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal('1.0'))
                 )
             result[base_asset] = base_prices
+
         await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
 
         # Add fiat currency itself to prices if it's specified as a quote of any symbol.

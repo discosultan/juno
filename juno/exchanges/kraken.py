@@ -12,8 +12,21 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from juno import (
-    AssetInfo, Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType,
-    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    AssetInfo,
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Filters,
+    OrderResult,
+    OrderType,
+    OrderUpdate,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
+    json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -107,8 +120,7 @@ class Kraken(Exchange):
             taker_fee = val['fees'][0][1] / 100
             maker_fees = val.get('fees_maker')
             fees[name] = Fees(
-                maker=maker_fees[0][1] / 100 if maker_fees else taker_fee,
-                taker=taker_fee
+                maker=maker_fees[0][1] / 100 if maker_fees else taker_fee, taker=taker_fee
             )
             filters[name] = Filters(
                 base_precision=val['lot_decimals'],
@@ -133,7 +145,8 @@ class Kraken(Exchange):
                 volume=Decimal(val['v'][1]),
                 quote_volume=Decimal('0.0'),  # Not supported.
                 price=Decimal(val['c'][0]),
-            ) for pair, val in res['result'].items()
+            )
+            for pair, val in res['result'].items()
         }
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
@@ -176,16 +189,13 @@ class Kraken(Exchange):
                     closed=True,
                 )
 
-        async with self._public_ws.subscribe({
-            'name': 'ohlc',
-            'interval': interval // MIN_MS
-        }, [_to_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe(
+            {'name': 'ohlc', 'interval': interval // MIN_MS}, [_to_ws_symbol(symbol)]
+        ) as ws:
             yield inner(ws)
 
     @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
             async for val in ws:
                 if 'as' in val or 'bs' in val:
@@ -203,15 +213,20 @@ class Kraken(Exchange):
                         asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
                     )
 
-        async with self._public_ws.subscribe({
-            'name': 'book',
-            'depth': 10,
-        }, [_to_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe(
+            {
+                'name': 'book',
+                'depth': 10,
+            },
+            [_to_ws_symbol(symbol)],
+        ) as ws:
             yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, account: str, symbol: str,
+        self,
+        account: str,
+        symbol: str,
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account == 'spot'
 
@@ -255,10 +270,7 @@ class Kraken(Exchange):
             res = await self._request_public(
                 'GET',
                 '/0/public/Trades',
-                {
-                    'pair': _to_http_symbol(symbol),
-                    'since': since
-                },
+                {'pair': _to_http_symbol(symbol), 'since': since},
                 cost=2,
             )
             result = res['result']
@@ -308,7 +320,7 @@ class Kraken(Exchange):
         url: str,
         data: Optional[Any] = None,
         cost: int = 1,
-        limiter: Optional[AsyncLimiter] = None
+        limiter: Optional[AsyncLimiter] = None,
     ) -> Any:
         if limiter is None:
             limiter = self._reqs_limiter
@@ -327,13 +339,18 @@ class Kraken(Exchange):
 
         headers = {
             'API-Key': self._api_key,
-            'API-Sign': base64.b64encode(signature.digest()).decode()
+            'API-Sign': base64.b64encode(signature.digest()).decode(),
         }
         return await self._request('POST', url, data, headers, limiter, cost)
 
     async def _request(
-        self, method: str, url: str, data: dict[str, Any], headers: dict[str, str],
-        limiter: AsyncLimiter, cost: int
+        self,
+        method: str,
+        url: str,
+        data: dict[str, Any],
+        headers: dict[str, str],
+        limiter: AsyncLimiter,
+        cost: int,
     ) -> Any:
         if limiter is None:
             limiter = self._reqs_limiter
@@ -444,7 +461,7 @@ class KrakenPublicFeed:
             if len(data) > 4:
                 # Consolidate.
                 val: Any = {}
-                for consolidate in data[1:len(data) - 2]:
+                for consolidate in data[1 : len(data) - 2]:
                     val.update(consolidate)
             else:
                 val = data[1]

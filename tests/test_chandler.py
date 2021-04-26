@@ -22,7 +22,7 @@ from . import fakes
         [0, 5, False, 0, 5, [(0, 5)]],  # Includes closed candle.
         [0, 6, True, 0, 6, [(0, 6)]],  # Includes future candle.
         [5, 6, False, 5, 6, [(5, 6)]],  # Only future candle.
-    ]
+    ],
 )
 async def test_stream_candles(
     storage: fakes.Storage, start, end, closed, efrom, eto, espans
@@ -56,7 +56,7 @@ async def test_stream_candles(
         storage=storage,
         exchanges=[exchange],
         get_time_ms=time.get_time,
-        storage_batch_size=STORAGE_BATCH_SIZE
+        storage_batch_size=STORAGE_BATCH_SIZE,
     )
 
     output_candles = await list_async(
@@ -83,11 +83,7 @@ async def test_stream_future_candles_span_stored_until_cancelled(storage: fakes.
     candles = [Candle(time=1)]
     exchange = fakes.Exchange(future_candles=candles, candle_intervals={INTERVAL: 0})
     time = fakes.Time(START, increment=1)
-    chandler = Chandler(
-        storage=storage,
-        exchanges=[exchange],
-        get_time_ms=time.get_time
-    )
+    chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     task = asyncio.create_task(
         list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, START, END))
@@ -111,16 +107,14 @@ async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
     exchange.can_stream_historical_candles = False
     exchange.can_stream_candles = False
 
-    trades = fakes.Trades(trades=[
-        Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
-        Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
-        Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
-    ])
-    chandler = Chandler(
-        trades=trades,
-        storage=storage,
-        exchanges=[exchange]
+    trades = fakes.Trades(
+        trades=[
+            Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
+            Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
+            Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
+        ]
     )
+    chandler = Chandler(trades=trades, storage=storage, exchanges=[exchange])
 
     output_candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 5, 0, 5))
 
@@ -132,7 +126,7 @@ async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            closed=True
+            closed=True,
         )
     ]
 
@@ -282,21 +276,19 @@ async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> 
 
 
 async def test_stream_candles_construct_from_trades_if_interval_not_supported(
-    storage: fakes.Storage
+    storage: fakes.Storage,
 ) -> None:
     exchange = fakes.Exchange(candle_intervals={1: 0})
     exchange.can_stream_historical_candles = True
 
-    trades = fakes.Trades(trades=[
-        Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
-        Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
-        Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
-    ])
-    chandler = Chandler(
-        trades=trades,
-        storage=storage,
-        exchanges=[exchange]
+    trades = fakes.Trades(
+        trades=[
+            Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
+            Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
+            Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
+        ]
     )
+    chandler = Chandler(trades=trades, storage=storage, exchanges=[exchange])
 
     output_candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 5, 0, 5))
 
@@ -308,13 +300,13 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            closed=True
+            closed=True,
         )
     ]
 
 
 async def test_stream_candles_no_duplicates_if_same_candle_from_rest_and_websocket(
-    storage
+    storage,
 ) -> None:
     time = fakes.Time(1)
     exchange = fakes.Exchange(
@@ -389,10 +381,13 @@ async def test_stream_historical_candles_do_not_adjust_over_daily_interval(stora
     assert candles == [Candle(time=start)]
 
 
-@pytest.mark.parametrize('earliest_exchange_start,time', [
-    (10, 20),  # Simple happy flow.
-    (0, 16),  # `final_end` and start not being over-adjusted.
-])
+@pytest.mark.parametrize(
+    'earliest_exchange_start,time',
+    [
+        (10, 20),  # Simple happy flow.
+        (0, 16),  # `final_end` and start not being over-adjusted.
+    ],
+)
 async def test_get_first_candle_by_search(storage, earliest_exchange_start, time) -> None:
     candles = [
         Candle(time=12),
@@ -417,10 +412,13 @@ async def test_get_first_candle_by_search(storage, earliest_exchange_start, time
     assert first_candle.time == 12
 
 
-@pytest.mark.parametrize('earliest_exchange_start,time', [
-    (1, 2),  # No candles
-    (0, 1),  # Single last candle.
-])
+@pytest.mark.parametrize(
+    'earliest_exchange_start,time',
+    [
+        (1, 2),  # No candles
+        (0, 1),  # Single last candle.
+    ],
+)
 async def test_get_first_candle_by_search_not_found(
     storage, earliest_exchange_start, time
 ) -> None:
@@ -556,15 +554,19 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
             close=Decimal(f'{i + 1}.0'),
             volume=Decimal(f'{i % 2 + 1}.0'),
             closed=False if i % 2 == 0 else True,
-        ) for i in range(6)
+        )
+        for i in range(6)
     ]
     assert candles == expected_candles
 
 
-@pytest.mark.parametrize('intervals,patterns,expected_output', [
-    ([1, 2], None, [1, 2]),
-    ([1, 2, 3], [1, 2], [1, 2]),
-])
+@pytest.mark.parametrize(
+    'intervals,patterns,expected_output',
+    [
+        ([1, 2], None, [1, 2]),
+        ([1, 2, 3], [1, 2], [1, 2]),
+    ],
+)
 async def test_map_candle_intervals(storage, intervals, patterns, expected_output) -> None:
     exchange = fakes.Exchange(candle_intervals={i: 0 for i in intervals})
 

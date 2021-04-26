@@ -27,7 +27,7 @@ class Trades(AbstractAsyncContextManager):
         storage: Storage,
         exchanges: list[Exchange],
         get_time_ms: Callable[[], int] = time_ms,
-        storage_batch_size: int = 1000
+        storage_batch_size: int = 1000,
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -53,10 +53,9 @@ class Trades(AbstractAsyncContextManager):
         )
         missing_spans = list(generate_missing_spans(start, end, existing_spans))
 
-        spans = (
-            [(a, b, True) for a, b in existing_spans]
-            + [(a, b, False) for a, b in missing_spans]
-        )
+        spans = [(a, b, True) for a, b in existing_spans] + [
+            (a, b, False) for a, b in missing_spans
+        ]
         spans.sort(key=lambda s: s[0])
 
         for span_start, span_end, exist_locally in spans:
@@ -86,7 +85,7 @@ class Trades(AbstractAsyncContextManager):
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),
-            before_sleep=before_sleep_log(_log, logging.WARNING)
+            before_sleep=before_sleep_log(_log, logging.WARNING),
         ):
             with attempt:
                 # We use a swap batch in order to swap the batch right before storing. With a
@@ -178,12 +177,8 @@ class Trades(AbstractAsyncContextManager):
                     # Skip if trade was already retrieved from historical.
                     # If we start the websocket connection during a trade, we can also receive
                     # the same trade from here that we already got from historical.
-                    if (
-                        skipping_existing
-                        and (
-                            trade.id > 0 and trade.id in last_trade_ids
-                            or trade.time < current
-                        )
+                    if skipping_existing and (
+                        trade.id > 0 and trade.id in last_trade_ids or trade.time < current
                     ):
                         continue
                     else:

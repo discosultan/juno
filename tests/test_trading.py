@@ -14,8 +14,11 @@ def test_long_position() -> None:
         time=0,
         fills=[
             Fill(
-                price=Decimal('2.0'), size=Decimal('6.0'), quote=Decimal('12.0'),
-                fee=Decimal('2.0'), fee_asset='eth'
+                price=Decimal('2.0'),
+                size=Decimal('6.0'),
+                quote=Decimal('12.0'),
+                fee=Decimal('2.0'),
+                fee_asset='eth',
             )
         ],
     )
@@ -23,8 +26,11 @@ def test_long_position() -> None:
         time=1,
         fills=[
             Fill(
-                price=Decimal('2.0'), size=Decimal('2.0'), quote=Decimal('4.0'),
-                fee=Decimal('1.0'), fee_asset='btc'
+                price=Decimal('2.0'),
+                size=Decimal('2.0'),
+                quote=Decimal('4.0'),
+                fee=Decimal('1.0'),
+                fee_asset='btc',
             )
         ],
         reason=CloseReason.STRATEGY,
@@ -48,8 +54,11 @@ def test_long_position_annualized_roi_overflow() -> None:
         time=0,
         fills=[
             Fill(
-                price=Decimal('1.0'), size=Decimal('1.0'), quote=Decimal('1.0'),
-                fee=Decimal('0.0'), fee_asset='eth'
+                price=Decimal('1.0'),
+                size=Decimal('1.0'),
+                quote=Decimal('1.0'),
+                fee=Decimal('0.0'),
+                fee_asset='eth',
             )
         ],
     )
@@ -57,8 +66,11 @@ def test_long_position_annualized_roi_overflow() -> None:
         time=2,
         fills=[
             Fill(
-                price=Decimal('2.0'), size=Decimal('1.0'), quote=Decimal('2.0'),
-                fee=Decimal('0.0'), fee_asset='btc'
+                price=Decimal('2.0'),
+                size=Decimal('1.0'),
+                quote=Decimal('2.0'),
+                fee=Decimal('0.0'),
+                fee_asset='btc',
             )
         ],
         reason=CloseReason.STRATEGY,
@@ -100,15 +112,17 @@ def test_empty_trading_summary() -> None:
 def test_trading_summary_end() -> None:
     summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
 
-    summary.append_position(Position.Long(
-        exchange='exchange',
-        symbol='eth-btc',
-        open_time=0,
-        open_fills=[],
-        close_time=1,
-        close_fills=[],
-        close_reason=CloseReason.STRATEGY,
-    ))
+    summary.append_position(
+        Position.Long(
+            exchange='exchange',
+            symbol='eth-btc',
+            open_time=0,
+            open_fills=[],
+            close_time=1,
+            close_fills=[],
+            close_reason=CloseReason.STRATEGY,
+        )
+    )
     assert summary.end == 1
 
     summary.finish(2)

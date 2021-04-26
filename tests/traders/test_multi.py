@@ -4,8 +4,18 @@ from decimal import Decimal
 import pytest
 
 from juno import (
-    Advice, Balance, Candle, Fees, Fill, Filters, OrderResult, OrderStatus, Ticker, stop_loss,
-    take_profit, traders
+    Advice,
+    Balance,
+    Candle,
+    Fees,
+    Fill,
+    Filters,
+    OrderResult,
+    OrderStatus,
+    Ticker,
+    stop_loss,
+    take_profit,
+    traders,
 )
 from juno.asyncio import cancel
 from juno.strategies import Fixed
@@ -19,23 +29,25 @@ async def test_simple() -> None:
     chandler = fakes.Chandler(
         future_candles={('dummy', s, 1): [Candle(time=0, close=Decimal('1.0'))] for s in symbols},
     )
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('3.0'),
-            quote_volume=Decimal('3.0'),
-            price=Decimal('1.0'),
-        ),
-        'ltc-btc': Ticker(
-            volume=Decimal('2.0'),
-            quote_volume=Decimal('2.0'),
-            price=Decimal('1.0'),
-        ),
-        'xmr-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('3.0'),
+                quote_volume=Decimal('3.0'),
+                price=Decimal('1.0'),
+            ),
+            'ltc-btc': Ticker(
+                volume=Decimal('2.0'),
+                quote_volume=Decimal('2.0'),
+                price=Decimal('1.0'),
+            ),
+            'xmr-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -110,18 +122,20 @@ async def test_simple() -> None:
 async def test_persist_and_resume(storage: fakes.Storage) -> None:
     symbols = ['eth-btc', 'ltc-btc']
     chandler = fakes.Chandler()
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('2.0'),
-            quote_volume=Decimal('2.0'),
-            price=Decimal('1.0'),
-        ),
-        'ltc-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('2.0'),
+                quote_volume=Decimal('2.0'),
+                price=Decimal('1.0'),
+            ),
+            'ltc-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -212,18 +226,20 @@ async def test_historical() -> None:
             ('dummy', 'ltc-btc', 1): [Candle(time=i, close=Decimal('1.0')) for i in range(5, 10)],
         },
     )
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('2.0'),
-            quote_volume=Decimal('2.0'),
-            price=Decimal('1.0'),
-        ),
-        'ltc-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('2.0'),
+                quote_volume=Decimal('2.0'),
+                price=Decimal('1.0'),
+            ),
+            'ltc-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -271,13 +287,15 @@ async def test_trailing_stop_loss() -> None:
             ],
         },
     )
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -345,18 +363,20 @@ async def test_close_on_exit(
             ],
         },
     )
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('2.0'),
-            quote_volume=Decimal('2.0'),
-            price=Decimal('1.0'),
-        ),
-        'ltc-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('2.0'),
+                quote_volume=Decimal('2.0'),
+                price=Decimal('1.0'),
+            ),
+            'ltc-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -378,9 +398,7 @@ async def test_close_on_exit(
 
     trader_task = asyncio.create_task(trader.run(state))
 
-    await asyncio.gather(
-        *(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols)
-    )
+    await asyncio.gather(*(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols))
     # Sleep to give control back to position manager.
     await asyncio.sleep(0)
 
@@ -430,13 +448,15 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
     chandler = fakes.Chandler(
         future_candles={('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]},
     )
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant, user=user, broker=broker)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -471,16 +491,18 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
 
 
 async def test_open_new_positions() -> None:
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
+    chandler = fakes.Chandler(
+        candles={('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]}
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -505,19 +527,23 @@ async def test_open_new_positions() -> None:
 
 
 async def test_take_profit() -> None:
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1): [
-            Candle(time=0, close=Decimal('1.0')),
-            Candle(time=1, close=Decimal('2.0')),
-        ],
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('1.0')),
+                Candle(time=1, close=Decimal('2.0')),
+            ],
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
@@ -545,22 +571,26 @@ async def test_take_profit() -> None:
 
 
 async def test_repick_symbols() -> None:
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('2.0'),
-            quote_volume=Decimal('2.0'),
-            price=Decimal('2.0'),
-        ),
-        'ltc-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
-    chandler = fakes.Chandler(future_candles={
-        ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('2.0'))],
-        ('dummy', 'ltc-btc', 1): [Candle(time=0, close=Decimal('1.0'))],
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('2.0'),
+                quote_volume=Decimal('2.0'),
+                price=Decimal('2.0'),
+            ),
+            'ltc-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
+    chandler = fakes.Chandler(
+        future_candles={
+            ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('2.0'))],
+            ('dummy', 'ltc-btc', 1): [Candle(time=0, close=Decimal('1.0'))],
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
@@ -637,12 +667,14 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> N
             price=Decimal('1.0'),
         ),
     }
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1): [
-            Candle(time=0, close=Decimal('1.0')),
-            Candle(time=1, close=Decimal('1.0')),
-        ],
-    })
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('1.0')),
+                Candle(time=1, close=Decimal('1.0')),
+            ],
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
@@ -665,23 +697,27 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> N
 
 
 async def test_repick_symbols_with_adjusted_start() -> None:
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
-    chandler = fakes.Chandler(future_candles={
-        ('dummy', 'eth-btc', 1): [
-            Candle(time=0, close=Decimal('1.0')),
-            Candle(time=1, close=Decimal('1.0')),
-        ],
-        ('dummy', 'ltc-btc', 1): [
-            Candle(time=1, close=Decimal('1.0')),
-            Candle(time=2, close=Decimal('1.0')),
-        ],
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
+    chandler = fakes.Chandler(
+        future_candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('1.0')),
+                Candle(time=1, close=Decimal('1.0')),
+            ],
+            ('dummy', 'ltc-btc', 1): [
+                Candle(time=1, close=Decimal('1.0')),
+                Candle(time=2, close=Decimal('1.0')),
+            ],
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
@@ -727,23 +763,25 @@ async def test_rebalance_quotes() -> None:
             for s in ['eth-btc', 'ltc-btc', 'xmr-btc']
         },
     )
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('3.0'),
-            quote_volume=Decimal('3.0'),
-            price=Decimal('1.0'),
-        ),
-        'ltc-btc': Ticker(
-            volume=Decimal('2.0'),
-            quote_volume=Decimal('2.0'),
-            price=Decimal('1.0'),
-        ),
-        'xmr-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('3.0'),
+                quote_volume=Decimal('3.0'),
+                price=Decimal('1.0'),
+            ),
+            'ltc-btc': Ticker(
+                volume=Decimal('2.0'),
+                quote_volume=Decimal('2.0'),
+                price=Decimal('1.0'),
+            ),
+            'xmr-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',
@@ -797,18 +835,20 @@ async def test_allowed_age_drift() -> None:
             ],
         },
     )
-    informant = fakes.Informant(tickers={
-        'eth-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('2.0'),
-            price=Decimal('1.0'),
-        ),
-        'ltc-btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
-    })
+    informant = fakes.Informant(
+        tickers={
+            'eth-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('2.0'),
+                price=Decimal('1.0'),
+            ),
+            'ltc-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('1.0'),
+                price=Decimal('1.0'),
+            ),
+        }
+    )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
         exchange='dummy',

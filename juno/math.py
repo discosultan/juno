@@ -76,7 +76,7 @@ def annualized(duration: int, value: Decimal) -> Decimal:
     if n == 0:
         return Decimal('0.0')
     try:
-        return (1 + value)**(1 / n) - 1
+        return (1 + value) ** (1 / n) - 1
     except Overflow:
         return Decimal('Inf')
 

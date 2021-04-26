@@ -5,7 +5,14 @@ from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, NamedTuple, Optional, TypeVar, Union, get_type_hints
+    Any,
+    AsyncIterable,
+    ContextManager,
+    NamedTuple,
+    Optional,
+    TypeVar,
+    Union,
+    get_type_hints,
 )
 
 from juno import Interval, Timestamp, json
@@ -52,9 +59,7 @@ class SQLite(Storage):
         self, shard: str, key: str, start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[tuple[int, int]]:
         def inner() -> list[tuple[int, int]]:
-            _log.info(
-                f'streaming span(s) between {strfspan(start, end)} from shard {shard} {key}'
-            )
+            _log.info(f'streaming span(s) between {strfspan(start, end)} from shard {shard} {key}')
             with self._connect(shard) as conn:
                 span_key = f'{key}_{_SPAN_KEY}'
                 self._ensure_table(conn, span_key, Span)
@@ -71,15 +76,14 @@ class SQLite(Storage):
         self, shard: str, key: str, type_: type[T], start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[T]:
         def inner() -> list[T]:
-            _log.info(
-                f'streaming items between {strfspan(start, end)} from shard {shard} {key}'
-            )
+            _log.info(f'streaming items between {strfspan(start, end)} from shard {shard} {key}')
             with self._connect(shard) as conn:
                 self._ensure_table(conn, key, type_)
                 return conn.execute(
                     f'SELECT * FROM {key} WHERE time >= ? AND time < ? ORDER BY time',
                     [start, end],
                 ).fetchall()
+
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
         for row in rows:
             yield raw_to_type(row, type_)
@@ -114,7 +118,8 @@ class SQLite(Storage):
                 if len(missing_spans) == 0:
                     return
                 missing_item_spans = (
-                    [items] if len(existing_spans) == 0
+                    [items]
+                    if len(existing_spans) == 0
                     else [
                         [i for i in items if i.time >= s and i.time < e] for s, e in missing_spans
                     ]

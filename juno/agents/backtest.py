@@ -6,7 +6,10 @@ from typing import Any, Callable, NamedTuple, Optional
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Chandler, Events, Prices
 from juno.config import (
-    format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+    format_as_config,
+    get_module_type_constructor,
+    get_type_name_and_kwargs,
+    kwargs_for,
 )
 from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
@@ -83,11 +86,13 @@ class Backtest(Agent):
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
             stop_loss=(
-                None if config.stop_loss is None
+                None
+                if config.stop_loss is None
                 else get_module_type_constructor(stop_loss, config.stop_loss)
             ),
             take_profit=(
-                None if config.take_profit is None
+                None
+                if config.take_profit is None
                 else get_module_type_constructor(take_profit, config.take_profit)
             ),
             channel=state.name,
@@ -100,17 +105,18 @@ class Backtest(Agent):
         await self._events.emit(state.name, 'starting', config, state, trader)
 
         await trader.run(state.result)
-        assert (summary := state.result.summary)
+
+        summary = state.result.summary
+        assert summary
 
         if not self._prices:
             _log.warning('skipping analysis; prices component not available')
             return
 
         # Fetch necessary market data.
-        symbols = (
-            [p.symbol for p in summary.get_positions()]
-            + [f'btc-{config.fiat_asset}']  # Use BTC as benchmark.
-        )
+        symbols = [p.symbol for p in summary.get_positions()] + [
+            f'btc-{config.fiat_asset}'
+        ]  # Use BTC as benchmark.
         fiat_prices = await self._prices.map_asset_prices(
             exchange=config.exchange,
             symbols=symbols,
@@ -127,8 +133,5 @@ class Backtest(Agent):
     async def on_finally(self, config: Config, state: State) -> None:
         assert state.result
         stats = CoreStatistics.compose(state.result.summary)
-        _log.info(
-            f'{self.get_name(state)}: finished with result '
-            f'{format_as_config(stats)}'
-        )
+        _log.info(f'{self.get_name(state)}: finished with result ' f'{format_as_config(stats)}')
         await self._events.emit(state.name, 'finished', state.result.summary)

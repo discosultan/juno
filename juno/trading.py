@@ -10,8 +10,12 @@ from types import ModuleType
 from typing import Iterable, Optional, Sequence, Union
 
 from tenacity import (
-    RetryError, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
-    wait_exponential
+    RetryError,
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
 )
 
 from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp
@@ -69,9 +73,8 @@ class Position(ModuleType):
 
         @property
         def base_gain(self) -> Decimal:
-            return (
-                Fill.total_size(self.open_fills)
-                - Fill.total_fee(self.open_fills, unpack_base_asset(self.symbol))
+            return Fill.total_size(self.open_fills) - Fill.total_fee(
+                self.open_fills, unpack_base_asset(self.symbol)
             )
 
         @property
@@ -80,9 +83,8 @@ class Position(ModuleType):
 
         @property
         def gain(self) -> Decimal:
-            return (
-                Fill.total_quote(self.close_fills)
-                - Fill.total_fee(self.close_fills, unpack_quote_asset(self.symbol))
+            return Fill.total_quote(self.close_fills) - Fill.total_fee(
+                self.close_fills, unpack_quote_asset(self.symbol)
             )
 
         @property
@@ -116,9 +118,7 @@ class Position(ModuleType):
         time: Timestamp
         fills: list[Fill]
 
-        def close(
-            self, time: Timestamp, fills: list[Fill], reason: CloseReason
-        ) -> Position.Long:
+        def close(self, time: Timestamp, fills: list[Fill], reason: CloseReason) -> Position.Long:
             return Position.Long(
                 exchange=self.exchange,
                 symbol=self.symbol,
@@ -138,9 +138,8 @@ class Position(ModuleType):
 
         @property
         def base_gain(self) -> Decimal:
-            return (
-                Fill.total_size(self.fills)
-                - Fill.total_fee(self.fills, unpack_base_asset(self.symbol))
+            return Fill.total_size(self.fills) - Fill.total_fee(
+                self.fills, unpack_base_asset(self.symbol)
             )
 
     @dataclass
@@ -217,8 +216,7 @@ class Position(ModuleType):
         fills: list[Fill]
 
         def close(
-            self, interest: Decimal, time: Timestamp, fills: list[Fill],
-            reason: CloseReason
+            self, interest: Decimal, time: Timestamp, fills: list[Fill], reason: CloseReason
         ) -> Position.Short:
             return Position.Short(
                 exchange=self.exchange,
@@ -234,9 +232,8 @@ class Position(ModuleType):
             )
 
         def quote_delta(self) -> Decimal:
-            return (
-                Fill.total_quote(self.fills)
-                - Fill.total_fee(self.fills, unpack_quote_asset(self.symbol))
+            return Fill.total_quote(self.fills) - Fill.total_fee(
+                self.fills, unpack_quote_asset(self.symbol)
             )
 
         @property
@@ -308,8 +305,13 @@ class SimulatedPositionMixin(ABC):
         pass
 
     def open_simulated_long_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal,
-        log: bool = True
+        self,
+        exchange: str,
+        symbol: str,
+        time: Timestamp,
+        price: Decimal,
+        quote: Decimal,
+        log: bool = True,
     ) -> Position.OpenLong:
         base_asset, _ = unpack_assets(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -324,17 +326,19 @@ class SimulatedPositionMixin(ABC):
             exchange=exchange,
             symbol=symbol,
             time=time,
-            fills=[Fill(
-                price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
-            )],
+            fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
         )
         if log:
             _log.info(f'{symbol} simulated long position opened at {strftimestamp(time)}')
         return open_position
 
     def close_simulated_long_position(
-        self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason,
-        log: bool = True
+        self,
+        position: Position.OpenLong,
+        time: Timestamp,
+        price: Decimal,
+        reason: CloseReason,
+        log: bool = True,
     ) -> Position.Long:
         _, quote_asset = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -345,9 +349,7 @@ class SimulatedPositionMixin(ABC):
 
         closed_position = position.close(
             time=time,
-            fills=[Fill(
-                price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
-            )],
+            fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset)],
             reason=reason,
         )
         if log:
@@ -358,8 +360,13 @@ class SimulatedPositionMixin(ABC):
         return closed_position
 
     def open_simulated_short_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
-        log: bool = True
+        self,
+        exchange: str,
+        symbol: str,
+        time: Timestamp,
+        price: Decimal,
+        collateral: Decimal,
+        log: bool = True,
     ) -> Position.OpenShort:
         base_asset, quote_asset = unpack_assets(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -381,17 +388,19 @@ class SimulatedPositionMixin(ABC):
             collateral=collateral,
             borrowed=borrowed,
             time=time,
-            fills=[Fill(
-                price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset
-            )],
+            fills=[Fill(price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset)],
         )
         if log:
             _log.info(f'{symbol} simulated short position opened at {strftimestamp(time)}')
         return open_position
 
     def close_simulated_short_position(
-        self, position: Position.OpenShort, time: Timestamp, price: Decimal,
-        reason: CloseReason, log: bool = True
+        self,
+        position: Position.OpenShort,
+        time: Timestamp,
+        price: Decimal,
+        reason: CloseReason,
+        log: bool = True,
     ) -> Position.Short:
         base_asset, _ = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -415,9 +424,7 @@ class SimulatedPositionMixin(ABC):
         closed_position = position.close(
             time=time,
             interest=interest,
-            fills=[Fill(
-                price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
-            )],
+            fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
             reason=reason,
         )
         if log:
@@ -583,7 +590,7 @@ class PositionMixin(ABC):
         stop=stop_after_attempt(5),
         wait=wait_exponential(),
         retry=retry_if_exception_type(_UnexpectedExchangeResult),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _get_max_borrowable_with_retries(
         self, exchange: str, account: str, asset: str
@@ -619,11 +626,13 @@ class PositionMixin(ABC):
                 precision=asset_info.precision,
             )
         else:
-            interest = (await self.user.get_balance(
-                exchange=position.exchange,
-                account=position.symbol,
-                asset=base_asset,
-            )).interest
+            interest = (
+                await self.user.get_balance(
+                    exchange=position.exchange,
+                    account=position.symbol,
+                    asset=base_asset,
+                )
+            ).interest
 
         # Add an extra interest tick in case it is about to get ticked.
         interest_per_tick = borrow_info.hourly_interest_rate * position.borrowed
@@ -711,13 +720,15 @@ class PositionMixin(ABC):
                     f'transferring {new_balance.available} {base_asset} from {position.symbol} to '
                     'spot account'
                 )
-                transfer_tasks.append(self.user.transfer(
-                    exchange=position.exchange,
-                    asset=base_asset,
-                    size=new_balance.available,
-                    from_account=position.symbol,
-                    to_account='spot',
-                ))
+                transfer_tasks.append(
+                    self.user.transfer(
+                        exchange=position.exchange,
+                        asset=base_asset,
+                        size=new_balance.available,
+                        from_account=position.symbol,
+                        to_account='spot',
+                    )
+                )
             await asyncio.gather(*transfer_tasks)
 
         _log.info(f'closed position {closed_position.symbol} {mode.name} short')
@@ -730,7 +741,7 @@ class PositionMixin(ABC):
         stop=stop_after_attempt(5),
         wait=wait_exponential(),
         retry=retry_if_exception_type(_UnexpectedExchangeResult),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _get_repaid_balance_with_retries(
         self, exchange: str, account: str, asset: str, original_borrowed: Decimal
@@ -773,14 +784,13 @@ class StartMixin(ABC):
         pass
 
     async def request_candle_start(
-        self, start: Optional[Timestamp], exchange: str, symbols: Sequence[str],
-        interval: int
+        self, start: Optional[Timestamp], exchange: str, symbols: Sequence[str], interval: int
     ) -> int:
         """Figures out an appropriate candle start time based on the requested start.
-           If no specific start is requested, finds the earliest start of the interval where all
-           candle intervals are available.
-           If start is specified, floors the time to interval if interval is <= DAY_MS, otherwise
-           floors to DAY_MS.
+        If no specific start is requested, finds the earliest start of the interval where all
+        candle intervals are available.
+        If start is specified, floors the time to interval if interval is <= DAY_MS, otherwise
+        floors to DAY_MS.
         """
         if len(symbols) == 0:
             raise ValueError('Must have at least one symbol for requesting start')

@@ -15,13 +15,36 @@ from typing import Any, AsyncIterable, AsyncIterator, Optional
 import aiohttp
 from multidict import MultiDict
 from tenacity import (
-    before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
 )
 
 from juno import (
-    AssetInfo, BadOrder, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees,
-    Fill, Order, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, OrderWouldBeTaker,
-    Side, Ticker, TimeInForce, Trade, json
+    AssetInfo,
+    BadOrder,
+    Balance,
+    BorrowInfo,
+    Candle,
+    Depth,
+    ExchangeException,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    Order,
+    OrderMissing,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    OrderWouldBeTaker,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
+    json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -154,8 +177,9 @@ class Binance(Exchange):
 
         # Process fees.
         fees = {
-            _from_symbol(fee['symbol']):
-            Fees(maker=Decimal(fee['makerCommission']), taker=Decimal(fee['takerCommission']))
+            _from_symbol(fee['symbol']): Fees(
+                maker=Decimal(fee['makerCommission']), taker=Decimal(fee['takerCommission'])
+            )
             for fee in fees_content
         }
 
@@ -167,7 +191,8 @@ class Binance(Exchange):
                 a['assetName'].lower(): BorrowInfo(
                     daily_interest_rate=Decimal(s['dailyInterestRate']),
                     limit=Decimal(s['borrowLimit']),
-                ) for a, s in ((a, a['specs'][0]) for a in margin_content['data'])
+                )
+                for a, s in ((a, a['specs'][0]) for a in margin_content['data'])
             },
         }
         for p in isolated_content['data']:
@@ -226,22 +251,22 @@ class Binance(Exchange):
                 price=Price(
                     min=Decimal(price['minPrice']),
                     max=Decimal(price['maxPrice']),
-                    step=Decimal(price['tickSize'])
+                    step=Decimal(price['tickSize']),
                 ),
                 percent_price=PercentPrice(
                     multiplier_up=Decimal(percent_price['multiplierUp']),
                     multiplier_down=Decimal(percent_price['multiplierDown']),
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
+                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS,
                 ),
                 size=Size(
                     min=Decimal(lot_size['minQty']),
                     max=Decimal(lot_size['maxQty']),
-                    step=Decimal(lot_size['stepSize'])
+                    step=Decimal(lot_size['stepSize']),
                 ),
                 min_notional=MinNotional(
                     min_notional=Decimal(min_notional['minNotional']),
                     apply_to_market=min_notional['applyToMarket'],
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
+                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS,
                 ),
                 base_precision=symbol_info['baseAssetPrecision'],
                 quote_precision=symbol_info['quoteAssetPrecision'],
@@ -272,7 +297,8 @@ class Binance(Exchange):
                 volume=Decimal(t['volume']),
                 quote_volume=Decimal(t['quoteVolume']),
                 price=Decimal(t['lastPrice']),
-            ) for t in response_data
+            )
+            for t in response_data
         }
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
@@ -340,9 +366,9 @@ class Binance(Exchange):
             async for data in stream:
                 result = {}
                 for balance in data['B']:
-                    result[
-                        balance['a'].lower()
-                    ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
+                    result[balance['a'].lower()] = Balance(
+                        available=Decimal(balance['f']), hold=Decimal(balance['l'])
+                    )
                 yield result
 
         # Yields only assets that are possibly changed.
@@ -368,10 +394,7 @@ class Binance(Exchange):
             'GET',
             '/api/v3/depth',
             weight=LIMIT_TO_WEIGHT[LIMIT],
-            data={
-                'limit': LIMIT,
-                'symbol': _to_http_symbol(symbol)
-            }
+            data={'limit': LIMIT, 'symbol': _to_http_symbol(symbol)},
         )
         return Depth.Snapshot(
             bids=[(Decimal(x[0]), Decimal(x[1])) for x in content['bids']],
@@ -387,7 +410,7 @@ class Binance(Exchange):
                     bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
                     asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']],
                     first_id=data['U'],
-                    last_id=data['u']
+                    last_id=data['u'],
                 )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
@@ -435,7 +458,8 @@ class Binance(Exchange):
                 symbol=_from_symbol(o['symbol']),
                 price=Decimal(o['price']),
                 size=Decimal(o['origQty']),
-            ) for o in content
+            )
+            for o in content
         ]
 
     @asynccontextmanager
@@ -533,7 +557,8 @@ class Binance(Exchange):
         return OrderResult(
             time=content['transactTime'],
             status=(
-                _from_order_status(status) if (status := content.get('status'))
+                _from_order_status(status)
+                if (status := content.get('status'))
                 else OrderStatus.NEW
             ),
             fills=[
@@ -542,9 +567,10 @@ class Binance(Exchange):
                     size=(s := Decimal(f['qty'])),
                     quote=(p * s).quantize(total_quote),
                     fee=Decimal(f['commission']),
-                    fee_asset=f['commissionAsset'].lower()
-                ) for f in content.get('fills', [])
-            ]
+                    fee_asset=f['commissionAsset'].lower(),
+                )
+                for f in content.get('fills', [])
+            ],
         )
 
     async def cancel_order(
@@ -581,16 +607,21 @@ class Binance(Exchange):
                     'interval': binance_interval,
                     'startTime': page_start,
                     'endTime': page_end - 1,
-                    'limit': limit
-                }
+                    'limit': limit,
+                },
             )
             for c in content:
                 # Binance can return bad candles where the time does not fall within the requested
                 # interval. For example, the second candle of the following query has bad time:
                 # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
                 yield Candle(
-                    c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
-                    Decimal(c[5]), True
+                    c[0],
+                    Decimal(c[1]),
+                    Decimal(c[2]),
+                    Decimal(c[3]),
+                    Decimal(c[4]),
+                    Decimal(c[5]),
+                    True,
                 )
 
     @asynccontextmanager
@@ -606,15 +637,20 @@ class Binance(Exchange):
             async for data in ws:
                 c = data['k']
                 yield Candle(
-                    c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']), Decimal(c['c']),
-                    Decimal(c['v']), c['x']
+                    c['t'],
+                    Decimal(c['o']),
+                    Decimal(c['h']),
+                    Decimal(c['l']),
+                    Decimal(c['c']),
+                    Decimal(c['v']),
+                    c['x'],
                 )
 
         async with self._connect_refreshing_stream(
             url=f'/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
             interval=12 * HOUR_SEC,
             name='candles',
-            raise_on_disconnect=True
+            raise_on_disconnect=True,
         ) as ws:
             yield inner(ws)
 
@@ -661,8 +697,10 @@ class Binance(Exchange):
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
-            raise_on_disconnect=True
+            url=f'/ws/{_to_ws_symbol(symbol)}@trade',
+            interval=12 * HOUR_SEC,
+            name='trade',
+            raise_on_disconnect=True,
         ) as ws:
             yield inner(ws)
 
@@ -865,7 +903,7 @@ class Binance(Exchange):
                 elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
                     raise BadOrder(error_msg)
                 elif error_code == _ERR_TOO_MANY_REQUESTS:
-                    if (retry_after := res.headers.get('Retry-After')):
+                    if retry_after := res.headers.get('Retry-After'):
                         _log.info(f'server provided retry-after {retry_after}; sleeping')
                         await asyncio.sleep(float(retry_after))
                     raise ExchangeException(error_msg)
@@ -879,7 +917,7 @@ class Binance(Exchange):
     @retry(
         stop=stop_after_attempt(2),
         retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _request(
         self,
@@ -894,10 +932,12 @@ class Binance(Exchange):
             self._reqs_per_min_limiter.acquire(weight),
         ]
         if url in {'/api/v3/order', '/sapi/v1/margin/order'}:
-            limiters.extend((
-                self._orders_per_day_limiter.acquire(),
-                self._orders_per_sec_limiter.acquire(),
-            ))
+            limiters.extend(
+                (
+                    self._orders_per_day_limiter.acquire(),
+                    self._orders_per_sec_limiter.acquire(),
+                )
+            )
         elif url in {
             # The following are documented to be rate limited.
             '/sapi/v1/margin/transfer',
@@ -916,7 +956,11 @@ class Binance(Exchange):
         kwargs: dict[str, Any] = {}
 
         if security in [
-            _SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN, _SEC_USER_STREAM, _SEC_MARKET_DATA
+            _SEC_TRADE,
+            _SEC_USER_DATA,
+            _SEC_MARGIN,
+            _SEC_USER_STREAM,
+            _SEC_MARKET_DATA,
         ]:
             kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
 
@@ -955,7 +999,7 @@ class Binance(Exchange):
                 loads=json.loads,
                 take_until=lambda old, new: old['E'] < new['E'],
                 name=name,
-                raise_on_disconnect=raise_on_disconnect
+                raise_on_disconnect=raise_on_disconnect,
             ) as stream:
                 yield stream
         except (aiohttp.WSServerHandshakeError, aiohttp.WebSocketError) as e:
@@ -1002,7 +1046,7 @@ class Clock:
             try:
                 await asyncio.wait(
                     [sleep_task, self._reset_periodic_sync.wait()],
-                    return_when=asyncio.FIRST_COMPLETED
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
             finally:
                 if not sleep_task.done():
@@ -1014,7 +1058,7 @@ class Clock:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _sync_clock(self) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
@@ -1037,7 +1081,7 @@ class UserDataStream:
         self._binance = binance
         self._base_url = {
             'spot': '/api/v3/userDataStream',
-            'margin': '/sapi/v1/userDataStream'
+            'margin': '/sapi/v1/userDataStream',
         }.get(account, '/sapi/v1/userDataStream/isolated')
         self._account = account
         self._listen_key_lock = asyncio.Lock()
@@ -1047,8 +1091,8 @@ class UserDataStream:
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
 
-        self._queues: dict[str, dict[str, asyncio.Queue]] = (
-            defaultdict(lambda: defaultdict(asyncio.Queue))
+        self._queues: dict[str, dict[str, asyncio.Queue]] = defaultdict(
+            lambda: defaultdict(asyncio.Queue)
         )
 
     async def __aenter__(self) -> UserDataStream:
@@ -1103,9 +1147,7 @@ class UserDataStream:
             )
 
         if not self._stream_user_data_task:
-            self._stream_user_data_task = create_task_sigint_on_exception(
-                self._stream_user_data()
-            )
+            self._stream_user_data_task = create_task_sigint_on_exception(self._stream_user_data())
 
         await self._stream_connected.wait()
 
@@ -1116,8 +1158,10 @@ class UserDataStream:
                 try:
                     await self._update_listen_key(self._listen_key)
                 except ExchangeException:
-                    _log.warning(f'tried to update a listen key {self._listen_key} which did not '
-                                 'exist; resetting')
+                    _log.warning(
+                        f'tried to update a listen key {self._listen_key} which did not '
+                        'exist; resetting'
+                    )
                     self._listen_key = None
                     await self._ensure_listen_key()
             else:
@@ -1127,8 +1171,10 @@ class UserDataStream:
         while True:
             try:
                 async with self._binance._connect_refreshing_stream(
-                    url=f'/ws/{self._listen_key}', interval=12 * HOUR_SEC, name='user',
-                    raise_on_disconnect=True
+                    url=f'/ws/{self._listen_key}',
+                    interval=12 * HOUR_SEC,
+                    name='user',
+                    raise_on_disconnect=True,
                 ) as stream:
                     self._stream_connected.set()
                     async for data in stream:
@@ -1148,7 +1194,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _create_listen_key(self) -> tuple[ClientResponse, Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
@@ -1156,10 +1202,7 @@ class UserDataStream:
         if self._account not in ['spot', 'margin']:
             data['symbol'] = _to_http_symbol(self._account)
         return await self._binance._api_request(
-            'POST',
-            self._base_url,
-            data=data,
-            security=_SEC_USER_STREAM
+            'POST', self._base_url, data=data, security=_SEC_USER_STREAM
         )
 
     @retry(
@@ -1168,7 +1211,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _update_listen_key(self, listen_key: str) -> tuple[ClientResponse, Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
@@ -1188,7 +1231,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _delete_listen_key(self, listen_key: str) -> tuple[ClientResponse, Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
@@ -1196,10 +1239,7 @@ class UserDataStream:
         if self._account not in ['spot', 'margin']:
             data['symbol'] = _to_http_symbol(self._account)
         return await self._binance._api_request(
-            'DELETE',
-            self._base_url,
-            data=data,
-            security=_SEC_USER_STREAM
+            'DELETE', self._base_url, data=data, security=_SEC_USER_STREAM
         )
 
 
@@ -1219,13 +1259,36 @@ def _from_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
     # since there is no separator used. We simply map based on known quote assets.
     known_quote_assets = [
-        'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI', 'BRL',
-        'BVND', 'VAI'
+        'BNB',
+        'BTC',
+        'ETH',
+        'XRP',
+        'USDT',
+        'PAX',
+        'TUSD',
+        'USDC',
+        'USDS',
+        'TRX',
+        'BUSD',
+        'NGN',
+        'RUB',
+        'TRY',
+        'EUR',
+        'ZAR',
+        'BKRW',
+        'IDRT',
+        'GBP',
+        'UAH',
+        'BIDR',
+        'AUD',
+        'DAI',
+        'BRL',
+        'BVND',
+        'VAI',
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):
-            base = symbol[:-len(asset)]
+            base = symbol[: -len(asset)]
             quote = asset
             break
     else:
@@ -1270,7 +1333,7 @@ def _from_order_status(status: str) -> OrderStatus:
         'NEW': OrderStatus.NEW,
         'PARTIALLY_FILLED': OrderStatus.PARTIALLY_FILLED,
         'FILLED': OrderStatus.FILLED,
-        'CANCELED': OrderStatus.CANCELLED
+        'CANCELED': OrderStatus.CANCELLED,
     }
     mapped_status = status_map.get(status)
     if not mapped_status:

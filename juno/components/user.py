@@ -38,9 +38,7 @@ class User:
         ] = defaultdict(dict)
 
     async def __aenter__(self) -> User:
-        await asyncio.gather(
-            *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
-        )
+        await asyncio.gather(*(self._fetch_open_accounts(e) for e in self._exchanges.keys()))
         _log.info('ready')
         return self
 
@@ -61,9 +59,7 @@ class User:
         return self._exchanges[exchange].can_place_market_order_quote
 
     @asynccontextmanager
-    async def sync_wallet(
-        self, exchange: str, account: str
-    ) -> AsyncIterator[WalletSyncContext]:
+    async def sync_wallet(self, exchange: str, account: str) -> AsyncIterator[WalletSyncContext]:
         await self._ensure_account(exchange, account)
 
         id_ = str(uuid.uuid4())
@@ -125,9 +121,8 @@ class User:
         # Filtering.
         if significant is not None:
             result = {
-                k: {
-                    a: b for a, b in v.items() if b.significant == significant
-                } for k, v in result.items()
+                k: {a: b for a, b in v.items() if b.significant == significant}
+                for k, v in result.items()
             }
         return result
 
@@ -221,7 +216,7 @@ class User:
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_exponential(),
             retry=retry_if_exception_type(ExchangeException),
-            before_sleep=before_sleep_log(_log, logging.WARNING)
+            before_sleep=before_sleep_log(_log, logging.WARNING),
         ):
             with attempt:
                 async for balances in self._stream_balances(exchange, account):

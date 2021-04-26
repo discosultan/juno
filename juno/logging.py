@@ -45,7 +45,7 @@ def create_handlers(
                 'WARNING': 'yellow',
                 'ERROR': 'red',
                 'CRITICAL': 'red',
-            }
+            },
         )
     elif log_format == 'json':
         formatter = JsonFormatter()
@@ -61,8 +61,10 @@ def create_handlers(
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        return json.dumps({
-            'severity': record.levelname,
-            'time': datetime.utcfromtimestamp(record.created).isoformat() + 'Z',
-            'message': f'{record.name}: {super().format(record)}'
-        })
+        return json.dumps(
+            {
+                'severity': record.levelname,
+                'time': datetime.utcfromtimestamp(record.created).isoformat() + 'Z',
+                'message': f'{record.name}: {super().format(record)}',
+            }
+        )

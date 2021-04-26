@@ -66,8 +66,9 @@ class DM:
         return self.plus_value, self.minus_value
 
 
-def _calc_direction(prev_high: Decimal, prev_low: Decimal, high: Decimal,
-                    low: Decimal) -> tuple[Decimal, Decimal]:
+def _calc_direction(
+    prev_high: Decimal, prev_low: Decimal, high: Decimal, low: Decimal
+) -> tuple[Decimal, Decimal]:
     up = high - prev_high
     down = prev_low - low
 

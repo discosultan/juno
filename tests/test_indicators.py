@@ -104,11 +104,11 @@ def _assert(indicator, data, precision: int) -> None:
     for i in range(0, input_len):
         outputs = indicator.update(*(Decimal(input_[i]) for input_ in inputs))
         if not isinstance(outputs, tuple):
-            outputs = outputs,
+            outputs = (outputs,)
         if i >= offset:
             assert indicator.mature
             for j in range(0, len(outputs)):
-                assert pytest.approx(outputs[j], abs=10**-precision) == Decimal(
+                assert pytest.approx(outputs[j], abs=10 ** -precision) == Decimal(
                     expected_outputs[j][i - offset]
                 )
         else:

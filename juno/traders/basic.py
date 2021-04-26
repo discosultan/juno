@@ -17,8 +17,14 @@ from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, PositionNotOpen, SimulatedPositionMixin, StartMixin,
-    TradingMode, TradingSummary
+    CloseReason,
+    Position,
+    PositionMixin,
+    PositionNotOpen,
+    SimulatedPositionMixin,
+    StartMixin,
+    TradingMode,
+    TradingSummary,
 )
 from juno.typing import TypeConstructor
 from juno.utils import unpack_assets
@@ -206,8 +212,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 NoopStopLoss() if config.stop_loss is None else config.stop_loss.construct()
             ),
             take_profit=(
-                NoopTakeProfit() if config.take_profit is None
-                else config.take_profit.construct()
+                NoopTakeProfit() if config.take_profit is None else config.take_profit.construct()
             ),
         )
 
@@ -226,10 +231,9 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 exchange_timeout=config.exchange_candle_timeout,
             ):
                 # Check if we have missed a candle.
-                if (
-                    (last_candle := state.last_candle)
-                    and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
-                ):
+                if (last_candle := state.last_candle) and (
+                    time_diff := (candle.time - last_candle.time)
+                ) >= config.interval * 2:
                     if config.missed_candle_policy is MissedCandlePolicy.RESTART:
                         _log.info('restarting strategy due to missed candle(s)')
                         state.strategy = config.strategy.construct()
@@ -260,7 +264,8 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
-                    state.last_candle.time + config.interval if state.last_candle
+                    state.last_candle.time + config.interval
+                    if state.last_candle
                     else state.summary.start + config.interval
                 )
             else:  # Paper or live.
@@ -380,8 +385,8 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 quote=state.quote,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.open_long_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.open_long_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 quote=state.quote,
@@ -411,8 +416,8 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 reason=reason,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.close_long_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.close_long_position(
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,
@@ -439,8 +444,8 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 collateral=state.quote,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.open_short_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.open_short_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 collateral=state.quote,
@@ -470,8 +475,8 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 reason=reason,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.close_short_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.close_short_position(
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,

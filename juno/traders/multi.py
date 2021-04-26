@@ -11,7 +11,11 @@ from more_itertools import take
 
 from juno import Advice, Candle, Interval, Timestamp
 from juno.asyncio import (
-    Event, SlotBarrier, cancel, create_task_cancel_owner_on_exception, process_task_on_queue
+    Event,
+    SlotBarrier,
+    cancel,
+    create_task_cancel_owner_on_exception,
+    process_task_on_queue,
 )
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
@@ -24,8 +28,14 @@ from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, PositionNotOpen, SimulatedPositionMixin, StartMixin,
-    TradingMode, TradingSummary
+    CloseReason,
+    Position,
+    PositionMixin,
+    PositionNotOpen,
+    SimulatedPositionMixin,
+    StartMixin,
+    TradingMode,
+    TradingSummary,
 )
 from juno.typing import TypeConstructor
 
@@ -202,9 +212,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         asset_info = self._informant.get_asset_info(exchange, 'btc')
         return split(quote, parts, asset_info.precision)
 
-    def _create_symbol_state(
-        self, symbol: str, start: int, config: MultiConfig
-    ) -> _SymbolState:
+    def _create_symbol_state(self, symbol: str, start: int, config: MultiConfig) -> _SymbolState:
         strategy = config.symbol_strategies.get(symbol, config.strategy).construct()
 
         adjusted_start = start
@@ -223,12 +231,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             start=start,
             next_=adjusted_start,
             stop_loss=(
-                NoopStopLoss() if config.stop_loss is None
-                else config.stop_loss.construct()
+                NoopStopLoss() if config.stop_loss is None else config.stop_loss.construct()
             ),
             take_profit=(
-                NoopTakeProfit() if config.take_profit is None
-                else config.take_profit.construct()
+                NoopTakeProfit() if config.take_profit is None else config.take_profit.construct()
             ),
         )
 
@@ -260,9 +266,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 )
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
-                    max(
-                        s.last_candle.time for s in state.symbol_states.values() if s.last_candle
-                    ) + config.interval
+                    max(s.last_candle.time for s in state.symbol_states.values() if s.last_candle)
+                    + config.interval
                     if any(s.last_candle for s in state.symbol_states.values())
                     else state.summary.start + config.interval
                 )
@@ -275,8 +280,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
     async def _find_top_symbols(self, config: MultiConfig) -> list[str]:
         tickers = self._informant.map_tickers(
-            config.exchange, symbol_patterns=[SYMBOL_PATTERN],
-            exclude_symbol_patterns=config.track_exclude, spot=True, isolated_margin=True
+            config.exchange,
+            symbol_patterns=[SYMBOL_PATTERN],
+            exclude_symbol_patterns=config.track_exclude,
+            spot=True,
+            isolated_margin=True,
         )
         # Filter.
         if config.track_required_start is not None:
@@ -287,13 +295,15 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 )
             )
             tickers = {
-                s: t for (s, t), c in zip(tickers.items(), first_candles)
+                s: t
+                for (s, t), c in zip(tickers.items(), first_candles)
                 if c.time <= config.track_required_start
             }
         # Validate.
         if len(tickers) < config.track_count:
             required_start_msg = (
-                '' if config.track_required_start is None
+                ''
+                if config.track_required_start is None
                 else f' with required start at {strftimestamp(config.track_required_start)}'
             )
             raise ValueError(
@@ -331,12 +341,13 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             if state.next_ > state.start:
                 top_symbols = await self._find_top_symbols(config)
                 leaving_symbols = [
-                    s for s, ss in state.symbol_states.items()
+                    s
+                    for s, ss in state.symbol_states.items()
                     if not ss.open_position and s not in top_symbols
                 ]
-                new_symbols = [
-                    s for s in top_symbols if s not in state.symbol_states.keys()
-                ][:len(leaving_symbols)]
+                new_symbols = [s for s in top_symbols if s not in state.symbol_states.keys()][
+                    : len(leaving_symbols)
+                ]
                 assert len(leaving_symbols) == len(new_symbols)
 
                 if len(new_symbols) > 0:
@@ -391,25 +402,19 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         to_process: list[Coroutine[None, None, Position.Closed]] = []
         for ss in (ss for ss in state.symbol_states.values() if ss.ready):
             assert ss.last_candle
-            if (
-                isinstance(ss.open_position, Position.OpenLong)
-                and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
-            ):
-                to_process.append(
-                    self._close_long_position(state, ss, ss.last_candle, ss.reason)
-                )
-            elif (
-                isinstance(ss.open_position, Position.OpenShort)
-                and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
-            ):
-                to_process.append(
-                    self._close_short_position(state, ss, ss.last_candle, ss.reason)
-                )
+            if isinstance(ss.open_position, Position.OpenLong) and ss.advice in [
+                Advice.LIQUIDATE,
+                Advice.SHORT,
+            ]:
+                to_process.append(self._close_long_position(state, ss, ss.last_candle, ss.reason))
+            elif isinstance(ss.open_position, Position.OpenShort) and ss.advice in [
+                Advice.LIQUIDATE,
+                Advice.LONG,
+            ]:
+                to_process.append(self._close_short_position(state, ss, ss.last_candle, ss.reason))
         if len(to_process) > 0:
             positions = await process_task_on_queue(queue, asyncio.gather(*to_process))
-            await self._events.emit(
-                config.channel, 'positions_closed', positions, state.summary
-            )
+            await self._events.emit(config.channel, 'positions_closed', positions, state.summary)
 
     async def _try_open_new_positions(self, state: MultiState) -> None:
         config = state.config
@@ -431,8 +436,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
                 assert ss.last_candle
                 advice_age_valid = (
-                    (ss.changed.prevailing_advice_age - 1) <= config.allowed_age_drift
-                )
+                    ss.changed.prevailing_advice_age - 1
+                ) <= config.allowed_age_drift
                 if ss.advice is Advice.LONG and advice_age_valid:
                     to_process.append(self._open_long_position(state, ss, ss.last_candle))
                     available -= 1
@@ -442,13 +447,14 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
         if len(to_process) > 0:
             positions = await process_task_on_queue(queue, asyncio.gather(*to_process))
-            await self._events.emit(
-                config.channel, 'positions_opened', positions, state.summary
-            )
+            await self._events.emit(config.channel, 'positions_opened', positions, state.summary)
 
     async def _track_advice(
-        self, state: MultiState, symbol_state: _SymbolState, candles_updated: SlotBarrier,
-        ready: Event
+        self,
+        state: MultiState,
+        symbol_state: _SymbolState,
+        candles_updated: SlotBarrier,
+        ready: Event,
     ) -> None:
         config = state.config
         _log.info(f'tracking {symbol_state.symbol} candles')
@@ -489,9 +495,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                             symbol_state, candles_updated, ready, Advice.NONE, CloseReason.STRATEGY
                         )
 
-                advice, reason = self._process_candle(
-                    state, symbol_state, candle
-                )
+                advice, reason = self._process_candle(state, symbol_state, candle)
                 await self._process_advice(symbol_state, candles_updated, ready, advice, reason)
 
     def _process_candle(
@@ -504,10 +508,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         symbol_state.strategy.update(candle)
         advice = symbol_state.strategy.advice
         reason = CloseReason.STRATEGY
-        if (
-            isinstance(symbol_state.open_position, Position.OpenLong)
-            and advice not in [Advice.SHORT, Advice.LIQUIDATE]
-        ):
+        if isinstance(symbol_state.open_position, Position.OpenLong) and advice not in [
+            Advice.SHORT,
+            Advice.LIQUIDATE,
+        ]:
             if symbol_state.stop_loss.upside_hit:
                 _log.info(
                     f'{symbol_state.symbol} upside stop loss hit at {config.stop_loss} (trailing: '
@@ -522,10 +526,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 )
                 advice = Advice.LIQUIDATE
                 reason = CloseReason.TAKE_PROFIT
-        elif (
-            isinstance(symbol_state.open_position, Position.OpenShort)
-            and advice not in [Advice.LONG, Advice.LIQUIDATE]
-        ):
+        elif isinstance(symbol_state.open_position, Position.OpenShort) and advice not in [
+            Advice.LONG,
+            Advice.LIQUIDATE,
+        ]:
             if symbol_state.stop_loss.downside_hit:
                 _log.info(
                     f'{symbol_state.symbol} downside stop loss hit at {config.stop_loss} '
@@ -542,7 +546,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 reason = CloseReason.TAKE_PROFIT
 
         if not symbol_state.open_position:
-            if (config.long and advice is Advice.LONG or config.short and advice is Advice.SHORT):
+            if config.long and advice is Advice.LONG or config.short and advice is Advice.SHORT:
                 symbol_state.stop_loss.clear(candle)
                 symbol_state.take_profit.clear(candle)
 
@@ -556,8 +560,12 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return advice, reason
 
     async def _process_advice(
-        self, symbol_state: _SymbolState, candles_updated: SlotBarrier, ready: Event,
-        advice: Advice, reason: CloseReason
+        self,
+        symbol_state: _SymbolState,
+        candles_updated: SlotBarrier,
+        ready: Event,
+        advice: Advice,
+        reason: CloseReason,
     ) -> None:
         _log.debug(f'{symbol_state.symbol} received advice: {advice.name} {reason.name}')
 
@@ -587,9 +595,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         if queue.qsize() > 0:
             raise PositionNotOpen('Process with position already pending')
         symbol_states = [
-            ss
-            for ss in (state.symbol_states.get(s) for s in symbols)
-            if ss and ss.open_position
+            ss for ss in (state.symbol_states.get(s) for s in symbols) if ss and ss.open_position
         ]
         if len(symbol_states) != len(symbols):
             raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
@@ -608,9 +614,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         positions = await asyncio.gather(
             *(self._close_position(state, ss, reason) for ss in symbol_states)
         )
-        await self._events.emit(
-            state.config.channel, 'positions_closed', positions, state.summary
-        )
+        await self._events.emit(state.config.channel, 'positions_closed', positions, state.summary)
         return positions
 
     async def _close_position(
@@ -644,8 +648,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 quote=symbol_state.allocated_quote,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.open_long_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.open_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 quote=symbol_state.allocated_quote,
@@ -659,8 +663,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return position
 
     async def _close_long_position(
-        self, state: MultiState, symbol_state: _SymbolState, candle: Candle,
-        reason: CloseReason
+        self, state: MultiState, symbol_state: _SymbolState, candle: Candle, reason: CloseReason
     ) -> Position.Long:
         config = state.config
         assert state.summary
@@ -674,8 +677,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 reason=reason,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.close_long_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.close_long_position(
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,
@@ -706,8 +709,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.open_short_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.open_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
@@ -721,8 +724,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return position
 
     async def _close_short_position(
-        self, state: MultiState, symbol_state: _SymbolState, candle: Candle,
-        reason: CloseReason
+        self, state: MultiState, symbol_state: _SymbolState, candle: Candle, reason: CloseReason
     ) -> Position.Short:
         config = state.config
         assert state.summary
@@ -736,8 +738,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 price=candle.close,
                 reason=reason,
             )
-            if config.mode is TradingMode.BACKTEST else
-            await self.close_short_position(
+            if config.mode is TradingMode.BACKTEST
+            else await self.close_short_position(
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,

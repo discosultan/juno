@@ -15,9 +15,26 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optio
 from dateutil.tz import UTC
 
 from juno import (
-    AssetInfo, BadOrder, Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
-    Filters, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade, json
+    AssetInfo,
+    BadOrder,
+    Balance,
+    Candle,
+    Depth,
+    ExchangeException,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    Filters,
+    OrderMissing,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
+    json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -143,7 +160,8 @@ class Coinbase(Exchange):
             result['spot'] = {
                 b['currency'].lower(): Balance(
                     available=Decimal(b['available']), hold=Decimal(b['hold'])
-                ) for b in content
+                )
+                for b in content
             }
         else:
             raise NotImplementedError()
@@ -156,11 +174,13 @@ class Coinbase(Exchange):
         url = f'/products/{_to_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             _, content = await self._public_request(
-                'GET', url, {
+                'GET',
+                url,
+                {
                     'start': _to_datetime(page_start),
                     'end': _to_datetime(page_end - 1),
-                    'granularity': _to_granularity(interval)
-                }
+                    'granularity': _to_granularity(interval),
+                },
             )
             for c in reversed(content):
                 # This seems to be an issue on Coinbase side. I didn't find any documentation for
@@ -170,29 +190,30 @@ class Coinbase(Exchange):
                 if None in c:
                     raise Exception(f'missing data for candle {c}; please re-run the command')
                 yield Candle(
-                    c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]), Decimal(c[4]),
-                    Decimal(c[5]), True
+                    c[0] * 1000,
+                    Decimal(c[3]),
+                    Decimal(c[2]),
+                    Decimal(c[1]),
+                    Decimal(c[4]),
+                    Decimal(c[5]),
+                    True,
                 )
 
     @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
-        async def inner(
-            ws: AsyncIterable[Any]
-        ) -> AsyncIterable[Depth.Any]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
             async for data in ws:
                 if data['type'] == 'snapshot':
                     yield Depth.Snapshot(
                         bids=[(Decimal(p), Decimal(s)) for p, s in data['bids']],
-                        asks=[(Decimal(p), Decimal(s)) for p, s in data['asks']]
+                        asks=[(Decimal(p), Decimal(s)) for p, s in data['asks']],
                     )
                 elif data['type'] == 'l2update':
                     bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
                     asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
                     yield Depth.Update(
                         bids=[(Decimal(p), Decimal(s)) for p, s in bids],
-                        asks=[(Decimal(p), Decimal(s)) for p, s in asks]
+                        asks=[(Decimal(p), Decimal(s)) for p, s in asks],
                     )
 
         async with self._ws.subscribe('level2', ['snapshot', 'l2update'], [symbol]) as ws:
@@ -318,9 +339,13 @@ class Coinbase(Exchange):
     ) -> None:
         if account != 'spot':
             raise NotImplementedError()
-        response, content = await self._private_request('DELETE', f'/orders/client:{client_id}', {
-            'product_id': _to_product(symbol),
-        })
+        response, content = await self._private_request(
+            'DELETE',
+            f'/orders/client:{client_id}',
+            {
+                'product_id': _to_product(symbol),
+            },
+        )
         if response.status == 404:
             raise OrderMissing(content['message'])
 
@@ -339,11 +364,9 @@ class Coinbase(Exchange):
                 if time < start:
                     done = True
                     break
-                trades_desc.append(Trade(
-                    time=time,
-                    price=Decimal(val['price']),
-                    size=Decimal(val['size'])
-                ))
+                trades_desc.append(
+                    Trade(time=time, price=Decimal(val['price']), size=Decimal(val['size']))
+                )
             if done:
                 break
         for trade in reversed(trades_desc):
@@ -361,7 +384,7 @@ class Coinbase(Exchange):
                 yield Trade(
                     time=_from_datetime(val['time']),
                     price=Decimal(val['price']),
-                    size=Decimal(val['size'])
+                    size=Decimal(val['size']),
                 )
 
         async with self._ws.subscribe('matches', ['last_match', 'match'], [symbol]) as ws:
@@ -495,10 +518,12 @@ class CoinbaseFeed:
             data = json.loads(msg.data)
             type_ = data['type']
             if type_ == 'subscriptions':
-                self.subscriptions.update({
-                    c['name']: [_from_product(s) for s in c['product_ids']]
-                    for c in data['channels']
-                })
+                self.subscriptions.update(
+                    {
+                        c['name']: [_from_product(s) for s in c['product_ids']]
+                        for c in data['channels']
+                    }
+                )
                 self.subscriptions_updated.set()
             else:
                 channel = self.type_to_channel[type_]
@@ -540,9 +565,7 @@ def _from_datetime(dt: str) -> int:
     # - '%Y-%m-%dT%H:%M:%S.%fZ'
     # - '%Y-%m-%dT%H:%M:%SZ'
     dt_format = '%Y-%m-%dT%H:%M:%S.%fZ' if '.' in dt else '%Y-%m-%dT%H:%M:%SZ'
-    return datetime_timestamp_ms(
-        datetime.strptime(dt, dt_format).replace(tzinfo=UTC)
-    )
+    return datetime_timestamp_ms(datetime.strptime(dt, dt_format).replace(tzinfo=UTC))
 
 
 def _to_time_in_force(time_in_force: TimeInForce) -> str:

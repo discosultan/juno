@@ -13,7 +13,7 @@ from . import fakes
 FEE_RATE = Decimal('0.1')
 FILTERS = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
-    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
+    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
 )
 
 
@@ -28,7 +28,7 @@ async def test_list_asks_bids(storage) -> None:
             (Decimal('1.0'), Decimal('1.0')),
             (Decimal('3.0'), Decimal('1.0')),
             (Decimal('2.0'), Decimal('1.0')),
-        ]
+        ],
     )
     exchange = fakes.Exchange(depth=snapshot)
     exchange.can_stream_depth_snapshot = False
@@ -51,7 +51,8 @@ async def test_list_asks_bids(storage) -> None:
 
 
 @pytest.mark.parametrize(
-    'size,snapshot_asks,expected_output', [
+    'size,snapshot_asks,expected_output',
+    [
         (
             Decimal('1.0'),
             [(Decimal('2.0'), Decimal('1.0')), (Decimal('3.0'), Decimal('1.0'))],
@@ -65,7 +66,7 @@ async def test_list_asks_bids(storage) -> None:
                 (Decimal('2.0'), Decimal('1.1'), Decimal('0.11')),
             ],
         ),
-    ]
+    ],
 )
 async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
     snapshot = Depth.Snapshot(asks=snapshot_asks, bids=[])
@@ -78,7 +79,8 @@ async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
 
 
 @pytest.mark.parametrize(
-    'quote,snapshot_asks,update_asks,expected_output', [
+    'quote,snapshot_asks,update_asks,expected_output',
+    [
         (
             Decimal('10.0'),
             [(Decimal('1.0'), Decimal('1.0'))],
@@ -121,7 +123,7 @@ async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
                 (Decimal('2.0'), Decimal('1.0'), Decimal('0.1')),
             ],
         ),
-    ]
+    ],
 )
 async def test_find_order_asks_by_quote(
     quote, snapshot_asks, update_asks, expected_output

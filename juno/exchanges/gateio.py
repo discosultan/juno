@@ -11,8 +11,19 @@ from urllib.parse import urlencode
 
 import juno.json as json
 from juno.common import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, OrderResult, OrderStatus, OrderType,
-    OrderUpdate, Side, TimeInForce
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    Filters,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    Side,
+    TimeInForce,
 )
 from juno.errors import OrderMissing, OrderWouldBeTaker
 from juno.filters import MinNotional, Price, Size
@@ -64,7 +75,8 @@ class GateIO(Exchange):
                 quote_precision=(quote_precision := pair['amount_precision']),
                 size=Size(
                     min=(
-                        Decimal('0.0') if (min_base_amount := pair.get('min_base_amount')) is None
+                        Decimal('0.0')
+                        if (min_base_amount := pair.get('min_base_amount')) is None
                         else Decimal(min_base_amount)
                     ),
                     step=precision_to_decimal(base_precision),  # type: ignore
@@ -74,8 +86,9 @@ class GateIO(Exchange):
                 ),
                 min_notional=MinNotional(
                     min_notional=(
-                        Decimal('0.0') if (min_quote_amount := pair.get('min_quote_amount'))
-                        is None else Decimal(min_quote_amount)
+                        Decimal('0.0')
+                        if (min_quote_amount := pair.get('min_quote_amount')) is None
+                        else Decimal(min_quote_amount)
                     ),
                 ),
             )
@@ -102,9 +115,7 @@ class GateIO(Exchange):
         )
 
     @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         channel = 'spot.order_book_update'
 
         # https://www.gateio.pro/docs/apiv4/ws/index.html#changed-order-book-levels
@@ -125,12 +136,14 @@ class GateIO(Exchange):
 
         # TODO: unsubscribe
         async with self._session.ws_connect(_WS_URL) as ws:
-            await ws.send_json({
-                'time': int(time()),
-                'channel': channel,
-                'event': 'subscribe',  # 'unsubscribe' for unsubscription
-                'payload': [_to_symbol(symbol), '100ms' if self._high_precision else '1000ms'],
-            })
+            await ws.send_json(
+                {
+                    'time': int(time()),
+                    'channel': channel,
+                    'event': 'subscribe',  # 'unsubscribe' for unsubscription
+                    'payload': [_to_symbol(symbol), '100ms' if self._high_precision else '1000ms'],
+                }
+            )
             yield inner(ws)
 
     async def place_order(
@@ -262,13 +275,15 @@ class GateIO(Exchange):
         async with self._session.ws_connect(_WS_URL) as ws:
             time_sec = int(time())
             event = 'subscribe'  # 'unsubscribe' for unsubscription
-            await ws.send_json({
-                'time': time_sec,
-                'channel': channel,
-                'event': event,
-                'payload': [_to_symbol(symbol)],  # Can pass '!all' for all symbols.
-                'auth': self._gen_ws_sign(channel, event, time_sec),
-            })
+            await ws.send_json(
+                {
+                    'time': time_sec,
+                    'channel': channel,
+                    'event': event,
+                    'payload': [_to_symbol(symbol)],  # Can pass '!all' for all symbols.
+                    'auth': self._gen_ws_sign(channel, event, time_sec),
+                }
+            )
             yield inner(ws)
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
@@ -279,7 +294,8 @@ class GateIO(Exchange):
             _from_asset(balance['currency']): Balance(
                 available=Decimal(balance['available']),
                 hold=Decimal(balance['locked']),
-            ) for balance in content
+            )
+            for balance in content
         }
         return result
 
@@ -302,19 +318,22 @@ class GateIO(Exchange):
                     _from_asset(b['currency']): Balance(
                         available=(available := Decimal(b['available'])),
                         hold=Decimal(b['total']) - available,
-                    ) for b in data['result']
+                    )
+                    for b in data['result']
                 }
 
         # TODO: unsubscribe
         async with self._session.ws_connect(_WS_URL) as ws:
             time_sec = int(time())
             event = 'subscribe'  # 'unsubscribe' for unsubscription
-            await ws.send_json({
-                'time': time_sec,
-                'channel': channel,
-                'event': event,
-                'auth': self._gen_ws_sign(channel, event, time_sec),
-            })
+            await ws.send_json(
+                {
+                    'time': time_sec,
+                    'channel': channel,
+                    'event': event,
+                    'auth': self._gen_ws_sign(channel, event, time_sec),
+                }
+            )
             yield inner(ws)
 
     @asynccontextmanager

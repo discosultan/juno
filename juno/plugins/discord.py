@@ -15,7 +15,11 @@ from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader
 from juno.trading import (
-    CloseReason, Position, PositionNotOpen, SimulatedPositionMixin, TradingSummary
+    CloseReason,
+    Position,
+    PositionNotOpen,
+    SimulatedPositionMixin,
+    TradingSummary,
 )
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public
@@ -86,30 +90,36 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         @self._events.on(agent_name, 'positions_opened')
         async def on_positions_opened(positions: list[Position], summary: TradingSummary) -> None:
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
-                        'position',
-                        format_as_config(extract_public(p, exclude=['fills'])),
-                        lang='json',
-                    ),
-                ) for p in positions)
+                *(
+                    send_message(
+                        format_message(
+                            f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
+                            'position',
+                            format_as_config(extract_public(p, exclude=['fills'])),
+                            lang='json',
+                        ),
+                    )
+                    for p in positions
+                )
             )
 
         @self._events.on(agent_name, 'positions_closed')
         async def on_positions_closed(positions: list[Position], summary: TradingSummary) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'closed {"long" if isinstance(p, Position.Long) else "short"} '
-                        'position',
-                        format_as_config(
-                            extract_public(p, exclude=['open_fills', 'close_fills'])
+                *(
+                    send_message(
+                        format_message(
+                            f'closed {"long" if isinstance(p, Position.Long) else "short"} '
+                            'position',
+                            format_as_config(
+                                extract_public(p, exclude=['open_fills', 'close_fills'])
+                            ),
+                            lang='json',
                         ),
-                        lang='json',
-                    ),
-                ) for p in positions)
+                    )
+                    for p in positions
+                )
             )
             await send_message(
                 format_message('summary', format_as_config(extract_public(summary)), lang='json')
@@ -208,10 +218,12 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                     lang='json',
                 )
             )
-            await asyncio.gather(*(
-                self._send_open_position_status(ctx.channel.id, agent_type, agent_name, p)
-                for p in trader_ctx.state.open_positions
-            ))
+            await asyncio.gather(
+                *(
+                    self._send_open_position_status(ctx.channel.id, agent_type, agent_name, p)
+                    for p in trader_ctx.state.open_positions
+                )
+            )
 
         _log.info(f'activated for {agent_name} ({agent_type})')
 
@@ -265,6 +277,4 @@ def _format_message(
     content: Any,
     lang: str = '',
 ) -> str:
-    return (
-        f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
-    )
+    return f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'

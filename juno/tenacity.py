@@ -7,14 +7,11 @@ from tenacity.stop import stop_base
 
 class stop_after_attempt_with_reset(stop_base):
     """Stop when the previous attempt >= max_attempt. Reset attempt count after time_to_reset
-       seconds.
+    seconds.
     """
 
     def __init__(
-        self,
-        max_attempt_number: int,
-        time_to_reset: float,
-        get_time: Callable[[], float] = time
+        self, max_attempt_number: int, time_to_reset: float, get_time: Callable[[], float] = time
     ) -> None:
         self._max_attempt_number = max_attempt_number
         self._time_to_reset = time_to_reset

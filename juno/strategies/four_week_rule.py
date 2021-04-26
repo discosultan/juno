@@ -81,9 +81,8 @@ class FourWeekRule(Signal):
                 self._advice = Advice.LONG
             elif candle.close <= lowest:
                 self._advice = Advice.SHORT
-            elif (
-                (self._advice is Advice.LONG and candle.close <= self._ma.value)
-                or (self._advice is Advice.SHORT and candle.close >= self._ma.value)
+            elif (self._advice is Advice.LONG and candle.close <= self._ma.value) or (
+                self._advice is Advice.SHORT and candle.close >= self._ma.value
             ):
                 self._advice = Advice.LIQUIDATE
 

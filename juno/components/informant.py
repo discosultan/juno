@@ -11,7 +11,14 @@ from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import (
-    AssetInfo, BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
+    AssetInfo,
+    BorrowInfo,
+    ExchangeException,
+    ExchangeInfo,
+    Fees,
+    Filters,
+    Ticker,
+    Timestamp,
 )
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
@@ -45,9 +52,9 @@ class Informant:
         self._get_time_ms = get_time_ms
         self._cache_time = cache_time
 
-        self._synced_data: dict[str, dict[type[_Timestamped[Any]], _Timestamped[Any]]] = (
-            defaultdict(dict)
-        )
+        self._synced_data: dict[
+            str, dict[type[_Timestamped[Any]], _Timestamped[Any]]
+        ] = defaultdict(dict)
 
     async def __aenter__(self) -> Informant:
         exchange_info_synced_evt = asyncio.Event()
@@ -108,9 +115,9 @@ class Informant:
         self, exchange: str, patterns: Optional[list[str]] = None, borrow: bool = False
     ) -> list[str]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_assets = {a: None for a in itertools.chain(
-            *(map(unpack_assets, exchange_info.filters.keys()))
-        )}
+        all_assets = {
+            a: None for a in itertools.chain(*(map(unpack_assets, exchange_info.filters.keys())))
+        }
 
         result = (a for a in all_assets.keys())
 
@@ -140,18 +147,15 @@ class Informant:
             matching_symbols = {s for p in patterns for s in fnmatch.filter(all_symbols, p)}
             result = (s for s in result if s in matching_symbols)
         if spot is not None:
-            result = (
-                t for t in result
-                if exchange_info.filters[t.symbol].spot == spot
-            )
+            result = (t for t in result if exchange_info.filters[t.symbol].spot == spot)
         if cross_margin is not None:
             result = (
-                t for t in result
-                if exchange_info.filters[t.symbol].cross_margin == cross_margin
+                t for t in result if exchange_info.filters[t.symbol].cross_margin == cross_margin
             )
         if isolated_margin is not None:
             result = (
-                t for t in result
+                t
+                for t in result
                 if exchange_info.filters[t.symbol].isolated_margin == isolated_margin
             )
 
@@ -178,22 +182,20 @@ class Informant:
             )
         if exclude_symbol_patterns:
             result = (
-                (s, t) for s, t in result
+                (s, t)
+                for s, t in result
                 if not any(fnmatch.fnmatch(s, p) for p in exclude_symbol_patterns)
             )
         if spot is not None:
-            result = (
-                (s, t) for s, t in result
-                if exchange_info.filters[s].spot == spot
-            )
+            result = ((s, t) for s, t in result if exchange_info.filters[s].spot == spot)
         if cross_margin is not None:
             result = (
-                (s, t) for s, t in result
-                if exchange_info.filters[s].cross_margin == cross_margin
+                (s, t) for s, t in result if exchange_info.filters[s].cross_margin == cross_margin
             )
         if isolated_margin is not None:
             result = (
-                (s, t) for s, t in result
+                (s, t)
+                for s, t in result
                 if exchange_info.filters[s].isolated_margin == isolated_margin
             )
 
@@ -209,8 +211,12 @@ class Informant:
         return list(result)
 
     async def _periodic_sync_for_exchanges(
-        self, key: str, type_: type[_Timestamped[T]], initial_sync_event: asyncio.Event,
-        fetch: Callable[[Exchange], Awaitable[T]], exchanges: list[str]
+        self,
+        key: str,
+        type_: type[_Timestamped[T]],
+        initial_sync_event: asyncio.Event,
+        fetch: Callable[[Exchange], Awaitable[T]],
+        exchanges: list[str],
     ) -> None:
         period = self._cache_time
         _log.info(
@@ -229,18 +235,17 @@ class Informant:
         stop=stop_after_attempt_with_reset(8, 300),
         wait=wait_none_then_exponential(),
         retry=retry_if_exception_type(ExchangeException),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _sync_for_exchange(
-        self, exchange: str, key: str, type_: type[_Timestamped[T]],
-        fetch: Callable[[Exchange], Awaitable[T]]
+        self,
+        exchange: str,
+        key: str,
+        type_: type[_Timestamped[T]],
+        fetch: Callable[[Exchange], Awaitable[T]],
     ) -> None:
         now = self._get_time_ms()
-        item = await self._storage.get(
-            shard=exchange,
-            key=key,
-            type_=type_
-        )
+        item = await self._storage.get(shard=exchange, key=key, type_=type_)
         if not item:
             _log.info(
                 f'local {exchange} {get_name(type_)} missing; updating by fetching from exchange'

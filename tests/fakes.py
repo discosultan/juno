@@ -4,8 +4,18 @@ from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from juno import (
-    AssetInfo, BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
-    components, exchanges, storages
+    AssetInfo,
+    BorrowInfo,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Filters,
+    OrderResult,
+    OrderStatus,
+    components,
+    exchanges,
+    storages,
 )
 
 
@@ -164,8 +174,16 @@ class Chandler(components.Chandler):
         self.candle_intervals = candle_intervals
 
     async def stream_candles(
-        self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False,
-        simulate_open_from_interval=None, exchange_timeout=None
+        self,
+        exchange,
+        symbol,
+        interval,
+        start,
+        end,
+        closed=True,
+        fill_missing_with_last=False,
+        simulate_open_from_interval=None,
+        exchange_timeout=None,
     ):
         # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):
@@ -183,7 +201,7 @@ class Chandler(components.Chandler):
                                 low=last_c.low,
                                 close=last_c.close,
                                 volume=last_c.volume,
-                                closed=True
+                                closed=True,
                             )
                 if not closed or c.closed:
                     yield c
@@ -263,8 +281,13 @@ class Informant(components.Informant):
         return self.symbols
 
     def map_tickers(
-        self, exchange, symbol_patterns=None, exclude_symbol_patterns=None, spot=True,
-        cross_margin=False, isolated_margin=False
+        self,
+        exchange,
+        symbol_patterns=None,
+        exclude_symbol_patterns=None,
+        spot=True,
+        cross_margin=False,
+        isolated_margin=False,
     ):
         return self.tickers
 

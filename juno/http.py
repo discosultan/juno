@@ -6,7 +6,13 @@ import warnings
 from contextlib import asynccontextmanager
 from itertools import cycle
 from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Callable, Iterator, Optional
+    Any,
+    AsyncContextManager,
+    AsyncIterable,
+    AsyncIterator,
+    Callable,
+    Iterator,
+    Optional,
 )
 
 import aiohttp
@@ -78,7 +84,7 @@ class ClientSession:
         url: str,
         name: Optional[str] = None,
         raise_for_status: Optional[bool] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> AsyncIterator[ClientResponse]:
         name = name or next(_random_words)
         _log.info(f'req {name} {method} {url}')
@@ -92,8 +98,9 @@ class ClientSession:
             yield ClientResponse(res)
 
     @asynccontextmanager
-    async def ws_connect(self, url: str, name: Optional[str] = None,
-                         **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
+    async def ws_connect(
+        self, url: str, name: Optional[str] = None, **kwargs: Any
+    ) -> AsyncIterator[ClientWebSocketResponse]:
         name = name or next(_random_words)
         _log.info(f'WS {name} {url}: {kwargs}')
         async with self._session.ws_connect(url, **kwargs) as ws:
@@ -134,7 +141,7 @@ async def connect_refreshing_stream(
     loads: Callable[[str], Any],
     take_until: Callable[[Any, Any], bool],
     name: Optional[str] = None,
-    raise_on_disconnect: bool = False
+    raise_on_disconnect: bool = False,
 ) -> AsyncIterator[AsyncIterable[Any]]:
     """Streams messages over WebSocket. The connection is restarted every `interval` seconds.
     Ensures no data is lost during restart when switching from one connection to another.
@@ -153,8 +160,9 @@ async def connect_refreshing_stream(
             timeout_task = asyncio.create_task(asyncio.sleep(interval))
             while True:
                 receive_task = asyncio.create_task(_receive(ctx.ws))
-                done, _pending = await asyncio.wait((receive_task, timeout_task),
-                                                    return_when=asyncio.FIRST_COMPLETED)
+                done, _pending = await asyncio.wait(
+                    (receive_task, timeout_task), return_when=asyncio.FIRST_COMPLETED
+                )
 
                 if timeout_task in done:
                     _log.info(f'refreshing ws {ctx.name} connection')
@@ -189,7 +197,7 @@ async def connect_refreshing_stream(
                         )
                         raise aiohttp.WebSocketError(
                             aiohttp.WSCloseCode.GOING_AWAY,
-                            'Server unexpectedly closed WS connection'
+                            'Server unexpectedly closed WS connection',
                         )
                     else:
                         _log.warning(

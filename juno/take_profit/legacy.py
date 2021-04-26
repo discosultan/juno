@@ -16,16 +16,14 @@ class Legacy(TakeProfit):
 
     @property
     def upside_hit(self) -> bool:
-        return (
-            self._threshold > 0
-            and self._close >= self._close_at_position * (1 + self._threshold)
+        return self._threshold > 0 and self._close >= self._close_at_position * (
+            1 + self._threshold
         )
 
     @property
     def downside_hit(self) -> bool:
-        return (
-            self._threshold > 0
-            and self._close <= self._close_at_position * (1 - self._threshold)
+        return self._threshold > 0 and self._close <= self._close_at_position * (
+            1 - self._threshold
         )
 
     def clear(self, candle: Candle) -> None:

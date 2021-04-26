@@ -123,8 +123,11 @@ class CoreStatistics:
 
     @staticmethod
     def calculate_hodl_profit(
-        summary: TradingSummary, fees: Fees, filters: Filters, first_candle: Candle,
-        last_candle: Candle
+        summary: TradingSummary,
+        fees: Fees,
+        filters: Filters,
+        first_candle: Candle,
+        last_candle: Candle,
     ) -> Decimal:
         base_hodl = filters.size.round_down(summary.quote / first_candle.close)
         base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)

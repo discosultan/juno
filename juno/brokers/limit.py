@@ -5,8 +5,16 @@ from decimal import Decimal
 from typing import AsyncIterable, NamedTuple, Optional
 
 from juno import (
-    BadOrder, Fill, Filters, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate,
-    OrderWouldBeTaker, Side
+    BadOrder,
+    Fill,
+    Filters,
+    OrderMissing,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    OrderWouldBeTaker,
+    Side,
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User
@@ -155,8 +163,14 @@ class Limit(Broker):
         return res
 
     async def _fill(
-        self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
-        size: Optional[Decimal] = None, quote: Optional[Decimal] = None
+        self,
+        exchange: str,
+        account: str,
+        symbol: str,
+        side: Side,
+        ensure_size: bool,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
     ) -> OrderResult:
         client_id = self._user.generate_client_id(exchange)
         if size is not None:
@@ -225,8 +239,13 @@ class Limit(Broker):
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
 
     async def _keep_limit_order_best(
-        self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
-        ctx: _Context
+        self,
+        exchange: str,
+        account: str,
+        symbol: str,
+        side: Side,
+        ensure_size: bool,
+        ctx: _Context,
     ) -> None:
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         is_first = True
@@ -262,8 +281,7 @@ class Limit(Broker):
                         f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
                     )
                     fills_since_last_order = await asyncio.wait_for(
-                        ctx.cancelled_event.wait(),
-                        _CANCELLED_EVENT_WAIT_TIMEOUT
+                        ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT
                     )
                     filled_size_since_last_order = Fill.total_size(fills_since_last_order)
                     add_back_size = ctx.active_order.size - filled_size_since_last_order

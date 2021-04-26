@@ -48,9 +48,7 @@ class Container:
             self.add_singleton_type(type_)
 
     def add_singleton_type(
-        self,
-        type_: Any,
-        factory: Optional[Callable[[], type[Any]]] = None
+        self, type_: Any, factory: Optional[Callable[[], type[Any]]] = None
     ) -> None:
         self._singleton_types[type_] = factory if factory else lambda: type_
 
@@ -100,8 +98,9 @@ class Container:
 
             kwargs: dict[str, Any] = {}
             signature = inspect.signature(instance_type.__init__)
-            for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
-                                                           ).items():
+            for dep_name, dep_type in get_input_type_hints(
+                instance_type.__init__  # type: ignore
+            ).items():
                 resolved = self.resolve(
                     dep_type, is_root=False, default=signature.parameters[dep_name].default
                 )

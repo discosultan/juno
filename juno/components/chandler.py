@@ -59,10 +59,19 @@ class Chandler(AbstractAsyncContextManager):
         simulate_open_from_interval: Optional[int] = None,
         exchange_timeout: Optional[float] = None,
     ) -> list[Candle]:
-        return await list_async(self.stream_candles(
-            exchange, symbol, interval, start, end, closed, fill_missing_with_last,
-            simulate_open_from_interval, exchange_timeout
-        ))
+        return await list_async(
+            self.stream_candles(
+                exchange,
+                symbol,
+                interval,
+                start,
+                end,
+                closed,
+                fill_missing_with_last,
+                simulate_open_from_interval,
+                exchange_timeout,
+            )
+        )
 
     async def stream_candles(
         self,
@@ -199,10 +208,9 @@ class Chandler(AbstractAsyncContextManager):
         )
         missing_spans = list(generate_missing_spans(start, end, existing_spans))
 
-        spans = (
-            [(a, b, True) for a, b in existing_spans]
-            + [(a, b, False) for a, b in missing_spans]
-        )
+        spans = [(a, b, True) for a, b in existing_spans] + [
+            (a, b, False) for a, b in missing_spans
+        ]
         spans.sort(key=lambda s: s[0])
 
         last_closed_candle: Optional[Candle] = None
@@ -296,7 +304,7 @@ class Chandler(AbstractAsyncContextManager):
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),
-            before_sleep=before_sleep_log(_log, logging.WARNING)
+            before_sleep=before_sleep_log(_log, logging.WARNING),
         ):
             with attempt:
                 # We use a swap batch in order to swap the batch right before storing. With a
@@ -357,8 +365,14 @@ class Chandler(AbstractAsyncContextManager):
                     )
 
     async def _stream_exchange_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int,
-        timeout: Optional[float]
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int,
+        current: int,
+        timeout: Optional[float],
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
         interval_offsets = exchange_instance.map_candle_intervals()
@@ -471,7 +485,7 @@ class Chandler(AbstractAsyncContextManager):
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True
+                    closed=True,
                 )
                 current = next_
                 next_ = current + interval
@@ -498,7 +512,7 @@ class Chandler(AbstractAsyncContextManager):
                 low=low,
                 close=close,
                 volume=volume,
-                closed=True
+                closed=True,
             )
 
     async def _stream_construct_candles_by_volume(
@@ -534,7 +548,7 @@ class Chandler(AbstractAsyncContextManager):
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True
+                    closed=True,
                 )
                 current_volume -= volume
                 time = trade.time
@@ -553,9 +567,11 @@ class Chandler(AbstractAsyncContextManager):
         if not candle:
             exchange_instance = self._exchanges[exchange]
             if exchange_instance.can_stream_historical_earliest_candle:
-                candle = await first_async(exchange_instance.stream_historical_candles(
-                    symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
-                ))
+                candle = await first_async(
+                    exchange_instance.stream_historical_candles(
+                        symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
+                    )
+                )
             else:
                 # TODO: It would be faster to try to search the first candle of highest interval
                 # first. Then slowly move to more granular intervals until we find the requested
@@ -597,10 +613,7 @@ class Chandler(AbstractAsyncContextManager):
             candles = await self.list_candles(exchange, symbol, interval, from_, to)
             if len(candles) == 0:
                 start = mid + interval
-            elif (
-                len(candles) == 1
-                and to - from_ > interval  # Must not be last candle.
-            ):
+            elif len(candles) == 1 and to - from_ > interval:  # Must not be last candle.
                 return candles[0]
             else:
                 end = mid
@@ -617,9 +630,11 @@ class Chandler(AbstractAsyncContextManager):
         now = self._get_time_ms()
         end = floor_multiple_offset(now, interval, interval_offset)
         start = end - interval
-        return await first_async(exchange_instance.stream_historical_candles(
-            symbol=symbol, interval=interval, start=start, end=end
-        ))
+        return await first_async(
+            exchange_instance.stream_historical_candles(
+                symbol=symbol, interval=interval, start=start, end=end
+            )
+        )
 
     async def map_symbol_interval_candles(
         self, exchange: str, symbols: Iterable[str], intervals: Iterable[int], start: int, end: int
@@ -627,8 +642,10 @@ class Chandler(AbstractAsyncContextManager):
         symbols = set(symbols)
         intervals = set(intervals)
         candles = await asyncio.gather(
-            *(self.list_candles(exchange, s, i, start, end)
-              for s, i in itertools.product(symbols, intervals))
+            *(
+                self.list_candles(exchange, s, i, start, end)
+                for s, i in itertools.product(symbols, intervals)
+            )
         )
         return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}
 

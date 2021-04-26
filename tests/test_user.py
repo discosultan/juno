@@ -13,9 +13,7 @@ async def test_get_balance(mocker) -> None:
     exchange.map_balances.return_value = {'spot': {'btc': balance}}
 
     async with User(exchanges=[exchange]) as user:
-        out_balance = await user.get_balance(
-            exchange='magicmock', account='spot', asset='btc'
-        )
+        out_balance = await user.get_balance(exchange='magicmock', account='spot', asset='btc')
 
     assert out_balance == balance
 
@@ -34,7 +32,7 @@ async def test_map_all_significant_balances(mocker) -> None:
                 'eth': Balance(available=Decimal('1.0')),
                 'btc': Balance(),
             },
-        }
+        },
     ]
 
     async with User(exchanges=[exchange]) as user:

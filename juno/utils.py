@@ -63,7 +63,7 @@ def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
 
 def unpack_assets(symbol: str) -> tuple[str, str]:
     index_of_separator = symbol.find('-')
-    return symbol[:index_of_separator], symbol[index_of_separator + 1:]
+    return symbol[:index_of_separator], symbol[index_of_separator + 1 :]
 
 
 def unpack_base_asset(symbol: str) -> str:
@@ -73,7 +73,7 @@ def unpack_base_asset(symbol: str) -> str:
 
 def unpack_quote_asset(symbol: str) -> str:
     index_of_separator = symbol.find('-')
-    return symbol[index_of_separator + 1:]
+    return symbol[index_of_separator + 1 :]
 
 
 def home_path(*args: str) -> Path:
@@ -92,8 +92,7 @@ def load_json_file(root: str, rel_path: str) -> Any:
 
 
 def extract_public(obj: Any, exclude: Sequence[str] = []) -> Any:
-    """Turns all public fields and properties of an object into typed output. Non-recursive.
-    """
+    """Turns all public fields and properties of an object into typed output. Non-recursive."""
 
     type_ = type(obj)
 
@@ -103,7 +102,8 @@ def extract_public(obj: Any, exclude: Sequence[str] = []) -> Any:
 
     # Fields.
     fields = (
-        (n, v) for (n, v) in get_type_hints(type_).items()
+        (n, v)
+        for (n, v) in get_type_hints(type_).items()
         if not n.startswith('_') and n not in exclude
     )
     for name, field_type in fields:
@@ -134,31 +134,36 @@ def exc_traceback(exc: Exception) -> str:
 def map_concrete_module_types(
     module: ModuleType, abstract: Optional[type[Any]] = None
 ) -> dict[str, type[Any]]:
-    return {n.lower(): t for n, t in inspect.getmembers(
-        module,
-        lambda c: (
-            inspect.isclass(c)
-            and not inspect.isabstract(c)
-            and (True if abstract is None else issubclass(c, abstract))
+    return {
+        n.lower(): t
+        for n, t in inspect.getmembers(
+            module,
+            lambda c: (
+                inspect.isclass(c)
+                and not inspect.isabstract(c)
+                and (True if abstract is None else issubclass(c, abstract))
+            ),
         )
-    )}
+    }
 
 
 # Cannot use typevar T in place of Any here. Triggers: "Only concrete class can be given where type
 # is expected".
 # Ref: https://github.com/python/mypy/issues/5374
 def list_concretes_from_module(module: ModuleType, abstract: type[Any]) -> list[type[Any]]:
-    return [t for _n, t in inspect.getmembers(
-        module,
-        lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract)
-    )]
+    return [
+        t
+        for _n, t in inspect.getmembers(
+            module,
+            lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract),
+        )
+    ]
 
 
 def get_module_type(module: ModuleType, name: str) -> type[Any]:
     name_lower = name.lower()
     found_members = inspect.getmembers(
-        module,
-        lambda obj: inspect.isclass(obj) and obj.__name__.lower() == name_lower
+        module, lambda obj: inspect.isclass(obj) and obj.__name__.lower() == name_lower
     )
     if len(found_members) == 0:
         raise ValueError(f'Type named "{name}" not found in module "{module.__name__}".')

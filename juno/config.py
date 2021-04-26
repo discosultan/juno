@@ -19,8 +19,9 @@ def from_env(
     env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
 ) -> dict[str, Any]:
     result: dict[str, Any] = {}
-    entries = ((k.split(separator)[1:], v) for k, v in env.items()
-               if k.startswith(prefix + separator))
+    entries = (
+        (k.split(separator)[1:], v) for k, v in env.items() if k.startswith(prefix + separator)
+    )
     for keys, value in entries:
         typed_keys = [int(k) if str.isdigit(k) else k.lower() for k in keys]
         target: dict[Any, Any] = result
@@ -54,9 +55,8 @@ def list_names(config: dict[str, Any], name: str) -> set[str]:
         # Check for key list: `exchanges: ["binance", "coinbase"]`
         elif len(keys) >= 2:
             second_to_last_key = keys[-2]
-            if (
-                isinstance(second_to_last_key, str)
-                and _matches_name(second_to_last_key, name_plural)
+            if isinstance(second_to_last_key, str) and _matches_name(
+                second_to_last_key, name_plural
             ):
                 result.add(v)
     return result
@@ -183,7 +183,7 @@ def config_to_type(value: Any, type_: Any) -> Any:
         if origin is type:  # typing.type[T]
             raise NotImplementedError()
         if origin is list:  # typing.list[T]
-            st, = get_args(type_)
+            (st,) = get_args(type_)
             return [config_to_type(sv, st) for sv in value]
         if origin is dict:  # typing.dict[T, Y]
             skt, svt = get_args(type_)
@@ -217,7 +217,7 @@ def type_to_config(value: Any, type_: Any) -> Any:
         if origin is type:  # typing.type[T]
             return value.__name__.lower()
         if origin is list:  # typing.list[T]
-            st, = get_args(type_)
+            (st,) = get_args(type_)
             return [type_to_config(sv, st) for sv in value]
         if origin is dict:  # typing.dict[T, Y]
             skt, svt = get_args(type_)
@@ -257,7 +257,7 @@ def resolve_concrete(
 
 def _map_type_parent_module_types(type_: type[Any]) -> dict[str, type[Any]]:
     module_name = type_.__module__
-    parent_module_name = module_name[0:module_name.rfind('.')]
+    parent_module_name = module_name[0 : module_name.rfind('.')]
     return map_concrete_module_types(sys.modules[parent_module_name])
 
 
