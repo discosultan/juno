@@ -11,7 +11,11 @@ from more_itertools import take
 
 from juno import Advice, Candle, Interval, Timestamp
 from juno.asyncio import (
-    Event, SlotBarrier, cancel, create_task_cancel_owner_on_exception, process_task_on_queue
+    Event,
+    SlotBarrier,
+    cancel,
+    create_task_cancel_owner_on_exception,
+    process_task_on_queue,
 )
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
@@ -24,8 +28,14 @@ from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, PositionNotOpen, SimulatedPositionMixin, StartMixin,
-    TradingMode, TradingSummary
+    CloseReason,
+    Position,
+    PositionMixin,
+    PositionNotOpen,
+    SimulatedPositionMixin,
+    StartMixin,
+    TradingMode,
+    TradingSummary,
 )
 from juno.typing import TypeConstructor
 

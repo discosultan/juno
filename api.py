@@ -5,12 +5,10 @@ from typing import AsyncIterator
 from aiohttp import web
 
 import juno.json as json
-# from juno.asyncio import gather_dict
 from juno.components import Chandler
 from juno.exchanges import Binance
 from juno.logging import create_handlers
 from juno.storages import SQLite
-# from juno.time import strpinterval, strptimestamp
 from juno.typing import type_to_raw
 
 

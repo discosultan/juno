@@ -7,8 +7,17 @@ import pytest
 from pytest_lazyfixture import lazy_fixture
 
 from juno import (
-    BadOrder, Balance, Candle, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker, Trade,
-    exchanges
+    BadOrder,
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    OrderMissing,
+    OrderType,
+    Side,
+    Ticker,
+    Trade,
+    exchanges,
 )
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance

@@ -14,11 +14,11 @@ from tests import fakes
 
 filters = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
-    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
+    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
 )
 exchange_info = ExchangeInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
-    filters={'__all__': filters}
+    filters={'__all__': filters},
 )
 order_client_id = str(uuid4())
 
@@ -62,7 +62,7 @@ async def test_buy() -> None:
         status=OrderStatus.FILLED,
         fills=[Fill.with_computed_quote(
             price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
-        )]
+        )],
     )
     assert len(exchange.place_order_calls) == 1
     assert exchange.place_order_calls[0]['size'] == Decimal('0.2')

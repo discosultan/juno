@@ -5,8 +5,15 @@ from typing import cast
 import pytest
 
 from juno import (
-    Advice, BorrowInfo, Candle, Filters, MissedCandlePolicy, stop_loss, strategies, take_profit,
-    traders
+    Advice,
+    BorrowInfo,
+    Candle,
+    Filters,
+    MissedCandlePolicy,
+    stop_loss,
+    strategies,
+    take_profit,
+    traders,
 )
 from juno.asyncio import cancel
 from juno.strategies import Fixed, MidTrendPolicy

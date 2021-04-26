@@ -11,7 +11,14 @@ from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import (
-    AssetInfo, BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
+    AssetInfo,
+    BorrowInfo,
+    ExchangeException,
+    ExchangeInfo,
+    Fees,
+    Filters,
+    Ticker,
+    Timestamp,
 )
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange

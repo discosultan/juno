@@ -5,8 +5,16 @@ from decimal import Decimal
 from typing import AsyncIterable, NamedTuple, Optional
 
 from juno import (
-    BadOrder, Fill, Filters, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate,
-    OrderWouldBeTaker, Side
+    BadOrder,
+    Fill,
+    Filters,
+    OrderMissing,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    OrderWouldBeTaker,
+    Side,
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User

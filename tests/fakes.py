@@ -4,8 +4,18 @@ from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from juno import (
-    AssetInfo, BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
-    components, exchanges, storages
+    AssetInfo,
+    BorrowInfo,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Filters,
+    OrderResult,
+    OrderStatus,
+    components,
+    exchanges,
+    storages,
 )
 
 
@@ -183,7 +193,7 @@ class Chandler(components.Chandler):
                                 low=last_c.low,
                                 close=last_c.close,
                                 volume=last_c.volume,
-                                closed=True
+                                closed=True,
                             )
                 if not closed or c.closed:
                     yield c

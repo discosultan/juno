@@ -4,8 +4,18 @@ from decimal import Decimal
 import pytest
 
 from juno import (
-    Advice, Balance, Candle, Fees, Fill, Filters, OrderResult, OrderStatus, Ticker, stop_loss,
-    take_profit, traders
+    Advice,
+    Balance,
+    Candle,
+    Fees,
+    Fill,
+    Filters,
+    OrderResult,
+    OrderStatus,
+    Ticker,
+    stop_loss,
+    take_profit,
+    traders,
 )
 from juno.asyncio import cancel
 from juno.strategies import Fixed

@@ -11,8 +11,19 @@ from urllib.parse import urlencode
 
 import juno.json as json
 from juno.common import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, OrderResult, OrderStatus, OrderType,
-    OrderUpdate, Side, TimeInForce
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    Filters,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    Side,
+    TimeInForce,
 )
 from juno.errors import OrderMissing, OrderWouldBeTaker
 from juno.filters import MinNotional, Price, Size
@@ -411,55 +422,12 @@ class GateIO(Exchange):
 
     def map_candle_intervals(self) -> dict[int, int]:
         raise NotImplementedError()
-        # return {
-        #     60000: 0,  # 1m
-        #     180000: 0,  # 3m
-        #     300000: 0,  # 5m
-        #     900000: 0,  # 15m
-        #     1800000: 0,  # 30m
-        #     3600000: 0,  # 1h
-        #     7200000: 0,  # 2h
-        #     14400000: 0,  # 4h
-        #     21600000: 0,  # 6h
-        #     28800000: 0,  # 8h
-        #     43200000: 0,  # 12h
-        #     86400000: 0,  # 1d
-        #     259200000: 0,  # 3d
-        #     604800000: 345600000,  # 1w 4d
-        #     2629746000: 2541726000,  # 1M 4w1d10h2m6s
-        # }
 
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         raise NotImplementedError()
-        # limit = 1000  # Max possible candles per request.
-        # binance_interval = strfinterval(interval)
-        # binance_symbol = _to_http_symbol(symbol)
-        # # Start 0 is a special value indicating that we try to find the earliest available candle.
-        # pagination_interval = interval
-        # if start == 0:
-        #     pagination_interval = end - start
-        # for page_start, page_end in page(start, end, pagination_interval, limit):
-        #     _, content = await self._api_request(
-        #         'GET',
-        #         '/api/v3/klines',
-        #         data={
-        #             'symbol': binance_symbol,
-        #             'interval': binance_interval,
-        #             'startTime': page_start,
-        #             'endTime': page_end - 1,
-        #             'limit': limit
-        #         }
-        #     )
-        #     for c in content:
-        #         # Binance can return bad candles where the time does not fall within the requested
-        #         # interval. For example, the second candle of the following query has bad time:
-        #         # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
-        #         yield Candle(
-        #             c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
-        #             Decimal(c[5]), True
-        #         )
+        yield
 
 
 def _from_asset(asset: str) -> str:

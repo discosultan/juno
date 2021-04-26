@@ -1,10 +1,18 @@
+# Mypy requires us to use `Tuple` instead of `tuple` when passing it around as an object.
+
 from collections import deque
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum, IntEnum
-# Tuple import required here for mypy.
 from typing import (  # type: ignore
-    Any, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
+    Any,
+    Generic,
+    NamedTuple,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    _GenericAlias,
 )
 
 import pytest

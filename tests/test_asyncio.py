@@ -3,8 +3,20 @@ import asyncio
 import pytest
 
 from juno.asyncio import (
-    Barrier, Event, SlotBarrier, cancel, chain_async, dict_async, enumerate_async, first_async,
-    list_async, map_async, merge_async, repeat_async, resolved_stream, zip_async
+    Barrier,
+    Event,
+    SlotBarrier,
+    cancel,
+    chain_async,
+    dict_async,
+    enumerate_async,
+    first_async,
+    list_async,
+    map_async,
+    merge_async,
+    repeat_async,
+    resolved_stream,
+    zip_async,
 )
 
 

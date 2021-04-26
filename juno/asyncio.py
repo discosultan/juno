@@ -6,8 +6,17 @@ import signal
 import traceback
 from dataclasses import dataclass, field
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Awaitable, Callable, Coroutine, Generic, Iterable, Optional,
-    TypeVar, cast
+    Any,
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generic,
+    Iterable,
+    Optional,
+    TypeVar,
+    cast,
 )
 
 _log = logging.getLogger(__name__)
