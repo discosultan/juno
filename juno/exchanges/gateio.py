@@ -209,7 +209,7 @@ class GateIO(Exchange):
             f'/api/v4/spot/orders/t-{client_id}',
             params=params,
         ) as response:
-            if response.status == 400:
+            if response.status == 404:
                 content = await response.json()
                 raise OrderMissing(content['message'])
 

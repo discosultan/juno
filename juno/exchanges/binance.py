@@ -159,7 +159,7 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
         fees_ret, filters_ret, isolated_pairs, margin_ret, isolated_ret = await asyncio.gather(
             self._api_request('GET', '/sapi/v1/asset/tradeFee', security=_SEC_USER_DATA),
-            self._api_request('GET', '/api/v3/exchangeInfo'),
+            self._api_request('GET', '/api/v3/exchangeInfo', weight=10),
             self._list_symbols(isolated=True),
             self._request_json(
                 method='GET',
@@ -302,7 +302,7 @@ class Binance(Exchange):
         result = {}
         if account == 'spot':
             _, content = await self._api_request(
-                'GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA
+                'GET', '/api/v3/account', weight=10, security=_SEC_USER_DATA
             )
             result['spot'] = {
                 b['asset'].lower(): Balance(
@@ -439,7 +439,7 @@ class Binance(Exchange):
         # TODO: For margin accounts, if symbol specified, the weight in GitHub docs states 10 but
         # in binance-docs 1. Clarify!
         # TODO: Make the margin no-symbol weight calc dynamic.
-        weight = (1 if symbol else 40) if account == 'spot' else (10 if symbol else 40)
+        weight = (3 if symbol else 40) if account == 'spot' else (10 if symbol else 40)
         data = {}
         if symbol is not None:
             data['symbol'] = _to_http_symbol(symbol)
@@ -545,8 +545,15 @@ class Binance(Exchange):
             data['newClientOrderId'] = client_id
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
-        url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
-        _, content = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
+        if account == 'spot':
+            url = '/api/v3/order'
+            weight = 2
+        else:
+            url = '/sapi/v1/margin/order'
+            weight = 1
+        _, content = await self._api_request(
+            'POST', url, data=data, security=_SEC_TRADE, weight=weight
+        )
 
         # In case of LIMIT_MARKET order, the following are not present in the response:
         # - status
