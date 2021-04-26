@@ -71,8 +71,8 @@ class GateIO(Exchange):
             fee = Decimal(pair['fee']) / 100
             fees[symbol] = Fees(maker=fee, taker=fee)
             filters[symbol] = Filters(
-                base_precision=(base_precision := pair['precision']),
-                quote_precision=(quote_precision := pair['amount_precision']),
+                base_precision=(base_precision := pair['amount_precision']),
+                quote_precision=(quote_precision := pair['precision']),
                 size=Size(
                     min=(
                         Decimal('0.0') if (min_base_amount := pair.get('min_base_amount')) is None
@@ -221,6 +221,9 @@ class GateIO(Exchange):
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account == 'spot'
         channel = 'spot.orders'
+        # We need to track orders here because GateIO doesn't provide trade-level info, but only
+        # accumulated updates.
+        track_orders = {}
 
         # https://www.gateio.pro/docs/apiv4/ws/index.html#client-subscription-7
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
@@ -234,28 +237,23 @@ class GateIO(Exchange):
                     client_id = data['text'][2:]
                     event = data['event']
                     if event == 'put':
+                        track_orders[client_id] = {
+                            'acc_size': Decimal('0.0'),  # Base.
+                            'acc_quote': Decimal('0.0'),  # Quote.
+                            'acc_fee': Decimal('0.0'),
+                        }
                         yield OrderUpdate.New(client_id=client_id)
                     elif event == 'update':
                         yield OrderUpdate.Match(
                             client_id=client_id,
-                            fill=Fill.with_computed_quote(
-                                price=Decimal(data['price']),
-                                size=Decimal(data['amount']),
-                                fee=Decimal(data['fee']),
-                                fee_asset=_from_asset(data['fee_currency']),
-                            ),
+                            fill=acc_order_fill(track_orders[client_id], data),
                         )
                     elif event == 'finish':
                         time = _from_timestamp(data['update_time'])
                         if data['left'] == '0':
                             yield OrderUpdate.Match(
                                 client_id=client_id,
-                                fill=Fill.with_computed_quote(
-                                    price=Decimal(data['price']),
-                                    size=Decimal(data['amount']),
-                                    fee=Decimal(data['fee']),
-                                    fee_asset=_from_asset(data['fee_currency']),
-                                ),
+                                fill=acc_order_fill(track_orders[client_id], data),
                             )
                             yield OrderUpdate.Done(
                                 client_id=client_id,
@@ -266,6 +264,7 @@ class GateIO(Exchange):
                                 client_id=client_id,
                                 time=time,
                             )
+                        del track_orders[client_id]
                     else:
                         raise NotImplementedError()
 
@@ -428,6 +427,25 @@ class GateIO(Exchange):
     ) -> AsyncIterable[Candle]:
         raise NotImplementedError()
         yield
+
+
+def acc_order_fill(existing: dict[str, Decimal], data: Any) -> Fill:
+    acc_size = Decimal(data['amount']) - Decimal(data['left'])
+    acc_quote = Decimal(data['filled_total'])
+    acc_fee = Decimal(data['fee'])
+    size = acc_size - existing['acc_size']
+    quote = acc_quote - existing['acc_quote']
+    fee = acc_fee - existing['acc_fee']
+    existing['acc_size'] = acc_size
+    existing['acc_quote'] = acc_quote
+    existing['acc_fee'] = acc_fee
+    return Fill(
+        price=Decimal(data['price']),
+        size=size,
+        quote=quote,
+        fee=fee,
+        fee_asset=_from_asset(data['fee_currency']),
+    )
 
 
 def _from_asset(asset: str) -> str:
