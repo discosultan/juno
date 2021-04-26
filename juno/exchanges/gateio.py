@@ -246,14 +246,14 @@ class GateIO(Exchange):
                     elif event == 'update':
                         yield OrderUpdate.Match(
                             client_id=client_id,
-                            fill=acc_order_fill(track_orders[client_id], data),
+                            fill=_acc_order_fill(track_orders[client_id], data),
                         )
                     elif event == 'finish':
                         time = _from_timestamp(data['update_time'])
                         if data['left'] == '0':
                             yield OrderUpdate.Match(
                                 client_id=client_id,
-                                fill=acc_order_fill(track_orders[client_id], data),
+                                fill=_acc_order_fill(track_orders[client_id], data),
                             )
                             yield OrderUpdate.Done(
                                 client_id=client_id,
@@ -429,7 +429,7 @@ class GateIO(Exchange):
         yield
 
 
-def acc_order_fill(existing: dict[str, Decimal], data: Any) -> Fill:
+def _acc_order_fill(existing: dict[str, Decimal], data: Any) -> Fill:
     acc_size = Decimal(data['amount']) - Decimal(data['left'])
     acc_quote = Decimal(data['filled_total'])
     acc_fee = Decimal(data['fee'])
