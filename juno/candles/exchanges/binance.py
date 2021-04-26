@@ -63,7 +63,7 @@ class Binance(Exchange):
             for c in content:
                 # Binance can return bad candles where the time does not fall within the requested
                 # interval. For example, the second candle of the following query has bad time:
-                # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
+                # https://api.binance.com/api/v3/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
                 yield Candle(
                     c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
                     Decimal(c[5]), True

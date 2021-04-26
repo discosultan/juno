@@ -59,8 +59,8 @@ async def transact_symbol(
     base_asset, quote_asset = unpack_assets(symbol)
     fees, filters = informant.get_fees_filters(args.exchange, symbol)
 
-    available_base = balances[base_asset].available
-    available_quote = balances[quote_asset].available
+    available_base = balances.get(base_asset, Balance.zero()).available
+    available_quote = balances.get(quote_asset, Balance.zero()).available
     logging.info(
         f'available base: {available_base} {base_asset}; quote: {available_quote} '
         f'{quote_asset}'

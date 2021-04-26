@@ -47,6 +47,10 @@ class Balance(NamedTuple):
             or self.interest > 0
         )
 
+    @staticmethod
+    def zero() -> Balance:
+        return Balance(available=Decimal('0.0'), hold=Decimal('0.0'))
+
 
 class MissedCandlePolicy(IntEnum):
     IGNORE = 0
