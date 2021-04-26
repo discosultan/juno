@@ -12,8 +12,21 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from juno import (
-    AssetInfo, Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType,
-    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    AssetInfo,
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Filters,
+    OrderResult,
+    OrderType,
+    OrderUpdate,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
+    json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse

@@ -8,9 +8,17 @@ from typing import Any, AsyncIterable, AsyncIterator, Optional
 from multidict import MultiDict
 
 from juno import (
-    Balance, Fill,
-    Order, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, OrderWouldBeTaker, Side,
-    TimeInForce
+    Balance,
+    Fill,
+    Order,
+    OrderMissing,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    OrderWouldBeTaker,
+    Side,
+    TimeInForce,
 )
 from juno.exchanges.binance import Session, from_http_symbol, to_asset, to_http_symbol
 from juno.time import DAY_SEC

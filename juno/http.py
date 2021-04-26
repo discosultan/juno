@@ -6,7 +6,13 @@ import warnings
 from contextlib import asynccontextmanager
 from itertools import cycle
 from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Callable, Iterator, Optional
+    Any,
+    AsyncContextManager,
+    AsyncIterable,
+    AsyncIterator,
+    Callable,
+    Iterator,
+    Optional,
 )
 
 import aiohttp

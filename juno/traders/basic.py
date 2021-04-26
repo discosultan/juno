@@ -17,8 +17,14 @@ from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, PositionNotOpen, SimulatedPositionMixin, StartMixin,
-    TradingMode, TradingSummary
+    CloseReason,
+    Position,
+    PositionMixin,
+    PositionNotOpen,
+    SimulatedPositionMixin,
+    StartMixin,
+    TradingMode,
+    TradingSummary,
 )
 from juno.typing import TypeConstructor
 from juno.utils import unpack_assets

@@ -8,11 +8,23 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Generic, Iterable, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
+    Any,
+    Generic,
+    Iterable,
+    Optional,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
 )
 
 from typing_inspect import (
-    get_parameters, is_generic_type, is_optional_type, is_typevar, is_union_type
+    get_parameters,
+    is_generic_type,
+    is_optional_type,
+    is_typevar,
+    is_union_type,
 )
 
 ExcType = Optional[type[BaseException]]

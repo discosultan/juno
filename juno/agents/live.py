@@ -6,7 +6,10 @@ from typing import Any, Callable, NamedTuple, Optional
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Events, Informant
 from juno.config import (
-    format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+    format_as_config,
+    get_module_type_constructor,
+    get_type_name_and_kwargs,
+    kwargs_for,
 )
 from juno.storages import Storage
 from juno.time import MAX_TIME_MS, time_ms

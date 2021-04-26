@@ -17,11 +17,11 @@ from tests import fakes
 
 filters = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
-    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
+    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
 )
 exchange_info = ExchangeInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
-    filters={'__all__': filters}
+    filters={'__all__': filters},
 )
 order_client_id = str(uuid4())
 
@@ -62,7 +62,7 @@ async def test_fill() -> None:
             OrderUpdate.Done(
                 time=0,
                 client_id=order_client_id,
-            )
+            ),
         ],
         client_id=order_client_id,
     )

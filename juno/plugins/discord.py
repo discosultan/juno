@@ -15,7 +15,11 @@ from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader
 from juno.trading import (
-    CloseReason, Position, PositionNotOpen, SimulatedPositionMixin, TradingSummary
+    CloseReason,
+    Position,
+    PositionNotOpen,
+    SimulatedPositionMixin,
+    TradingSummary,
 )
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public

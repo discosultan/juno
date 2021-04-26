@@ -15,14 +15,36 @@ from typing import Any, AsyncIterable, AsyncIterator, Optional
 import aiohttp
 from multidict import MultiDict
 from tenacity import (
-    Retrying, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
+    Retrying,
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
     wait_exponential,
 )
 
 from juno import (
-    AssetInfo, BadOrder, Balance, BorrowInfo, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
-    Order, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, OrderWouldBeTaker, Side,
-    Ticker, TimeInForce, Trade, json
+    AssetInfo,
+    BadOrder,
+    Balance,
+    BorrowInfo,
+    Depth,
+    ExchangeException,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    Order,
+    OrderMissing,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    OrderWouldBeTaker,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
+    json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size

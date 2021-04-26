@@ -6,7 +6,10 @@ from typing import Any, Callable, NamedTuple, Optional
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Chandler, Events, Prices
 from juno.config import (
-    format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+    format_as_config,
+    get_module_type_constructor,
+    get_type_name_and_kwargs,
+    kwargs_for,
 )
 from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
@@ -100,7 +103,9 @@ class Backtest(Agent):
         await self._events.emit(state.name, 'starting', config, state, trader)
 
         await trader.run(state.result)
-        assert (summary := state.result.summary)
+
+        summary = state.result.summary
+        assert summary
 
         if not self._prices:
             _log.warning('skipping analysis; prices component not available')

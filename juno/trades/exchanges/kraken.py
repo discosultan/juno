@@ -3,8 +3,12 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator
 
 from juno.exchanges.kraken import (
-    Session, from_http_timestamp, from_ws_timestamp, to_http_symbol, to_http_timestamp,
-    to_ws_symbol
+    Session,
+    from_http_timestamp,
+    from_ws_timestamp,
+    to_http_symbol,
+    to_http_timestamp,
+    to_ws_symbol,
 )
 from juno.trades import Trade
 from juno.trades.exchanges import Exchange

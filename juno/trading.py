@@ -10,8 +10,12 @@ from types import ModuleType
 from typing import Iterable, Optional, Sequence, Union
 
 from tenacity import (
-    RetryError, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
-    wait_exponential
+    RetryError,
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
 )
 
 from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp

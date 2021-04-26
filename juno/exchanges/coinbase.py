@@ -15,9 +15,26 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optio
 from dateutil.tz import UTC
 
 from juno import (
-    AssetInfo, BadOrder, Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
-    Filters, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade, json
+    AssetInfo,
+    BadOrder,
+    Balance,
+    Candle,
+    Depth,
+    ExchangeException,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    Filters,
+    OrderMissing,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
+    json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size

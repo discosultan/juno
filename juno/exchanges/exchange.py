@@ -5,8 +5,17 @@ from typing import AsyncIterable, AsyncIterator, Optional
 from uuid import uuid4
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    OrderResult,
+    OrderType,
+    OrderUpdate,
+    Side,
+    Ticker,
+    TimeInForce,
+    Trade,
 )
 
 

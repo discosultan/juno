@@ -5,7 +5,14 @@ from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, NamedTuple, Optional, TypeVar, Union, get_type_hints
+    Any,
+    AsyncIterable,
+    ContextManager,
+    NamedTuple,
+    Optional,
+    TypeVar,
+    Union,
+    get_type_hints,
 )
 
 from juno import Interval, Timestamp, json
