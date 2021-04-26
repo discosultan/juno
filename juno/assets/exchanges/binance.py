@@ -20,7 +20,7 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
         fees_ret, filters_ret, isolated_pairs, margin_ret, isolated_ret = await asyncio.gather(
             self._api_request('GET', '/sapi/v1/asset/tradeFee', security=_SEC_USER_DATA),
-            self._api_request('GET', '/api/v3/exchangeInfo'),
+            self._api_request('GET', '/api/v3/exchangeInfo', weight=10),
             self._list_symbols(isolated=True),
             self._request_json(
                 method='GET',
