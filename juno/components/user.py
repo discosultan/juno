@@ -101,7 +101,9 @@ class User:
         # Currently, for Binance, we need to put all isolated margin accounts into an umbrella
         # 'isolated' account when requesting balances.
         account_arg = account if account in ['spot', 'margin'] else 'isolated'
-        return (await self._exchanges[exchange].map_balances(account=account_arg))[account][asset]
+        return (
+            await self._exchanges[exchange].map_balances(account=account_arg)
+        )[account].get(asset, Balance.zero())
 
     async def map_balances(
         self,
