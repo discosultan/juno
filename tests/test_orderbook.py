@@ -261,6 +261,20 @@ async def test_sync_on_exchange_exception() -> None:
             assert book.list_asks()
 
 
+async def test_initial_depth_update_out_of_sync_retry_only_get_depth(mocker) -> None:
+    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
+    exchange.can_stream_depth_snapshot = False
+    exchange.get_depth.side_effect = [Depth.Snapshot(last_id=1), Depth.Snapshot(last_id=2)]
+    depths: asyncio.Queue[Depth.Update] = asyncio.Queue()
+    depths.put_nowait(Depth.Update(asks=[(Decimal('1.0'), Decimal('1.0'))], first_id=3, last_id=3))
+    exchange.connect_stream_depth.return_value.__aenter__.return_value = stream_queue(depths)
+
+    async with Orderbook(exchanges=[exchange]) as orderbook:
+        async with orderbook.sync('magicmock', 'eth-btc') as book:
+            await asyncio.wait_for(depths.join(), timeout=1.0)
+            assert book.list_asks() == [(Decimal('1.0'), Decimal('1.0'))]
+
+
 def assert_fills(output, expected_output) -> None:
     for o, (eoprice, eosize, eofee) in zip(output, expected_output):
         assert o.price == eoprice

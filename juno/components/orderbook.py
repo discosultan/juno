@@ -11,7 +11,13 @@ from typing import AsyncIterable, AsyncIterator, Optional
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import Depth, ExchangeException, Fill, Filters, Side
-from juno.asyncio import Event, cancel, create_task_sigint_on_exception
+from juno.asyncio import (
+    Event,
+    cancel,
+    chain_async,
+    create_task_sigint_on_exception,
+    resolved_stream,
+)
 from juno.exchanges import Exchange
 from juno.math import round_half_up
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
@@ -22,6 +28,12 @@ _log = logging.getLogger(__name__)
 
 
 class _MissingDepth(Exception):
+    """Websocket received an update, but previous update is too old."""
+    pass
+
+
+class _MissingInitialDepth(Exception):
+    """Websocket received an update, but REST API snapshot is too old."""
     pass
 
 
@@ -223,39 +235,61 @@ class Orderbook:
                 async for depth in stream:
                     yield depth
             else:
-                snapshot = await exchange_instance.get_depth(symbol)
-                yield snapshot
+                async for attempt in AsyncRetrying(
+                    stop=stop_after_attempt_with_reset(4, 300),
+                    wait=wait_none_then_exponential(),
+                    retry=retry_if_exception_type(_MissingInitialDepth),
+                    before_sleep=before_sleep_log(_log, logging.WARNING)
+                ):
+                    with attempt:
+                        snapshot = await exchange_instance.get_depth(symbol)
+                        yield snapshot
 
-                last_update_id = snapshot.last_id
-                async for update in stream:
-                    assert isinstance(update, Depth.Update)
+                        is_first = True
+                        last_update_id = snapshot.last_id
+                        async for update in stream:
+                            assert isinstance(update, Depth.Update)
 
-                    if last_update_id == 0 and update.first_id == 0 and update.last_id == 0:
-                        yield update
-                        continue
+                            if (
+                                last_update_id == 0
+                                and update.first_id == 0
+                                and update.last_id == 0
+                            ):
+                                yield update
+                                continue
 
-                    assert update.last_id >= update.first_id
+                            assert update.last_id >= update.first_id
 
-                    if update.last_id <= last_update_id:
-                        _log.debug(
-                            f'skipping {symbol} depth update; {update.last_id=} <= '
-                            f'{last_update_id=}'
-                        )
-                        continue
+                            if update.last_id <= last_update_id:
+                                _log.debug(
+                                    f'skipping {symbol} depth update; {update.last_id=} <= '
+                                    f'{last_update_id=}'
+                                )
+                                continue
 
-                    # Normally `update.first_id` is `last_update_id + 1`. However, during the
-                    # initial update, it can be less than that because the snapeshot we received
-                    # partially covers the same update region as our update. In case there's a
-                    # missing depth update, we retry.
-                    if update.first_id > last_update_id + 1:
-                        _log.warning(
-                            f'{symbol} orderbook out of sync: {update.first_id=} > '
-                            f'{last_update_id=} + 1; refetching snapshot'
-                        )
-                        raise _MissingDepth()
+                            # Normally `update.first_id` is `last_update_id + 1`. However, during
+                            # the initial update, it can be less than that because the snapeshot we
+                            # received partially covers the same update region as our update. In
+                            # case there's a missing depth update, we retry.
+                            if update.first_id > last_update_id + 1:
+                                if is_first:
+                                    _log.warning(
+                                        f'{symbol} orderbook out of sync: {update.first_id=} > '
+                                        f'{last_update_id=} + 1; retrying fetching snapshot'
+                                    )
+                                    # Put the current update back into the stream.
+                                    stream = chain_async(resolved_stream(update), stream)
+                                    raise _MissingInitialDepth()
+                                else:
+                                    _log.warning(
+                                        f'{symbol} orderbook out of sync: {update.first_id=} > '
+                                        f'{last_update_id=} + 1; retrying from scratch'
+                                    )
+                                    raise _MissingDepth()
 
-                    yield update
-                    last_update_id = update.last_id
+                            yield update
+                            last_update_id = update.last_id
+                            is_first = False
 
 
 def _set_orderbook_side(
