@@ -8,7 +8,7 @@ from contextlib import AsyncExitStack
 from decimal import Decimal
 from typing import AsyncIterable, Callable, Iterable, Optional
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type
+from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
 from juno.asyncio import first_async, list_async, stream_with_timeout
@@ -292,7 +292,7 @@ class Chandler(AbstractAsyncContextManager):
         shard = key(exchange, symbol, interval)
         # Note that we need to use a context manager based retrying because retry decorators do not
         # work with async generator functions.
-        for attempt in Retrying(
+        async for attempt in AsyncRetrying(
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),

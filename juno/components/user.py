@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Optional
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
+from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
 from juno import Balance, ExchangeException, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception
@@ -219,7 +219,7 @@ class User:
     async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
         ctxs = self._wallet_sync_ctxs[(exchange, account)]
         is_first = True
-        for attempt in Retrying(
+        async for attempt in AsyncRetrying(
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_exponential(),
             retry=retry_if_exception_type(ExchangeException),
