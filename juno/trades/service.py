@@ -5,7 +5,7 @@ import logging
 from collections import deque
 from typing import AsyncIterable, Callable, Optional
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type
+from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import ExchangeException, Trade
 from juno.asyncio import list_async
@@ -82,7 +82,7 @@ class Trades(AbstractAsyncContextManager):
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
         shard = key(exchange, symbol)
-        for attempt in Retrying(
+        async for attempt in AsyncRetrying(
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),

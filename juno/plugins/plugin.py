@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from contextlib import AbstractAsyncContextManager
+
+from juno.utils import AbstractAsyncContextManager
 
 
 class Plugin(AbstractAsyncContextManager, ABC):
