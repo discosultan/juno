@@ -112,7 +112,7 @@ class Service:
         accounts: list[str],
         significant: Optional[bool] = None,
     ) -> dict[str, dict[str, Balance]]:
-        account_args = {a if a in ['spot', 'margin'] else 'isolated' for a in accounts}
+        account_args = {(a if a in {'spot', 'margin'} else 'isolated') for a in accounts}
 
         exchange_instance = self._exchanges[exchange]
         result: dict[str, dict[str, Balance]] = {}

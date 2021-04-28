@@ -8,9 +8,7 @@ from juno.config import from_env, init_instance
 from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    'accounts', nargs='?', type=lambda a: a.split(','), default='spot,margin,isolated'
-)
+parser.add_argument('accounts', nargs='?', type=lambda a: a.split(','), default=None)
 parser.add_argument('-e', '--exchange', default='binance')
 parser.add_argument('--stream', action='store_true', default=False)
 parser.add_argument('--empty', action='store_true', default=False)
@@ -21,11 +19,17 @@ async def main() -> None:
     client = init_instance(get_module_type(exchanges, args.exchange), from_env())
     user = User([client])
     async with client, user:
-        await log_accounts(user, args.accounts)
+        accounts = args.accounts
+        if accounts is None:
+            accounts = ['spot', 'margin', 'isolated'] if client.can_margin_trade else ['spot']
+        logging.info(f'fetching balances for accounts: {accounts}')
+
+        await log_accounts(user, accounts)
+
         if args.stream:
-            if 'isolated' in args.accounts:
+            if 'isolated' in accounts:
                 raise ValueError('Cannot stream all isolated margin accounts')
-            await asyncio.gather(*(stream_account(user, a) for a in args.accounts))
+            await asyncio.gather(*(stream_account(user, a) for a in accounts))
 
 
 async def log_accounts(user: User, accounts: list[str]) -> None:
