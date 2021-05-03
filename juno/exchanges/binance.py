@@ -823,30 +823,19 @@ class Binance(Exchange):
         )
         return ['spot', 'margin'] + [_from_symbol(b['symbol']) for b in content['assets']]
 
-    async def _wapi_request(
-        self,
-        method: str,
-        url: str,
-        weight: int = 1,
-        data: Optional[Any] = None,
-        security: int = _SEC_NONE,
-    ) -> tuple[ClientResponse, Any]:
-        res, content = await self._request(
-            method=method,
-            url=url,
-            weight=weight,
-            data=data,
-            security=security,
+    async def list_deposit_history(self):
+        # Does not support FIAT.
+        _, content = await self._api_request(
+            'GET', '/sapi/v1/capital/deposit/hisrec', security=_SEC_USER_DATA
         )
-        if not content.get('success'):
-            # There's no error code in this response to figure out whether it's a timestamp issue.
-            # We could look it up from the message, but currently just assume that is the case
-            # always.
-            _log.warning(f'received error: {content["msg"]}; syncing clock before exc')
-            self._clock.clear()
-            raise ExchangeException(content['msg'])
-        res.raise_for_status()
-        return res, content
+        return content
+
+    async def list_withdraw_history(self):
+        # Does not support FIAT.
+        _, content = await self._api_request(
+            'GET', '/sapi/v1/capital/withdraw/history', security=_SEC_USER_DATA
+        )
+        return content
 
     async def _api_request(
         self,
