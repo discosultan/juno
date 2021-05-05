@@ -440,6 +440,19 @@ class Binance(Exchange):
         )
         return ['spot', 'margin'] + [from_http_symbol(b['symbol']) for b in content['assets']]
 
+    async def list_withdraw_history(self):
+        # Does not support FIAT.
+        _, content = await self._session.api_request(
+            'GET', '/sapi/v1/capital/withdraw/history', security=_SEC_USER_DATA
+        )
+        return content
+
+    async def list_deposit_history(self):
+        # Does not support FIAT.
+        _, content = await self._session.api_request(
+            'GET', '/sapi/v1/capital/deposit/hisrec', security=_SEC_USER_DATA
+        )
+
     async def _get_user_data_stream(self, account: str) -> UserDataStream:
         if not (stream := self._user_data_streams.get(account)):
             stream = UserDataStream(self, account)
