@@ -835,11 +835,11 @@ class Binance(Exchange):
         )
         return ['spot', 'margin'] + [_from_symbol(b['symbol']) for b in content['assets']]
 
-    async def list_deposit_history(self):
+    async def list_deposit_history(self, end: Optional[int] = None):
         # Does not support FIAT.
-        now = time_ms()
+        end = time_ms() if end is None else end
         tasks = []
-        for page_start, page_end in page(_BINANCE_START, now, DAY_MS * 90):
+        for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
             tasks.append(self._api_request(
                 'GET',
                 '/sapi/v1/capital/deposit/hisrec',
@@ -852,11 +852,11 @@ class Binance(Exchange):
         results = await asyncio.gather(*tasks)
         return [record for _, content in results for record in content]
 
-    async def list_withdraw_history(self):
+    async def list_withdraw_history(self, end: Optional[int] = None):
         # Does not support FIAT.
-        now = time_ms()
+        end = time_ms() if end is None else end
         tasks = []
-        for page_start, page_end in page(_BINANCE_START, now, DAY_MS * 90):
+        for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
             tasks.append(self._api_request(
                 'GET',
                 '/sapi/v1/capital/withdraw/history',

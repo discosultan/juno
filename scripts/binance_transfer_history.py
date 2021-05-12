@@ -6,9 +6,15 @@ import logging
 import juno.json as json
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
-from juno.time import strftimestamp
+from juno.time import strftimestamp, strptimestamp
 
 parser = argparse.ArgumentParser()
+parser.add_argument(
+    '--end',
+    action='store_true',
+    type=strptimestamp,
+    default=None,
+)
 parser.add_argument(
     '--dump',
     action='store_true',
@@ -20,8 +26,8 @@ args = parser.parse_args()
 async def main() -> None:
     async with init_instance(Binance, from_env()) as client:
         deposits, withdrawals = await asyncio.gather(
-            client.list_deposit_history(),
-            client.list_withdraw_history(),
+            client.list_deposit_history(end=args.end),
+            client.list_withdraw_history(end=args.end),
         )
 
     transfers = []
