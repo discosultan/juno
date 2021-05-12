@@ -49,8 +49,18 @@ from juno import (
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
-from juno.itertools import page
-from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
+from juno.itertools import page, page_limit
+from juno.time import (
+    DAY_MS,
+    DAY_SEC,
+    HOUR_MS,
+    HOUR_SEC,
+    MIN_MS,
+    MIN_SEC,
+    strfinterval,
+    strptimestamp,
+    time_ms,
+)
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import AsyncLimiter, unpack_assets
 
@@ -75,6 +85,8 @@ _ERR_INVALID_LISTEN_KEY = -1125
 _ERR_TOO_MANY_REQUESTS = -1003
 _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST = -11001
 _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS = -11004
+
+_BINANCE_START = strptimestamp('2017-07-01')
 
 _log = logging.getLogger(__name__)
 
@@ -602,7 +614,7 @@ class Binance(Exchange):
         pagination_interval = interval
         if start == 0:
             pagination_interval = end - start
-        for page_start, page_end in page(start, end, pagination_interval, limit):
+        for page_start, page_end in page_limit(start, end, pagination_interval, limit):
             _, content = await self._api_request(
                 'GET',
                 '/api/v3/klines',
@@ -825,17 +837,37 @@ class Binance(Exchange):
 
     async def list_deposit_history(self):
         # Does not support FIAT.
-        _, content = await self._api_request(
-            'GET', '/sapi/v1/capital/deposit/hisrec', security=_SEC_USER_DATA
-        )
-        return content
+        now = time_ms()
+        tasks = []
+        for page_start, page_end in page(_BINANCE_START, now, DAY_MS * 90):
+            tasks.append(self._api_request(
+                'GET',
+                '/sapi/v1/capital/deposit/hisrec',
+                data={
+                    'startTime': page_start,
+                    'endTime': page_end - 1,
+                },
+                security=_SEC_USER_DATA,
+            ))
+        results = await asyncio.gather(*tasks)
+        return [content for _, content in results]
 
     async def list_withdraw_history(self):
         # Does not support FIAT.
-        _, content = await self._api_request(
-            'GET', '/sapi/v1/capital/withdraw/history', security=_SEC_USER_DATA
-        )
-        return content
+        now = time_ms()
+        tasks = []
+        for page_start, page_end in page(_BINANCE_START, now, DAY_MS * 90):
+            tasks.append(self._api_request(
+                'GET',
+                '/sapi/v1/capital/withdraw/history',
+                data={
+                    'startTime': page_start,
+                    'endTime': page_end - 1,
+                },
+                security=_SEC_USER_DATA,
+            ))
+        results = await asyncio.gather(*tasks)
+        return [content for _, content in results]
 
     async def _api_request(
         self,
@@ -1240,7 +1272,7 @@ def _from_symbol(symbol: str) -> str:
     known_quote_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
         'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI', 'BRL',
-        'BVND', 'VAI'
+        'BVND', 'VAI', 'GYEN'
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):

@@ -39,7 +39,7 @@ from juno import (
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
 from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
-from juno.itertools import page
+from juno.itertools import page_limit
 from juno.math import round_half_up
 from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -171,7 +171,7 @@ class Coinbase(Exchange):
     ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
         url = f'/products/{_to_product(symbol)}/candles'
-        for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
+        for page_start, page_end in page_limit(start, end, interval, MAX_CANDLES_PER_REQUEST):
             _, content = await self._public_request(
                 'GET', url, {
                     'start': _to_datetime(page_start),
