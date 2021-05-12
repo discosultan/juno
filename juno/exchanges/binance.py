@@ -850,7 +850,7 @@ class Binance(Exchange):
                 security=_SEC_USER_DATA,
             ))
         results = await asyncio.gather(*tasks)
-        return [content for _, content in results]
+        return [record for _, content in results for record in content]
 
     async def list_withdraw_history(self):
         # Does not support FIAT.
@@ -867,7 +867,7 @@ class Binance(Exchange):
                 security=_SEC_USER_DATA,
             ))
         results = await asyncio.gather(*tasks)
-        return [content for _, content in results]
+        return [record for _, content in results for record in content]
 
     async def _api_request(
         self,
