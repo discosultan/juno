@@ -11,7 +11,6 @@ from juno.time import strftimestamp, strptimestamp
 parser = argparse.ArgumentParser()
 parser.add_argument(
     '--end',
-    action='store_true',
     type=strptimestamp,
     default=None,
 )
@@ -25,40 +24,50 @@ args = parser.parse_args()
 
 async def main() -> None:
     async with init_instance(Binance, from_env()) as client:
-        deposits, withdrawals = await asyncio.gather(
+        raw_deposits, raw_withdrawals = await asyncio.gather(
             client.list_deposit_history(end=args.end),
             client.list_withdraw_history(end=args.end),
         )
+    raw_deposits.sort(key=lambda x: x['insertTime'])
+    raw_withdrawals.sort(key=lambda x: x['applyTime'])
 
-    transfers = []
-    for deposit in deposits:
+    deposits = []
+    for deposit in raw_deposits:
         status = deposit_status(deposit['status'])
-        if status == 'success':
-            transfers.append({
-                'time': timestamp(deposit['insertTime']),
-                'type': 'deposit',
-                'amount': deposit['amount'],
-                'currency': deposit['coin'],
-            })
-    for withdrawal in withdrawals:
-        status = withdraw_status(withdrawal['status'])
-        if status == 'completed':
-            transfers.append({
-                'time': withdrawal['applyTime'],
-                'type': 'withdrawal',
-                'amount': withdrawal['amount'],
-                'currency': withdrawal['coin'],
-            })
-    # Sort by time ascending.
-    transfers.sort(key=lambda r: r['time'])
+        deposits.append({
+            'Date(UTC)': timestamp(deposit['insertTime']),
+            'Amount': deposit['amount'],
+            'Coin': deposit['coin'],
+            'Status': status,
+        })
 
-    logging.info(json.dumps(transfers, 4))
+    withdrawals = []
+    for withdrawal in raw_withdrawals:
+        status = withdraw_status(withdrawal['status'])
+        withdrawals.append({
+            'Date(UTC)': withdrawal['applyTime'],
+            'Amount': withdrawal['amount'],
+            'Coin': withdrawal['coin'],
+            'Status': status,
+        })
+
+    logging.info('DEPOSITS')
+    logging.info(json.dumps(deposits, 4))
+    logging.info('WITHDRAWALS')
+    logging.info(json.dumps(withdrawals, 4))
 
     if args.dump:
-        with open('crypto_transfers.csv', 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, ['time', 'type', 'amount', 'currency'])
+        headers = ['Date(UTC)', 'Amount', 'Coin', 'Status']
+
+        with open('crypto_deposits.csv', 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, headers)
             writer.writeheader()
-            writer.writerows(transfers)
+            writer.writerows(deposits)
+
+        with open('crypto_withdrawals.csv', 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, headers)
+            writer.writeheader()
+            writer.writerows(withdrawals)
 
 
 def timestamp(value: int) -> str:
