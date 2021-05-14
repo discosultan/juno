@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -21,7 +22,8 @@ from juno import (
     TimeInForce,
 )
 from juno.exchanges.binance import Session, from_http_symbol, to_asset, to_http_symbol
-from juno.time import DAY_SEC
+from juno.itertools import page
+from juno.time import DAY_MS, DAY_SEC, strptimestamp, time_ms
 from juno.user.exchanges import Exchange
 from juno.utils import AsyncLimiter, unpack_assets
 
@@ -45,6 +47,8 @@ _ERR_TOO_MANY_REQUESTS = -1003
 _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST = -11001
 _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS = -11004
 
+_BINANCE_START = strptimestamp('2017-07-01')
+
 _log = logging.getLogger(__name__)
 
 
@@ -55,7 +59,7 @@ class Binance(Exchange):
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
 
-    def __init__(session: Session) -> None:
+    def __init__(self, session: Session) -> None:
         self._session = session
 
         # Rate limiters.
@@ -332,7 +336,7 @@ class Binance(Exchange):
             assert from_account != 'margin' and to_account != 'margin'
             assert from_account == 'spot' or to_account == 'spot'
             to_spot = to_account == 'spot'
-            await self._api_request(
+            await self._session.api_request(
                 'POST',
                 '/sapi/v1/margin/isolated/transfer',
                 data={
@@ -440,18 +444,39 @@ class Binance(Exchange):
         )
         return ['spot', 'margin'] + [from_http_symbol(b['symbol']) for b in content['assets']]
 
-    async def list_withdraw_history(self):
+    async def list_deposit_history(self, end: Optional[int] = None):
         # Does not support FIAT.
-        _, content = await self._session.api_request(
-            'GET', '/sapi/v1/capital/withdraw/history', security=_SEC_USER_DATA
-        )
-        return content
+        end = time_ms() if end is None else end
+        tasks = []
+        for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
+            tasks.append(self._session.api_request(
+                'GET',
+                '/sapi/v1/capital/deposit/hisrec',
+                data={
+                    'startTime': page_start,
+                    'endTime': page_end - 1,
+                },
+                security=_SEC_USER_DATA,
+            ))
+        results = await asyncio.gather(*tasks)
+        return [record for _, content in results for record in content]
 
-    async def list_deposit_history(self):
+    async def list_withdraw_history(self, end: Optional[int] = None):
         # Does not support FIAT.
-        _, content = await self._session.api_request(
-            'GET', '/sapi/v1/capital/deposit/hisrec', security=_SEC_USER_DATA
-        )
+        end = time_ms() if end is None else end
+        tasks = []
+        for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
+            tasks.append(self._session.api_request(
+                'GET',
+                '/sapi/v1/capital/withdraw/history',
+                data={
+                    'startTime': page_start,
+                    'endTime': page_end - 1,
+                },
+                security=_SEC_USER_DATA,
+            ))
+        results = await asyncio.gather(*tasks)
+        return [record for _, content in results for record in content]
 
     async def _get_user_data_stream(self, account: str) -> UserDataStream:
         if not (stream := self._user_data_streams.get(account)):

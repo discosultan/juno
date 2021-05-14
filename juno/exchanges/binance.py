@@ -9,11 +9,9 @@ import urllib.parse
 import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator, Optional
 
 import aiohttp
-from multidict import MultiDict
 from tenacity import (
     Retrying,
     before_sleep_log,
@@ -47,7 +45,6 @@ from juno import (
     json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
-from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -548,7 +545,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         data = {}
         if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
+            data['symbol'] = to_http_symbol(self._account)
         return await self._binance._api_request(
             'POST',
             self._base_url,
@@ -568,7 +565,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         data = {'listenKey': listen_key}
         if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
+            data['symbol'] = to_http_symbol(self._account)
         return await self._binance._api_request(
             'PUT',
             self._base_url,
@@ -615,7 +612,7 @@ def from_http_symbol(symbol: str) -> str:
     known_quote_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
         'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI', 'BRL',
-        'BVND', 'VAI'
+        'BVND', 'VAI', 'GYEN'
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):
@@ -629,50 +626,3 @@ def from_http_symbol(symbol: str) -> str:
         base = symbol[:split_index]
         quote = symbol[split_index:]
     return f'{base.lower()}-{quote.lower()}'
-
-
-def _to_side(side: Side) -> str:
-    return {
-        Side.BUY: 'BUY',
-        Side.SELL: 'SELL',
-    }[side]
-
-
-def _to_order_type(type_: OrderType) -> str:
-    return {
-        OrderType.MARKET: 'MARKET',
-        OrderType.LIMIT: 'LIMIT',
-        # OrderType.STOP_LOSS: 'STOP_LOSS',
-        # OrderType.STOP_LOSS_LIMIT: 'STOP_LOSS_LIMIT',
-        # OrderType.TAKE_PROFIT: 'TAKE_PROFIT',
-        # OrderType.TAKE_PROFIT_LIMIT: 'TAKE_PROFIT_LIMIT',
-        OrderType.LIMIT_MAKER: 'LIMIT_MAKER',
-    }[type_]
-
-
-def _to_time_in_force(time_in_force: TimeInForce) -> str:
-    return {
-        TimeInForce.GTC: 'GTC',
-        TimeInForce.IOC: 'IOC',
-        TimeInForce.FOK: 'FOK',
-        # TimeInForce.GTT: 'GTT',
-    }[time_in_force]
-
-
-def _from_order_status(status: str) -> OrderStatus:
-    status_map = {
-        'NEW': OrderStatus.NEW,
-        'PARTIALLY_FILLED': OrderStatus.PARTIALLY_FILLED,
-        'FILLED': OrderStatus.FILLED,
-        'CANCELED': OrderStatus.CANCELLED
-    }
-    mapped_status = status_map.get(status)
-    if not mapped_status:
-        raise NotImplementedError(f'Handling of status {status} not implemented')
-    return mapped_status
-
-
-def _to_decimal(value: Decimal) -> str:
-    # Converts from scientific notation.
-    # 6.4E-7 -> 0.0000_0064
-    return f'{value:f}'

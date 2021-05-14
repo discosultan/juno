@@ -4,7 +4,7 @@ from typing import AsyncIterable
 from juno.candles import Candle
 from juno.candles.exchanges import Exchange
 from juno.exchanges.coinbase import Session, to_interval, to_symbol, to_timestamp
-from juno.itertools import page
+from juno.itertools import page_limit
 
 
 class Coinbase(Exchange):
@@ -31,7 +31,7 @@ class Coinbase(Exchange):
     ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
         url = f'/products/{to_symbol(symbol)}/candles'
-        for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
+        for page_start, page_end in page_limit(start, end, interval, MAX_CANDLES_PER_REQUEST):
             _, content = await self._public_request(
                 'GET', url, {
                     'start': to_timestamp(page_start),

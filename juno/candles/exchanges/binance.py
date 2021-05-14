@@ -5,7 +5,7 @@ from typing import Any, AsyncIterable, AsyncIterator
 from juno.candles import Candle
 from juno.candles.exchanges import Exchange
 from juno.exchanges.binance import Session, to_http_symbol, to_ws_symbol
-from juno.itertools import page
+from juno.itertools import page_limit
 from juno.time import HOUR_SEC, strfinterval
 
 
@@ -47,7 +47,7 @@ class Binance(Exchange):
         pagination_interval = interval
         if start == 0:
             pagination_interval = end - start
-        for page_start, page_end in page(start, end, pagination_interval, limit):
+        for page_start, page_end in page_limit(start, end, pagination_interval, limit):
             content = await self._session.request_json(
                 method='GET',
                 url='/api/v3/klines',
