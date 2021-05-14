@@ -39,6 +39,7 @@ async def main() -> None:
             'Amount': deposit['amount'],
             'Coin': deposit['coin'],
             'Status': status,
+            'Transaction ID': deposit['txId'],
         })
 
     withdrawals = []
@@ -49,6 +50,8 @@ async def main() -> None:
             'Amount': withdrawal['amount'],
             'Coin': withdrawal['coin'],
             'Status': status,
+            'Fee': withdrawal['transactionFee'],
+            'Transaction ID': withdrawal['txId'],
         })
 
     logging.info('DEPOSITS')
@@ -57,15 +60,19 @@ async def main() -> None:
     logging.info(json.dumps(withdrawals, 4))
 
     if args.dump:
-        headers = ['Date(UTC)', 'Amount', 'Coin', 'Status']
-
         with open('crypto_deposits.csv', 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, headers)
+            writer = csv.DictWriter(
+                csvfile,
+                ['Date(UTC)', 'Amount', 'Coin', 'Status', 'Transaction ID'],
+            )
             writer.writeheader()
             writer.writerows(deposits)
 
         with open('crypto_withdrawals.csv', 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, headers)
+            writer = csv.DictWriter(
+                csvfile,
+                ['Date(UTC)', 'Amount', 'Coin', 'Status', 'Fee', 'Transaction ID'],
+            )
             writer.writeheader()
             writer.writerows(withdrawals)
 
