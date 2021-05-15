@@ -28,12 +28,16 @@ class Trades(AbstractAsyncContextManager):
     def __init__(
         self,
         storage: Storage,
-        exchanges: list[Session],
+        exchange_sessions: list[Session] = [],
         get_time_ms: Callable[[], int] = time_ms,
-        storage_batch_size: int = 1000
+        storage_batch_size: int = 1000,
+        exchanges: list[Exchange] = [],
     ) -> None:
         self._storage = storage
-        self._exchanges = Exchange.map_from_sessions(exchanges)
+        self._exchanges = (
+            Exchange.map_from_sessions(exchange_sessions)
+            | {type(e).__name__.lower(): e for e in exchanges}
+        )
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
 

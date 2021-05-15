@@ -35,7 +35,7 @@ now = time_ms()
 async def main() -> None:
     storage = get_module_type(storages, args.storage)()
     client = init_instance(get_module_type(exchanges, args.exchange), from_env())
-    trades = Trades(storage=storage, exchanges=[client])
+    trades = Trades(storage=storage, exchange_sessions=[client])
     chandler = Chandler(trades=trades, storage=storage, exchanges=[client])
     async with client, trades, chandler:
         await asyncio.gather(

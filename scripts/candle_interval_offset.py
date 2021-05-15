@@ -21,7 +21,7 @@ args = parser.parse_args()
 async def main() -> None:
     exchange = init_instance(get_module_type(exchanges, args.exchange), from_env())
     storage = SQLite()
-    trades = Trades(storage=storage, exchanges=[exchange])
+    trades = Trades(storage=storage, exchange_sessions=[exchange])
     chandler = Chandler(storage=storage, exchanges=[exchange], trades=trades)
 
     async with exchange, storage, trades, chandler:

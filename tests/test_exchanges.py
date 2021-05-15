@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+import aiohttp
 import pytest
 
 from juno import (
@@ -18,6 +19,12 @@ from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
 from juno.time import HOUR_MS, MIN_MS, strptimestamp
 from juno.typing import types_match
 from tests.exchanges import parametrize_exchange, skip_not_configured
+
+
+@pytest.fixture(scope='session')
+def loop():
+    with aiohttp.test_utils.loop_context() as loop:
+        yield loop
 
 
 @pytest.mark.exchange
