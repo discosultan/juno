@@ -38,9 +38,6 @@ class User:
         ] = defaultdict(dict)
 
     async def __aenter__(self) -> User:
-        await asyncio.gather(
-            *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
-        )
         _log.info('ready')
         return self
 
@@ -64,8 +61,6 @@ class User:
     async def sync_wallet(
         self, exchange: str, account: str
     ) -> AsyncIterator[WalletSyncContext]:
-        await self._ensure_account(exchange, account)
-
         id_ = str(uuid.uuid4())
         key = (exchange, account)
         ctxs = self._wallet_sync_ctxs[key]
@@ -137,7 +132,6 @@ class User:
     async def connect_stream_orders(
         self, exchange: str, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        await self._ensure_account(exchange, account)
         async with self._exchanges[exchange].connect_stream_orders(
             account=account, symbol=symbol
         ) as stream:
@@ -156,7 +150,6 @@ class User:
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
     ) -> OrderResult:
-        await self._ensure_account(exchange, account)
         return await self._exchanges[exchange].place_order(
             account=account,
             symbol=symbol,
@@ -176,7 +169,6 @@ class User:
         symbol: str,
         client_id: str,
     ) -> None:
-        await self._ensure_account(exchange, account)
         await self._exchanges[exchange].cancel_order(
             account=account,
             symbol=symbol,
@@ -186,35 +178,18 @@ class User:
     async def transfer(
         self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
-        await self._ensure_account(exchange, to_account)
         await self._exchanges[exchange].transfer(
             asset=asset, size=size, from_account=from_account, to_account=to_account
         )
 
     async def borrow(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
-        await self._ensure_account(exchange, account)
         await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
 
     async def repay(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
-        await self._ensure_account(exchange, account)
         await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
 
     async def get_max_borrowable(self, exchange: str, asset: str, account: str) -> Decimal:
-        await self._ensure_account(exchange, account)
         return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
-
-    async def _ensure_account(self, exchange: str, account: str) -> None:
-        if account in self._open_accounts[exchange]:
-            return
-        try:
-            await self._exchanges[exchange].create_account(account)
-            self._open_accounts[exchange].add(account)
-        except ExchangeException:
-            _log.info(f'account {account} already created')
-
-    async def _fetch_open_accounts(self, exchange: str) -> None:
-        open_accounts = await self._exchanges[exchange].list_open_accounts()
-        self._open_accounts[exchange] = set(open_accounts)
 
     async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
         ctxs = self._wallet_sync_ctxs[(exchange, account)]

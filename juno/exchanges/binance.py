@@ -800,19 +800,6 @@ class Binance(Exchange):
         )
         return Decimal(content['amount'])
 
-    async def create_account(self, account: str) -> None:
-        assert account not in ['spot', 'margin']
-        base_asset, quote_asset = unpack_assets(account)
-        await self._api_request(
-            'POST',
-            '/sapi/v1/margin/isolated/create',
-            data={
-                'base': _to_asset(base_asset),
-                'quote': _to_asset(quote_asset),
-            },
-            security=_SEC_USER_DATA,
-        )
-
     async def convert_dust(self, assets: list[str]) -> None:
         await self._api_request(
             'POST',
@@ -828,12 +815,6 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
         return [_from_symbol(s['symbol']) for s in content]
-
-    async def list_open_accounts(self) -> list[str]:
-        _, content = await self._api_request(
-            'GET', '/sapi/v1/margin/isolated/account', security=_SEC_USER_DATA
-        )
-        return ['spot', 'margin'] + [_from_symbol(b['symbol']) for b in content['assets']]
 
     async def list_deposit_history(self, end: Optional[int] = None):
         # Does not support FIAT.
@@ -958,7 +939,6 @@ class Binance(Exchange):
             '/sapi/v1/userDataStream',
             '/sapi/v1/userDataStream/isolated',
             '/sapi/v1/margin/isolated/transfer',
-            '/sapi/v1/margin/isolated/create',
         }:
             limiters.append(self._margin_limiter.acquire())
 

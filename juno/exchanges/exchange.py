@@ -136,6 +136,3 @@ class Exchange(ABC):
 
     async def create_account(self, account: str) -> None:
         pass
-
-    async def list_open_accounts(self) -> list[str]:
-        return ['spot']
