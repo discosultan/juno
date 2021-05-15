@@ -18,9 +18,8 @@ from juno.math import ceil_multiple_offset, floor_multiple_offset
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
+from juno.trades import Trades
 from juno.utils import AbstractAsyncContextManager, key, unpack_assets
-
-from .trades import Trades
 
 _log = logging.getLogger(__name__)
 

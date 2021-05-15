@@ -4,7 +4,6 @@ import asyncio
 import base64
 import hashlib
 import hmac
-import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -33,7 +32,6 @@ from juno import (
     Side,
     Ticker,
     TimeInForce,
-    Trade,
     json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
@@ -49,8 +47,6 @@ from .exchange import Exchange
 
 _BASE_REST_URL = 'https://api.pro.coinbase.com'
 _BASE_WS_URL = 'wss://ws-feed.pro.coinbase.com'
-
-_log = logging.getLogger(__name__)
 
 
 class Coinbase(Exchange):
@@ -70,7 +66,7 @@ class Coinbase(Exchange):
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase
 
-        self._ws = CoinbaseFeed(api_key, secret_key, passphrase)
+        self.ws = CoinbaseFeed(api_key, secret_key, passphrase)
         # TODO: use LRU cache
         self._order_id_to_client_id: dict[str, str] = {}
 
@@ -84,12 +80,12 @@ class Coinbase(Exchange):
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
         await self._session.__aenter__()
 
-        await self._ws.__aenter__()
+        await self.ws.__aenter__()
 
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await self._ws.__aexit__(exc_type, exc, tb)
+        await self.ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
     def map_candle_intervals(self) -> dict[int, int]:
@@ -141,9 +137,9 @@ class Coinbase(Exchange):
             raise ValueError('Empty symbols list not supported')
 
         tickers = {}
-        async with self._ws.subscribe('ticker', ['ticker'], symbols) as ws:
+        async with self.ws.subscribe('ticker', ['ticker'], symbols) as ws:
             async for msg in ws:
-                symbol = _from_product(msg['product_id'])
+                symbol = from_symbol(msg['product_id'])
                 tickers[symbol] = Ticker(
                     volume=Decimal(msg['volume_24h']),  # TODO: incorrect?!
                     quote_volume=Decimal('0.0'),  # Not supported.
@@ -170,12 +166,12 @@ class Coinbase(Exchange):
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
-        url = f'/products/{_to_product(symbol)}/candles'
+        url = f'/products/{to_symbol(symbol)}/candles'
         for page_start, page_end in page_limit(start, end, interval, MAX_CANDLES_PER_REQUEST):
             _, content = await self._public_request(
                 'GET', url, {
-                    'start': _to_datetime(page_start),
-                    'end': _to_datetime(page_end - 1),
+                    'start': to_timestamp(page_start),
+                    'end': to_timestamp(page_end - 1),
                     'granularity': _to_granularity(interval)
                 }
             )
@@ -212,7 +208,7 @@ class Coinbase(Exchange):
                         asks=[(Decimal(p), Decimal(s)) for p, s in asks]
                     )
 
-        async with self._ws.subscribe('level2', ['snapshot', 'l2update'], [symbol]) as ws:
+        async with self.ws.subscribe('level2', ['snapshot', 'l2update'], [symbol]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -262,12 +258,12 @@ class Coinbase(Exchange):
                         )
                     if reason == 'filled':
                         yield OrderUpdate.Done(
-                            time=_from_datetime(data['time']),
+                            time=from_timestamp(data['time']),
                             client_id=client_id,
                         )
                     elif reason == 'canceled':
                         yield OrderUpdate.Cancelled(
-                            time=_from_datetime(data['time']),
+                            time=from_timestamp(data['time']),
                             client_id=client_id,
                         )
                     else:
@@ -277,7 +273,7 @@ class Coinbase(Exchange):
                 else:
                     raise NotImplementedError(data)
 
-        async with self._ws.subscribe(
+        async with self.ws.subscribe(
             'user', ['received', 'open', 'match', 'done'], [symbol]
         ) as ws:
             yield inner(ws)
@@ -304,7 +300,7 @@ class Coinbase(Exchange):
         data: dict[str, Any] = {
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
             'side': 'buy' if side is Side.BUY else 'sell',
-            'product_id': _to_product(symbol),
+            'product_id': to_symbol(symbol),
         }
         if size is not None:
             data['size'] = _to_decimal(size)
@@ -325,7 +321,7 @@ class Coinbase(Exchange):
             raise BadOrder(content['message'])
 
         # Does not support returning fills straight away. Need to listen through WS.
-        return OrderResult(status=OrderStatus.NEW, time=_from_datetime(content['created_at']))
+        return OrderResult(status=OrderStatus.NEW, time=from_timestamp(content['created_at']))
 
     async def cancel_order(
         self,
@@ -336,55 +332,12 @@ class Coinbase(Exchange):
         if account != 'spot':
             raise NotImplementedError()
         response, content = await self._private_request('DELETE', f'/orders/client:{client_id}', {
-            'product_id': _to_product(symbol),
+            'product_id': to_symbol(symbol),
         })
         if response.status == 404:
             raise OrderMissing(content['message'])
 
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
-        trades_desc = []
-        async for _, content in self._paginated_public_request(
-            'GET', f'/products/{_to_product(symbol)}/trades'
-        ):
-            done = False
-            for val in content:
-                time = _from_datetime(val['time'])
-                if time >= end:
-                    continue
-                if time < start:
-                    done = True
-                    break
-                trades_desc.append(Trade(
-                    time=time,
-                    price=Decimal(val['price']),
-                    size=Decimal(val['size'])
-                ))
-            if done:
-                break
-        for trade in reversed(trades_desc):
-            yield trade
-
-    @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
-            async for val in ws:
-                if val['type'] == 'last_match':
-                    # TODO: Useful for recovery process that downloads missed trades after a dc.
-                    continue
-                if 'price' not in val or 'size' not in val:
-                    continue
-                yield Trade(
-                    time=_from_datetime(val['time']),
-                    price=Decimal(val['price']),
-                    size=Decimal(val['size'])
-                )
-
-        async with self._ws.subscribe('matches', ['last_match', 'match'], [symbol]) as ws:
-            yield inner(ws)
-
-    async def _paginated_public_request(
+    async def paginated_public_request(
         self, method: str, url: str, data: dict[str, Any] = {}
     ) -> AsyncIterable[tuple[ClientResponse, Any]]:
         page_after = None
@@ -475,7 +428,7 @@ class CoinbaseFeed:
         signature = _auth_signature(self._secret_key_bytes, timestamp, 'GET', '/users/self/verify')
         msg = {
             'type': 'subscribe',
-            'product_ids': [_to_product(s) for s in symbols],
+            'product_ids': [to_symbol(s) for s in symbols],
             'channels': [channel],
             # To authenticate, we need to add additional fields.
             'signature': signature,
@@ -513,13 +466,13 @@ class CoinbaseFeed:
             type_ = data['type']
             if type_ == 'subscriptions':
                 self.subscriptions.update({
-                    c['name']: [_from_product(s) for s in c['product_ids']]
+                    c['name']: [from_symbol(s) for s in c['product_ids']]
                     for c in data['channels']
                 })
                 self.subscriptions_updated.set()
             else:
                 channel = self.type_to_channel[type_]
-                product = _from_product(data['product_id'])
+                product = from_symbol(data['product_id'])
                 self.channels[(channel, product)].put_nowait(data)
 
 
@@ -536,11 +489,11 @@ def _is_subscribed(
     return True
 
 
-def _to_product(symbol: str) -> str:
+def to_symbol(symbol: str) -> str:
     return symbol.upper()
 
 
-def _from_product(product: str) -> str:
+def from_symbol(product: str) -> str:
     return product.lower()
 
 
@@ -548,11 +501,11 @@ def _to_granularity(interval: int) -> int:
     return interval // 1000
 
 
-def _to_datetime(timestamp: int) -> str:
+def to_timestamp(timestamp: int) -> str:
     return datetime.utcfromtimestamp(timestamp / 1000.0).isoformat()
 
 
-def _from_datetime(dt: str) -> int:
+def from_timestamp(dt: str) -> int:
     # Format can be either one:
     # - '%Y-%m-%dT%H:%M:%S.%fZ'
     # - '%Y-%m-%dT%H:%M:%SZ'

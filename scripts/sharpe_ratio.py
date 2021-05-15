@@ -8,13 +8,14 @@ import numpy as np
 import pandas as pd
 
 from juno import MissedCandlePolicy, stop_loss, strategies
-from juno.components import Chandler, Informant, Trades
+from juno.components import Chandler, Informant
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
+from juno.trades import Trades
 from juno.typing import TypeConstructor
 from juno.utils import unpack_assets
 

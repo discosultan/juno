@@ -3,11 +3,12 @@ import asyncio
 import plotly.graph_objs as go
 import plotly.offline as py
 
-from juno.components import Chandler, Trades
+from juno.components import Chandler
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite
 from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
+from juno.trades import Trades
 
 
 async def main() -> None:

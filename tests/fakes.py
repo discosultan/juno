@@ -16,6 +16,7 @@ from juno import (
     components,
     exchanges,
     storages,
+    trades,
 )
 
 
@@ -220,7 +221,7 @@ class Chandler(components.Chandler):
         return 0
 
 
-class Trades(components.Trades):
+class Trades(trades.Trades):
     def __init__(self, trades=[]):
         self.trades = trades
 

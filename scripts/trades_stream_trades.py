@@ -3,9 +3,9 @@ import logging
 
 from juno import exchanges, storages
 from juno.asyncio import enumerate_async
-from juno.components import Trades
 from juno.config import from_env, init_instance
 from juno.time import strptimestamp
+from juno.trades import Trades
 
 EXCHANGE_TYPE = exchanges.Kraken
 SYMBOL = 'eth-btc'

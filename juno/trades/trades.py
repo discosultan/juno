@@ -7,14 +7,17 @@ from typing import AsyncIterable, Callable, Optional
 
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import ExchangeException, Trade
+from juno import ExchangeException
 from juno.asyncio import list_async
-from juno.exchanges import Exchange
+from juno.exchanges import Exchange as Session
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import strfspan, time_ms
 from juno.utils import AbstractAsyncContextManager, key
+
+from . import Trade
+from .exchanges import Exchange
 
 _log = logging.getLogger(__name__)
 
@@ -25,12 +28,12 @@ class Trades(AbstractAsyncContextManager):
     def __init__(
         self,
         storage: Storage,
-        exchanges: list[Exchange],
+        exchanges: list[Session],
         get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000
     ) -> None:
         self._storage = storage
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._exchanges = Exchange.map_from_sessions(exchanges)
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
 
@@ -198,7 +201,3 @@ class Trades(AbstractAsyncContextManager):
         else:
             async for trade in inner(None):
                 yield trade
-
-
-def _get_span_end(batch: list[Trade]) -> int:
-    return batch[-1].time + 1

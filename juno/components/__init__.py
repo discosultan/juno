@@ -3,7 +3,6 @@ from .events import Events
 from .informant import Informant
 from .orderbook import Orderbook
 from .prices import Prices
-from .trades import Trades
 from .user import User
 
 __all__ = [
@@ -12,6 +11,5 @@ __all__ = [
     'Informant',
     'Orderbook',
     'Prices',
-    'Trades',
     'User',
 ]

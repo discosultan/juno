@@ -6,12 +6,13 @@ import numpy as np
 import pandas as pd
 from more_itertools import take
 
-from juno.components import Chandler, Informant, Trades
+from juno.components import Chandler, Informant
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.math import floor_multiple_offset
 from juno.storages import SQLite
 from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
+from juno.trades import Trades
 
 
 async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end):

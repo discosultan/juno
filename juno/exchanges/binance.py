@@ -43,7 +43,6 @@ from juno import (
     Side,
     Ticker,
     TimeInForce,
-    Trade,
     json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
@@ -53,7 +52,6 @@ from juno.itertools import page, page_limit
 from juno.time import (
     DAY_MS,
     DAY_SEC,
-    HOUR_MS,
     HOUR_SEC,
     MIN_MS,
     MIN_SEC,
@@ -170,8 +168,8 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
         fees_ret, filters_ret, isolated_pairs, margin_ret, isolated_ret = await asyncio.gather(
-            self._api_request('GET', '/sapi/v1/asset/tradeFee', security=_SEC_USER_DATA),
-            self._api_request('GET', '/api/v3/exchangeInfo', weight=10),
+            self.api_request('GET', '/sapi/v1/asset/tradeFee', security=_SEC_USER_DATA),
+            self.api_request('GET', '/api/v3/exchangeInfo', weight=10),
             self._list_symbols(isolated=True),
             self._request_json(
                 method='GET',
@@ -296,9 +294,9 @@ class Binance(Exchange):
         if len(symbols) > 1:
             raise NotImplementedError()
 
-        data = {'symbol': _to_http_symbol(symbols[0])} if symbols else None
+        data = {'symbol': to_http_symbol(symbols[0])} if symbols else None
         weight = 1 if symbols else 40
-        _, content = await self._api_request(
+        _, content = await self.api_request(
             'GET', '/api/v3/ticker/24hr', data=data, weight=weight
         )
         response_data = [content] if symbols else content
@@ -313,7 +311,7 @@ class Binance(Exchange):
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
-            _, content = await self._api_request(
+            _, content = await self.api_request(
                 'GET', '/api/v3/account', weight=10, security=_SEC_USER_DATA
             )
             result['spot'] = {
@@ -324,7 +322,7 @@ class Binance(Exchange):
                 for b in content['balances']
             }
         elif account == 'margin':
-            _, content = await self._api_request(
+            _, content = await self.api_request(
                 'GET', '/sapi/v1/margin/account', weight=1, security=_SEC_USER_DATA
             )
             result['margin'] = {
@@ -340,7 +338,7 @@ class Binance(Exchange):
             # TODO: Binance also accepts a symbols param here to return only up to 5 account info.
             # The weight is the same though, so not much benefit to using that.
             # https://binance-docs.github.io/apidocs/spot/en/#query-isolated-margin-account-info-user_data
-            _, content = await self._api_request(
+            _, content = await self.api_request(
                 'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
             )
             for balances in content['assets']:
@@ -399,13 +397,13 @@ class Binance(Exchange):
             5000: 50,
         }
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-        _, content = await self._api_request(
+        _, content = await self.api_request(
             'GET',
             '/api/v3/depth',
             weight=LIMIT_TO_WEIGHT[LIMIT],
             data={
                 'limit': LIMIT,
-                'symbol': _to_http_symbol(symbol)
+                'symbol': to_http_symbol(symbol)
             }
         )
         return Depth.Snapshot(
@@ -426,10 +424,10 @@ class Binance(Exchange):
                 )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        url = f'/ws/{_to_ws_symbol(symbol)}@depth'
+        url = f'/ws/{to_ws_symbol(symbol)}@depth'
         if self._high_precision:  # Low precision is every 1000ms.
             url += '@100ms'
-        async with self._connect_refreshing_stream(
+        async with self.connect_refreshing_stream(
             url=url, interval=12 * HOUR_SEC, name='depth', raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
@@ -454,10 +452,10 @@ class Binance(Exchange):
         weight = (3 if symbol else 40) if account == 'spot' else (10 if symbol else 40)
         data = {}
         if symbol is not None:
-            data['symbol'] = _to_http_symbol(symbol)
+            data['symbol'] = to_http_symbol(symbol)
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
-        _, content = await self._api_request(
+        _, content = await self.api_request(
             'GET',
             url,
             data=data,
@@ -541,7 +539,7 @@ class Binance(Exchange):
         client_id: Optional[str] = None,
     ) -> OrderResult:
         data: dict[str, Any] = {
-            'symbol': _to_http_symbol(symbol),
+            'symbol': to_http_symbol(symbol),
             'side': _to_side(side),
             'type': _to_order_type(type_),
         }
@@ -563,7 +561,7 @@ class Binance(Exchange):
         else:
             url = '/sapi/v1/margin/order'
             weight = 1
-        _, content = await self._api_request(
+        _, content = await self.api_request(
             'POST', url, data=data, security=_SEC_TRADE, weight=weight
         )
 
@@ -597,25 +595,25 @@ class Binance(Exchange):
     ) -> None:
         url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
         data = {
-            'symbol': _to_http_symbol(symbol),
+            'symbol': to_http_symbol(symbol),
             'origClientOrderId': client_id,
         }
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
-        await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
+        await self.api_request('DELETE', url, data=data, security=_SEC_TRADE)
 
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         limit = 1000  # Max possible candles per request.
         binance_interval = strfinterval(interval)
-        binance_symbol = _to_http_symbol(symbol)
+        binance_symbol = to_http_symbol(symbol)
         # Start 0 is a special value indicating that we try to find the earliest available candle.
         pagination_interval = interval
         if start == 0:
             pagination_interval = end - start
         for page_start, page_end in page_limit(start, end, pagination_interval, limit):
-            _, content = await self._api_request(
+            _, content = await self.api_request(
                 'GET',
                 '/api/v3/klines',
                 data={
@@ -652,58 +650,10 @@ class Binance(Exchange):
                     Decimal(c['v']), c['x']
                 )
 
-        async with self._connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
+        async with self.connect_refreshing_stream(
+            url=f'/ws/{to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
             interval=12 * HOUR_SEC,
             name='candles',
-            raise_on_disconnect=True
-        ) as ws:
-            yield inner(ws)
-
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
-        # Aggregated trades. This means trades executed at the same time, same price and as part of
-        # the same order will be aggregated by summing their size.
-        batch_start = start
-        payload: dict[str, Any] = {
-            'symbol': _to_http_symbol(symbol),
-        }
-        while True:
-            batch_end = batch_start + HOUR_MS
-            payload['startTime'] = batch_start
-            payload['endTime'] = min(batch_end, end) - 1  # Inclusive.
-
-            time = None
-
-            _, content = await self._api_request('GET', '/api/v3/aggTrades', data=payload)
-            for t in content:
-                time = t['T']
-                assert time < end
-                yield Trade(
-                    id=t['a'],
-                    time=time,
-                    price=Decimal(t['p']),
-                    size=Decimal(t['q']),
-                )
-            batch_start = time + 1 if time is not None else batch_end
-            if batch_start >= end:
-                break
-
-    @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
-            async for data in ws:
-                yield Trade(
-                    id=data['a'],
-                    time=data['T'],
-                    price=Decimal(data['p']),
-                    size=Decimal(data['q']),
-                )
-
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
-        async with self._connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
             raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
@@ -713,11 +663,11 @@ class Binance(Exchange):
     ) -> None:
         if from_account in ['spot', 'margin'] and to_account in ['spot', 'margin']:
             assert from_account != to_account
-            await self._api_request(
+            await self.api_request(
                 'POST',
                 '/sapi/v1/margin/transfer',
                 data={
-                    'asset': _to_asset(asset),
+                    'asset': to_asset(asset),
                     'amount': _to_decimal(size),
                     'type': 1 if to_account == 'margin' else 2,
                 },
@@ -727,12 +677,12 @@ class Binance(Exchange):
             assert from_account != 'margin' and to_account != 'margin'
             assert from_account == 'spot' or to_account == 'spot'
             to_spot = to_account == 'spot'
-            await self._api_request(
+            await self.api_request(
                 'POST',
                 '/sapi/v1/margin/isolated/transfer',
                 data={
-                    'asset': _to_asset(asset),
-                    'symbol': _to_http_symbol(from_account if to_spot else to_account),
+                    'asset': to_asset(asset),
+                    'symbol': to_http_symbol(from_account if to_spot else to_account),
                     'transFrom': 'ISOLATED_MARGIN' if to_spot else 'SPOT',
                     'transTo': 'SPOT' if to_spot else 'ISOLATED_MARGIN',
                     'amount': _to_decimal(size),
@@ -743,13 +693,13 @@ class Binance(Exchange):
     async def borrow(self, asset: str, size: Decimal, account) -> None:
         assert account != 'spot'
         data = {
-            'asset': _to_asset(asset),
+            'asset': to_asset(asset),
             'amount': _to_decimal(size),
         }
         if account != 'margin':
             data['isIsolated'] = 'TRUE'
-            data['symbol'] = _to_http_symbol(account)
-        await self._api_request(
+            data['symbol'] = to_http_symbol(account)
+        await self.api_request(
             'POST',
             '/sapi/v1/margin/loan',
             data=data,
@@ -759,13 +709,13 @@ class Binance(Exchange):
     async def repay(self, asset: str, size: Decimal, account: str) -> None:
         assert account != 'spot'
         data = {
-            'asset': _to_asset(asset),
+            'asset': to_asset(asset),
             'amount': _to_decimal(size),
         }
         if account != 'margin':
             data['isIsolated'] = 'TRUE'
-            data['symbol'] = _to_http_symbol(account)
-        await self._api_request(
+            data['symbol'] = to_http_symbol(account)
+        await self.api_request(
             'POST',
             '/sapi/v1/margin/repay',
             data=data,
@@ -774,10 +724,10 @@ class Binance(Exchange):
 
     async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
         assert account != 'spot'
-        data = {'asset': _to_asset(asset)}
+        data = {'asset': to_asset(asset)}
         if account != 'margin':
-            data['isolatedSymbol'] = _to_http_symbol(account)
-        _, content = await self._api_request(
+            data['isolatedSymbol'] = to_http_symbol(account)
+        _, content = await self.api_request(
             'GET',
             '/sapi/v1/margin/maxBorrowable',
             data=data,
@@ -788,10 +738,10 @@ class Binance(Exchange):
 
     async def get_max_transferable(self, asset: str, account: str) -> Decimal:
         assert account != 'spot'
-        data = {'asset': _to_asset(asset)}
+        data = {'asset': to_asset(asset)}
         if account != 'margin':
-            data['isolatedSymbol'] = _to_http_symbol(account)
-        _, content = await self._api_request(
+            data['isolatedSymbol'] = to_http_symbol(account)
+        _, content = await self.api_request(
             'GET',
             '/sapi/v1/margin/maxTransferable',
             data=data,
@@ -801,15 +751,15 @@ class Binance(Exchange):
         return Decimal(content['amount'])
 
     async def convert_dust(self, assets: list[str]) -> None:
-        await self._api_request(
+        await self.api_request(
             'POST',
             '/sapi/v1/asset/dust',
-            data=MultiDict([('asset', _to_asset(a)) for a in assets]),
+            data=MultiDict([('asset', to_asset(a)) for a in assets]),
             security=_SEC_USER_DATA,
         )
 
     async def _list_symbols(self, isolated: bool = False) -> list[str]:
-        _, content = await self._api_request(
+        _, content = await self.api_request(
             'GET',
             f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
             security=_SEC_USER_DATA,
@@ -821,7 +771,7 @@ class Binance(Exchange):
         end = time_ms() if end is None else end
         tasks = []
         for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
-            tasks.append(self._api_request(
+            tasks.append(self.api_request(
                 'GET',
                 '/sapi/v1/capital/deposit/hisrec',
                 data={
@@ -838,7 +788,7 @@ class Binance(Exchange):
         end = time_ms() if end is None else end
         tasks = []
         for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
-            tasks.append(self._api_request(
+            tasks.append(self.api_request(
                 'GET',
                 '/sapi/v1/capital/withdraw/history',
                 data={
@@ -850,7 +800,7 @@ class Binance(Exchange):
         results = await asyncio.gather(*tasks)
         return [record for _, content in results for record in content]
 
-    async def _api_request(
+    async def api_request(
         self,
         method: str,
         url: str,
@@ -975,7 +925,7 @@ class Binance(Exchange):
         return response, content
 
     @asynccontextmanager
-    async def _connect_refreshing_stream(
+    async def connect_refreshing_stream(
         self, url: str, interval: int, name: str, raise_on_disconnect: bool = False
     ) -> AsyncIterator[AsyncIterable[Any]]:
         try:
@@ -1051,7 +1001,7 @@ class Clock:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
         _log.info('syncing clock with Binance')
         before = time_ms()
-        _, content = await self._binance._api_request('GET', '/api/v3/time')
+        _, content = await self._binance.api_request('GET', '/api/v3/time')
         server_time = content['serverTime']
         after = time_ms()
         # Assume response time is same as request time.
@@ -1157,7 +1107,7 @@ class UserDataStream:
     async def _stream_user_data(self) -> None:
         while True:
             try:
-                async with self._binance._connect_refreshing_stream(
+                async with self._binance.connect_refreshing_stream(
                     url=f'/ws/{self._listen_key}', interval=12 * HOUR_SEC, name='user',
                     raise_on_disconnect=True
                 ) as stream:
@@ -1185,8 +1135,8 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         data = {}
         if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
-        return await self._binance._api_request(
+            data['symbol'] = to_http_symbol(self._account)
+        return await self._binance.api_request(
             'POST',
             self._base_url,
             data=data,
@@ -1205,8 +1155,8 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         data = {'listenKey': listen_key}
         if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
-        return await self._binance._api_request(
+            data['symbol'] = to_http_symbol(self._account)
+        return await self._binance.api_request(
             'PUT',
             self._base_url,
             data=data,
@@ -1225,8 +1175,8 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         data = {'listenKey': listen_key}
         if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
-        return await self._binance._api_request(
+            data['symbol'] = to_http_symbol(self._account)
+        return await self._binance.api_request(
             'DELETE',
             self._base_url,
             data=data,
@@ -1234,15 +1184,15 @@ class UserDataStream:
         )
 
 
-def _to_asset(asset: str) -> str:
+def to_asset(asset: str) -> str:
     return asset.upper()
 
 
-def _to_http_symbol(symbol: str) -> str:
+def to_http_symbol(symbol: str) -> str:
     return symbol.replace('-', '').upper()
 
 
-def _to_ws_symbol(symbol: str) -> str:
+def to_ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '')
 
 

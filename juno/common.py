@@ -271,19 +271,6 @@ class TimeInForce(IntEnum):
     # GTT = 3
 
 
-class Trade(NamedTuple):
-    id: int = 0  # Aggregate trade id.
-    time: int = 0  # Can have multiple trades at same time.
-    price: Decimal = Decimal('0.0')
-    size: Decimal = Decimal('0.0')
-
-    @staticmethod
-    def meta() -> dict[str, str]:
-        return {
-            'time': 'index',
-        }
-
-
 @dataclass
 class ExchangeInfo:
     # Key: asset

@@ -4,7 +4,6 @@ import asyncio
 import base64
 import hashlib
 import hmac
-import logging
 import urllib.parse
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -25,7 +24,6 @@ from juno import (
     Side,
     Ticker,
     TimeInForce,
-    Trade,
     json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
@@ -43,8 +41,6 @@ _API_URL = 'https://api.kraken.com'
 # https://support.kraken.com/hc/en-us/articles/360022326871-Public-WebSockets-API-common-questions
 _PUBLIC_WS_URL = 'wss://ws.kraken.com'
 _PRIVATE_WS_URL = 'wss://ws-auth.kraken.com'
-
-_log = logging.getLogger(__name__)
 
 
 class Kraken(Exchange):
@@ -72,10 +68,10 @@ class Kraken(Exchange):
         self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
         await self._session.__aenter__()
 
-        self._public_ws = KrakenPublicFeed(_PUBLIC_WS_URL)
+        self.public_ws = KrakenPublicFeed(_PUBLIC_WS_URL)
         self._private_ws = KrakenPrivateFeed(_PRIVATE_WS_URL, self)
         await asyncio.gather(
-            self._public_ws.__aenter__(),
+            self.public_ws.__aenter__(),
             self._private_ws.__aenter__(),
         )
 
@@ -84,7 +80,7 @@ class Kraken(Exchange):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(
             self._private_ws.__aexit__(exc_type, exc, tb),
-            self._public_ws.__aexit__(exc_type, exc, tb),
+            self.public_ws.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
@@ -104,18 +100,18 @@ class Kraken(Exchange):
 
     async def get_exchange_info(self) -> ExchangeInfo:
         assets_res, symbols_res = await asyncio.gather(
-            self._request_public('GET', '/0/public/Assets'),
-            self._request_public('GET', '/0/public/AssetPairs'),
+            self.request_public('GET', '/0/public/Assets'),
+            self.request_public('GET', '/0/public/AssetPairs'),
         )
 
         assets = {
-            _from_symbol(val['altname']): AssetInfo(precision=val['decimals'])
+            from_http_symbol(val['altname']): AssetInfo(precision=val['decimals'])
             for val in assets_res['result'].values()
         }
 
         fees, filters = {}, {}
         for val in symbols_res['result'].values():
-            name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
+            name = from_http_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val['fees'][0][1] / 100
             maker_fees = val.get('fees_maker')
@@ -138,11 +134,11 @@ class Kraken(Exchange):
         if not symbols:
             raise ValueError('Empty symbols list not supported')
 
-        data = {'pair': ','.join((_to_http_symbol(s) for s in symbols))}
+        data = {'pair': ','.join((to_http_symbol(s) for s in symbols))}
 
-        res = await self._request_public('GET', '/0/public/Ticker', data=data)
+        res = await self.request_public('GET', '/0/public/Ticker', data=data)
         return {
-            _from_symbol(pair): Ticker(
+            from_http_symbol(pair): Ticker(
                 volume=Decimal(val['v'][1]),
                 quote_volume=Decimal('0.0'),  # Not supported.
                 price=Decimal(val['c'][0]),
@@ -189,10 +185,10 @@ class Kraken(Exchange):
                     closed=True,
                 )
 
-        async with self._public_ws.subscribe({
+        async with self.public_ws.subscribe({
             'name': 'ohlc',
             'interval': interval // MIN_MS
-        }, [_to_ws_symbol(symbol)]) as ws:
+        }, [to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -216,10 +212,10 @@ class Kraken(Exchange):
                         asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
                     )
 
-        async with self._public_ws.subscribe({
+        async with self.public_ws.subscribe({
             'name': 'book',
             'depth': 10,
-        }, [_to_ws_symbol(symbol)]) as ws:
+        }, [to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -259,58 +255,11 @@ class Kraken(Exchange):
     ) -> None:
         pass
 
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
-        # https://www.kraken.com/en-us/features/api#get-recent-trades
-        since = _to_time(start) - 1  # Exclusive.
-        while True:
-            res = await self._request_public(
-                'GET',
-                '/0/public/Trades',
-                {
-                    'pair': _to_http_symbol(symbol),
-                    'since': since
-                },
-                cost=2,
-            )
-            result = res['result']
-            last = result['last']
-
-            if last == since:  # No more trades returned.
-                break
-
-            since = last
-            _, trades = next(iter(result.items()))
-            for trade in trades:
-                time = _from_time(trade[2])
-                if time >= end:
-                    return
-                yield Trade(
-                    time=time,
-                    price=Decimal(trade[0]),
-                    size=Decimal(trade[1]),
-                )
-
-    @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
-            async for trades in ws:
-                for trade in trades:
-                    yield Trade(
-                        time=_from_ws_time(trade[2]),
-                        price=Decimal(trade[0]),
-                        size=Decimal(trade[1]),
-                    )
-
-        async with self._public_ws.subscribe({'name': 'trade'}, [_to_ws_symbol(symbol)]) as ws:
-            yield inner(ws)
-
     async def _get_websockets_token(self) -> str:
         res = await self._request_private('/0/private/GetWebSocketsToken')
         return res['result']['token']
 
-    async def _request_public(
+    async def request_public(
         self, method: str, url: str, data: Optional[Any] = None, cost: int = 1
     ) -> Any:
         data = data or {}
@@ -497,22 +446,22 @@ def _validate_subscription_status(data: Any) -> None:
         raise Exception(data['errorMessage'])
 
 
-def _from_time(time: Decimal) -> int:
+def from_http_timestamp(time: Decimal) -> int:
     # Convert seconds to milliseconds.
     return int(time * 1000)
 
 
-def _from_ws_time(time: str) -> int:
+def from_ws_timestamp(time: str) -> int:
     # Convert seconds to milliseconds.
     return int(Decimal(time) * 1000)
 
 
-def _to_time(time: int) -> int:
+def to_http_timestamp(time: int) -> int:
     # Convert milliseconds to nanoseconds.
     return time * 1_000_000
 
 
-def _to_ws_symbol(symbol: str) -> str:
+def to_ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '/').upper()
 
 
@@ -523,11 +472,11 @@ ASSET_ALIAS_MAP = {
 REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
 
 
-def _to_http_symbol(symbol: str) -> str:
+def to_http_symbol(symbol: str) -> str:
     base, quote = unpack_assets(symbol)
     return f'{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}'
 
 
-def _from_symbol(symbol: str) -> str:
+def from_http_symbol(symbol: str) -> str:
     base, quote = unpack_assets(symbol)
     return f'{REVERSE_ASSET_ALIAS_MAP.get(base, base)}-{REVERSE_ASSET_ALIAS_MAP.get(quote, quote)}'

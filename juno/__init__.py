@@ -18,7 +18,6 @@ from .common import (
     Side,
     Ticker,
     TimeInForce,
-    Trade,
 )
 from .errors import BadOrder, ExchangeException, OrderMissing, OrderWouldBeTaker
 from .filters import Filters
@@ -49,5 +48,4 @@ __all__ = [
     'Ticker',
     'TimeInForce',
     'Timestamp',
-    'Trade',
 ]

@@ -3,11 +3,12 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, ExchangeException, Trade
+from juno import Candle, ExchangeException
 from juno.asyncio import cancel, list_async, resolved_stream
 from juno.components import Chandler
 from juno.storages import Storage
 from juno.time import WEEK_MS, strptimestamp
+from juno.trades import Trade
 from juno.utils import key
 
 from . import fakes

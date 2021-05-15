@@ -3,13 +3,11 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Trade
 from juno.asyncio import cancel, list_async
-from juno.components import Trades
 from juno.storages import Storage
+from juno.trades import Trade, Trades
 from juno.utils import key
-
-from . import fakes
+from tests import fakes
 
 
 async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) -> None:

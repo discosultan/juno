@@ -4,13 +4,14 @@ from decimal import Decimal
 from typing import Any
 
 from juno import Candle, Filters, MissedCandlePolicy, stop_loss, strategies
-from juno.components import Chandler, Informant, Trades
+from juno.components import Chandler, Informant
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 from juno.traders import Basic, BasicConfig
+from juno.trades import Trades
 from juno.trading import TradingSummary
 from juno.typing import TypeConstructor
 from juno.utils import unpack_assets

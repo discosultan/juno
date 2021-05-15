@@ -4,10 +4,11 @@ import logging
 from itertools import product
 
 from juno import exchanges
-from juno.components import Chandler, Trades
+from juno.components import Chandler
 from juno.config import from_env, init_instance
 from juno.storages import SQLite
 from juno.time import HOUR_MS, strfinterval, strftimestamp, strpinterval, time_ms
+from juno.trades import Trades
 from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()

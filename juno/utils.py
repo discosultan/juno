@@ -10,7 +10,7 @@ from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterator, Optional, Sequence, TypeVar, get_type_hints
+from typing import Any, Iterable, Iterator, Optional, Sequence, TypeVar, get_type_hints
 from uuid import uuid4
 
 import aiolimiter
@@ -142,6 +142,19 @@ def map_concrete_module_types(
             and (True if abstract is None else issubclass(c, abstract))
         )
     )}
+
+
+def iter_concrete_module_types(
+    module: ModuleType, abstract: Optional[type[Any]] = None
+) -> Iterable[type[Any]]:
+    return (t for n, t in inspect.getmembers(
+        module,
+        lambda c: (
+            inspect.isclass(c)
+            and not inspect.isabstract(c)
+            and (True if abstract is None else issubclass(c, abstract))
+        )
+    ))
 
 
 # Cannot use typevar T in place of Any here. Triggers: "Only concrete class can be given where type

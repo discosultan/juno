@@ -15,7 +15,6 @@ from juno import (
     Side,
     Ticker,
     TimeInForce,
-    Trade,
 )
 
 
@@ -110,15 +109,6 @@ class Exchange(ABC):
         client_id: str,
     ) -> None:
         pass
-
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
-        yield  # type: ignore
-
-    @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        yield  # type: ignore
 
     async def transfer(
         self, asset: str, size: Decimal, from_account: str, to_account: str
