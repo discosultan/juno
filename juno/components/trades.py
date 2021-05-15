@@ -198,7 +198,3 @@ class Trades(AbstractAsyncContextManager):
         else:
             async for trade in inner(None):
                 yield trade
-
-
-def _get_span_end(batch: list[Trade]) -> int:
-    return batch[-1].time + 1
