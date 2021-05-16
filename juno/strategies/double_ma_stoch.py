@@ -1,6 +1,7 @@
 from typing import Any
 
-from juno import Advice, Candle
+from juno import Advice
+from juno.candles import Candle
 from juno.config import init_instance
 
 from .double_ma import DoubleMA

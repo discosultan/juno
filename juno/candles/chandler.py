@@ -10,9 +10,9 @@ from typing import AsyncIterable, Callable, Iterable, Optional
 
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import Candle, ExchangeException
+from juno import ExchangeException
 from juno.asyncio import first_async, list_async, stream_with_timeout
-from juno.exchanges import Exchange
+from juno.exchanges import Exchange as Session
 from juno.itertools import generate_missing_spans
 from juno.math import ceil_multiple_offset, floor_multiple_offset
 from juno.storages import Storage
@@ -20,6 +20,9 @@ from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponent
 from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
 from juno.trades import Trades
 from juno.utils import AbstractAsyncContextManager, key, unpack_assets
+
+from .exchanges import Exchange
+from .models import Candle
 
 _log = logging.getLogger(__name__)
 
@@ -31,16 +34,20 @@ class Chandler(AbstractAsyncContextManager):
     def __init__(
         self,
         storage: Storage,
-        exchanges: list[Exchange],
+        exchange_sessions: list[Session] = [],
         trades: Optional[Trades] = None,
         get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000,
         earliest_exchange_start: int = 1293840000000,  # 2011-01-01
+        exchanges: list[Exchange] = [],
     ) -> None:
         assert storage_batch_size > 0
 
         self._storage = storage
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._exchanges = (
+            Exchange.map_from_sessions(exchange_sessions)
+            | {type(e).__name__.lower(): e for e in exchanges}
+        )
         self._trades = trades
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size

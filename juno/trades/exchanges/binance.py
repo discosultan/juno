@@ -5,7 +5,7 @@ from typing import Any, AsyncIterable, AsyncIterator
 from juno.exchanges.binance import Binance as Session
 from juno.exchanges.binance import to_http_symbol, to_ws_symbol
 from juno.time import HOUR_MS, HOUR_SEC
-from juno.trades import Trade
+from juno.trades.models import Trade
 
 from .exchange import Exchange
 

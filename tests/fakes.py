@@ -6,7 +6,6 @@ from uuid import uuid4
 from juno import (
     AssetInfo,
     BorrowInfo,
-    Candle,
     Depth,
     ExchangeInfo,
     Fees,
@@ -18,14 +17,12 @@ from juno import (
     storages,
     trades,
 )
+from juno.candles import Candle
 
 
 class Exchange(exchanges.Exchange):
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = True
-    can_stream_historical_earliest_candle: bool = True
-    can_stream_historical_candles: bool = True
-    can_stream_candles: bool = True
     can_list_all_tickers: bool = True
     can_margin_trade: bool = True
     can_place_market_order: bool = True
@@ -33,9 +30,6 @@ class Exchange(exchanges.Exchange):
 
     def __init__(
         self,
-        historical_candles=[],
-        future_candles=[],
-        candle_intervals={},
         exchange_info=ExchangeInfo(),
         tickers={},
         balances={'spot': {}},
@@ -48,13 +42,6 @@ class Exchange(exchanges.Exchange):
     ):
         super().__init__()
 
-        self.historical_candles = historical_candles
-        self.candle_queue = asyncio.Queue()
-        for future_candle in future_candles:
-            # TODO: Rename candle_queue to future_candles.
-            self.candle_queue.put_nowait(future_candle)
-
-        self.candle_intervals = candle_intervals
         self.exchange_info = exchange_info
         self.get_exchange_info_calls = []
         self.tickers = tickers
@@ -83,9 +70,6 @@ class Exchange(exchanges.Exchange):
     def generate_client_id(self):
         return self.client_id
 
-    def map_candle_intervals(self):
-        return self.candle_intervals
-
     async def get_exchange_info(self):
         result = self.exchange_info
         self.get_exchange_info_calls.append([result])
@@ -100,14 +84,6 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_balances(self, account):
         yield _stream_queue(self.balance_queue)
-
-    async def stream_historical_candles(self, symbol, interval, start, end):
-        for c in (c for c in self.historical_candles if c.time >= start and c.time < end):
-            yield c
-
-    @asynccontextmanager
-    async def connect_stream_candles(self, symbol, interval):
-        yield _stream_queue(self.candle_queue)
 
     async def get_depth(self, symbol):
         return self.depth

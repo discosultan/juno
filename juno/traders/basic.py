@@ -5,10 +5,11 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Optional, TypeVar
 from uuid import uuid4
 
-from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
+from juno import Advice, Interval, MissedCandlePolicy, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant, User
+from juno.candles import Candle, Chandler
+from juno.components import Events, Informant, User
 from juno.exchanges import Exchange
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss

@@ -16,8 +16,8 @@ from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponent
 from juno.time import strfspan, time_ms
 from juno.utils import AbstractAsyncContextManager, key
 
-from . import Trade
 from .exchanges import Exchange
+from .models import Trade
 
 _log = logging.getLogger(__name__)
 

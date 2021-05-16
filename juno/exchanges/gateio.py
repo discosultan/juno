@@ -12,7 +12,6 @@ from urllib.parse import urlencode
 import juno.json as json
 from juno.common import (
     Balance,
-    Candle,
     Depth,
     ExchangeInfo,
     Fees,
@@ -418,15 +417,6 @@ class GateIO(Exchange):
         s = f'channel={channel}&event={event}&time={timestamp}'
         sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
         return {'method': 'api_key', 'KEY': self._api_key, 'SIGN': sign}
-
-    def map_candle_intervals(self) -> dict[int, int]:
-        raise NotImplementedError()
-
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
-        raise NotImplementedError()
-        yield
 
 
 def _acc_order_fill(existing: dict[str, Decimal], data: Any) -> Fill:

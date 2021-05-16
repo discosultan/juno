@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from more_itertools import take
 
-from juno import Advice, Candle, Interval, Timestamp
+from juno import Advice, Interval, Timestamp
 from juno.asyncio import (
     Event,
     SlotBarrier,
@@ -18,7 +18,8 @@ from juno.asyncio import (
     process_task_on_queue,
 )
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant, User
+from juno.candles import Candle, Chandler
+from juno.components import Events, Informant, User
 from juno.exchanges import Exchange
 from juno.math import floor_multiple_offset, rpstdev, split
 from juno.stop_loss import Noop as NoopStopLoss

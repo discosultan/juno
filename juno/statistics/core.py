@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Sequence
 
-from juno import Candle, Fees, Filters, Interval, Timestamp
+from juno import Fees, Filters, Interval, Timestamp
+from juno.candles import Candle
 from juno.math import annualized, round_half_up
 from juno.trading import CloseReason, Position, TradingSummary
 

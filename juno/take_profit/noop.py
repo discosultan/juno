@@ -1,4 +1,4 @@
-from juno import Candle
+from juno.candles import Candle
 
 from .take_profit import TakeProfit
 

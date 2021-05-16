@@ -4,7 +4,7 @@ from typing import Any, AsyncIterable, AsyncIterator
 
 from juno.exchanges.coinbase import Coinbase as Session
 from juno.exchanges.coinbase import from_timestamp, to_symbol
-from juno.trades import Trade
+from juno.trades.models import Trade
 
 from .exchange import Exchange
 

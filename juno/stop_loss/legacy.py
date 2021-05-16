@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from juno import Candle
+from juno.candles import Candle
 
 from .stop_loss import StopLoss
 

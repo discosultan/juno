@@ -7,7 +7,6 @@ import pytest
 from juno import (
     Advice,
     BorrowInfo,
-    Candle,
     Filters,
     MissedCandlePolicy,
     stop_loss,
@@ -16,6 +15,7 @@ from juno import (
     traders,
 )
 from juno.asyncio import cancel
+from juno.candles import Candle
 from juno.strategies import Fixed, MidTrendPolicy
 from juno.trading import CloseReason, Position
 from juno.typing import TypeConstructor

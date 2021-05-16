@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from juno import Candle
+from juno.candles import Candle
 
 
 class TakeProfit(ABC):

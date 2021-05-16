@@ -7,8 +7,9 @@ from typing import Any, NamedTuple, Optional, Union
 
 import pytest
 
-from juno import Candle, ExchangeInfo, Fees, Fill, Filters, Ticker, storages
+from juno import ExchangeInfo, Fees, Fill, Filters, Ticker, storages
 from juno.asyncio import list_async
+from juno.candles import Candle
 from juno.trades import Trade
 from juno.trading import CloseReason, Position, TradingSummary
 from juno.typing import types_match

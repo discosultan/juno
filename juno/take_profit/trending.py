@@ -3,7 +3,7 @@ from typing import Callable, Optional
 
 import pytweening
 
-from juno import Candle
+from juno.candles import Candle
 from juno.indicators import Adx
 from juno.math import lerp
 

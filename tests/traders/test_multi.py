@@ -6,7 +6,6 @@ import pytest
 from juno import (
     Advice,
     Balance,
-    Candle,
     Fees,
     Fill,
     Filters,
@@ -18,6 +17,7 @@ from juno import (
     traders,
 )
 from juno.asyncio import cancel
+from juno.candles import Candle
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
 from juno.typing import TypeConstructor

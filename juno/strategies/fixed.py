@@ -1,7 +1,8 @@
 import asyncio
 import logging
 
-from juno import Advice, Candle
+from juno import Advice
+from juno.candles import Candle
 
 from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
 

@@ -6,7 +6,6 @@ from uuid import uuid4
 
 from juno import (
     Balance,
-    Candle,
     Depth,
     ExchangeInfo,
     OrderResult,
@@ -22,9 +21,6 @@ class Exchange(ABC):
     # Capabilities.
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.
-    can_stream_historical_candles: bool = False
-    can_stream_historical_earliest_candle: bool = False
-    can_stream_candles: bool = False
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
     can_margin_trade: bool = False
     can_place_market_order: bool = False
@@ -32,10 +28,6 @@ class Exchange(ABC):
 
     def generate_client_id(self) -> str:
         return str(uuid4())
-
-    @abstractmethod
-    def map_candle_intervals(self) -> dict[int, int]:  # interval: offset
-        pass
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
@@ -55,18 +47,6 @@ class Exchange(ABC):
     async def connect_stream_balances(
         self, account: str
     ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
-        yield  # type: ignore
-
-    @abstractmethod
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
-        yield  # type: ignore
-
-    @asynccontextmanager
-    async def connect_stream_candles(
-        self, symbol: str, interval: int
-    ) -> AsyncIterator[AsyncIterable[Candle]]:
         yield  # type: ignore
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:

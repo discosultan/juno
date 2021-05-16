@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from juno import Advice, Candle, indicators
+from juno import Advice, indicators
+from juno.candles import Candle
 from juno.constraints import Int
 from juno.indicators import MA, Ema2
 from juno.utils import get_module_type

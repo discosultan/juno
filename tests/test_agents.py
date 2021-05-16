@@ -6,11 +6,12 @@ from typing import Callable
 
 import pytest
 
-from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
+from juno import Balance, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel, resolved_stream, stream_queue
 from juno.brokers import Broker, Market
-from juno.components import Chandler, Informant, Orderbook, User
+from juno.candles import Candle, Chandler
+from juno.components import Informant, Orderbook, User
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size

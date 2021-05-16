@@ -3,20 +3,9 @@ from decimal import Decimal
 import aiohttp
 import pytest
 
-from juno import (
-    BadOrder,
-    Balance,
-    Candle,
-    Depth,
-    ExchangeInfo,
-    OrderMissing,
-    OrderType,
-    Side,
-    Ticker,
-)
+from juno import BadOrder, Balance, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker
 from juno.asyncio import resolved_stream, zip_async
 from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
-from juno.time import HOUR_MS, MIN_MS, strptimestamp
 from juno.typing import types_match
 from tests.exchanges import parametrize_exchange, skip_not_configured
 
@@ -119,40 +108,6 @@ async def test_get_max_borrowable(loop, request, exchange_session: Exchange) -> 
     size = await exchange_session.get_max_borrowable(account='margin', asset='btc')
 
     assert types_match(size, Decimal)
-
-
-@pytest.mark.exchange
-@pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase])  # TODO: Add gateio.
-async def test_stream_historical_candles(loop, request, exchange_session: Exchange) -> None:
-    skip_not_configured(request, exchange_session)
-
-    start = strptimestamp('2018-01-01')
-
-    count = 0
-    async for candle in exchange_session.stream_historical_candles(
-        symbol='eth-btc', interval=HOUR_MS, start=start, end=start + HOUR_MS
-    ):
-        if count == 1:
-            pytest.fail('Expected a single candle')
-        count += 1
-
-        assert types_match(candle, Candle)
-        assert candle.time == start
-
-
-@pytest.mark.exchange
-@pytest.mark.manual
-@parametrize_exchange([Binance, Kraken])  # TODO: Add gateio.
-async def test_connect_stream_candles(loop, request, exchange_session: Exchange) -> None:
-    skip_not_configured(request, exchange_session)
-
-    async with exchange_session.connect_stream_candles(
-        symbol='eth-btc', interval=MIN_MS
-    ) as stream:
-        async for candle in stream:
-            assert types_match(candle, Candle)
-            break
 
 
 @pytest.mark.exchange

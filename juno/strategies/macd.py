@@ -1,6 +1,7 @@
 import operator
 
-from juno import Advice, Candle, indicators
+from juno import Advice, indicators
+from juno.candles import Candle
 from juno.constraints import Int, Pair
 
 from .strategy import Signal, Strategy

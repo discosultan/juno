@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from juno import Candle, indicators
+from juno import indicators
+from juno.candles import Candle
 
 from .strategy import Oscillator
 

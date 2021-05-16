@@ -6,7 +6,8 @@ from itertools import accumulate, chain
 import plotly.graph_objs as go
 import plotly.offline as py
 
-from juno import Candle, Fill, indicators
+from juno import Fill, indicators
+from juno.candles import Candle
 from juno.components import Events
 from juno.time import datetime_utcfromtimestamp_ms
 from juno.trading import CloseReason, Position, TradingSummary

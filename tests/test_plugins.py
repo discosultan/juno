@@ -3,7 +3,8 @@ from typing import Any
 
 import pytest
 
-from juno import Candle, Fill
+from juno import Fill
+from juno.candles import Candle
 from juno.components import Events
 from juno.time import DAY_MS
 from juno.trading import CloseReason, Position, TradingSummary

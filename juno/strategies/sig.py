@@ -1,6 +1,7 @@
 from typing import Any
 
-from juno import Advice, Candle, strategies
+from juno import Advice, strategies
+from juno.candles import Candle
 from juno.config import init_module_instance
 
 from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal

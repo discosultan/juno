@@ -10,7 +10,7 @@ from juno.exchanges.kraken import (
     to_http_timestamp,
     to_ws_symbol,
 )
-from juno.trades import Trade
+from juno.trades.models import Trade
 
 from .exchange import Exchange
 

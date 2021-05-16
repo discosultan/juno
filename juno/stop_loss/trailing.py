@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Optional
 
-from juno import Candle
+from juno.candles import Candle
 
 from .stop_loss import StopLoss
 

@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import Any, NamedTuple, Optional, Union
 
-from juno import Advice, Candle
+from juno import Advice
+from juno.candles import Candle
 from juno.constraints import Choice, Constraint
 from juno.indicators import Alma, Dema, Ema, Ema2, Kama, Sma, Smma
 

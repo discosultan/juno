@@ -3,7 +3,8 @@ from __future__ import annotations
 import operator
 from dataclasses import dataclass
 
-from juno import Advice, Candle, indicators
+from juno import Advice, indicators
+from juno.candles import Candle
 from juno.constraints import Int, Triple
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type

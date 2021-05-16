@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle
+from juno.candles import Candle
 from juno.components import Prices
 
 from . import fakes

@@ -2,7 +2,8 @@ import operator
 
 import pytest
 
-from juno import Advice, Candle, strategies
+from juno import Advice, strategies
+from juno.candles import Candle
 from juno.constraints import Int, Pair
 from juno.strategies import MidTrendPolicy, Strategy
 
