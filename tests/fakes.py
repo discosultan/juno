@@ -44,8 +44,6 @@ class Exchange(exchanges.Exchange):
         future_depths=[],
         future_orders=[],
         place_order_result=OrderResult(time=0, status=OrderStatus.NEW),
-        historical_trades=[],
-        future_trades=[],
         client_id=str(uuid4()),
     ):
         super().__init__()
@@ -79,11 +77,6 @@ class Exchange(exchanges.Exchange):
         self.place_order_calls = []
 
         self.cancel_order_calls = []
-
-        self.historical_trades = historical_trades
-        self.trade_queue = asyncio.Queue()
-        for future_trade in future_trades:
-            self.trade_queue.put_nowait(future_trade)
 
         self.client_id = client_id
 
@@ -136,14 +129,6 @@ class Exchange(exchanges.Exchange):
     async def cancel_order(self, *args, **kwargs):
         await asyncio.sleep(0)
         self.cancel_order_calls.append(kwargs)
-
-    async def stream_historical_trades(self, symbol, start, end):
-        for t in (t for t in self.historical_trades if t.time >= start and t.time < end):
-            yield t
-
-    @asynccontextmanager
-    async def connect_stream_trades(self, symbol):
-        yield _stream_queue(self.trade_queue)
 
 
 async def _stream_queue(queue):

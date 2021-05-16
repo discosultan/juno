@@ -6,7 +6,8 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterable, AsyncIterator
 
 from juno.exchanges import Exchange as Session
-from juno.trades import Trade, exchanges
+from juno.trades import exchanges
+from juno.trades.models import Trade
 
 
 class Exchange(ABC):

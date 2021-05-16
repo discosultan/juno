@@ -173,7 +173,8 @@ async def test_connect_stream_depth(loop, request, exchange_session: Exchange) -
     skip_not_configured(request, exchange_session)
 
     expected_types = (
-        [Depth.Snapshot, Depth.Update] if exchange_session.can_stream_depth_snapshot else [Depth.Update]
+        [Depth.Snapshot, Depth.Update] if exchange_session.can_stream_depth_snapshot
+        else [Depth.Update]
     )
 
     async with exchange_session.connect_stream_depth('eth-btc') as stream:

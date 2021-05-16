@@ -187,6 +187,13 @@ def create_task_cancel_owner_on_exception(coro: Coroutine) -> asyncio.Task:
     return child_task
 
 
+def create_queue(items: Iterable[T]) -> asyncio.Queue[T]:
+    queue: asyncio.Queue[T] = asyncio.Queue()
+    for item in items:
+        queue.put_nowait(item)
+    return queue
+
+
 async def stream_queue(
     queue: asyncio.Queue, timeout: Optional[float] = None, raise_on_exc: bool = False
 ) -> AsyncIterable[Any]:
