@@ -20,7 +20,7 @@ async def test_stream_historical_trades(loop, request, exchange_session: Exchang
     else:
         start = strptimestamp('2018-01-01')
         end = start + HOUR_MS
-    exchange = exchanges.Exchange.from_session(exchange_session)
+    exchange = exchange_session.to_exchange(exchanges.Exchange, exchanges)  # type: ignore
 
     stream = exchange.stream_historical_trades(symbol='eth-btc', start=start, end=end)
     async for trade in stream:
@@ -37,7 +37,7 @@ async def test_connect_stream_trades(loop, request, exchange_session: Exchange) 
 
     # FIAT pairs seem to be more active where supported.
     symbol = 'eth-btc' if isinstance(exchange_session, Binance) else 'eth-eur'
-    exchange = exchanges.Exchange.from_session(exchange_session)
+    exchange = exchange_session.to_exchange(exchanges.Exchange, exchanges)  # type: ignore
 
     async with exchange.connect_stream_trades(symbol=symbol) as stream:
         async for trade in stream:

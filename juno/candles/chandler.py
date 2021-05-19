@@ -21,6 +21,7 @@ from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_m
 from juno.trades import Trades
 from juno.utils import AbstractAsyncContextManager, key, unpack_assets
 
+from . import exchanges as exchanges_module
 from .exchanges import Exchange
 from .models import Candle
 
@@ -44,9 +45,11 @@ class Chandler(AbstractAsyncContextManager):
         assert storage_batch_size > 0
 
         self._storage = storage
-        self._exchanges = (
-            Exchange.map_from_sessions(exchange_sessions)
-            | {type(e).__name__.lower(): e for e in exchanges}
+        self._exchanges = Session.map_to_exchanges_combined(
+            sessions=exchange_sessions,
+            type_=Exchange,  # type: ignore
+            module=exchanges_module,
+            exchanges=exchanges,
         )
         self._trades = trades
         self._get_time_ms = get_time_ms

@@ -1,7 +1,11 @@
+from __future__ import annotations
+
+import inspect
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Optional
+from types import ModuleType
+from typing import AsyncIterable, AsyncIterator, Optional, TypeVar
 from uuid import uuid4
 
 from juno import (
@@ -15,6 +19,8 @@ from juno import (
     Ticker,
     TimeInForce,
 )
+
+T = TypeVar('T')
 
 
 class Exchange(ABC):
@@ -106,3 +112,37 @@ class Exchange(ABC):
 
     async def create_account(self, account: str) -> None:
         pass
+
+    def to_exchange(self, type_: type[T], module: ModuleType) -> T:
+        return next(
+            t(self)
+            for n, t in _list_subclasses_from_module(type_, module)
+            if n == type(self).__name__
+        )
+
+    @staticmethod
+    def map_to_exchanges(
+        sessions: list[Exchange], type_: type[T], module: ModuleType
+    ) -> dict[str, T]:
+        type_sessions = {type(s).__name__: s for s in sessions}
+        return {
+            n.lower(): t(type_sessions[n])
+            for n, t in _list_subclasses_from_module(type_, module)
+            if n in type_sessions
+        }
+
+    @staticmethod
+    def map_to_exchanges_combined(
+        sessions: list[Exchange], type_: type[T], module: ModuleType, exchanges: list[T]
+    ) -> dict[str, T]:
+        return (
+            Exchange.map_to_exchanges(sessions, type_, module)
+            | {type(e).__name__.lower(): e for e in exchanges}
+        )
+
+
+def _list_subclasses_from_module(base_type: type, module: ModuleType) -> list[tuple[str, type]]:
+    return inspect.getmembers(
+        module,
+        lambda m: inspect.isclass(m) and m is not base_type and issubclass(m, base_type),
+    )

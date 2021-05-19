@@ -14,7 +14,7 @@ async def test_stream_historical_candles(loop, request, exchange_session: Exchan
     skip_not_configured(request, exchange_session)
 
     start = strptimestamp('2018-01-01')
-    exchange = exchanges.Exchange.from_session(exchange_session)
+    exchange = exchange_session.to_exchange(exchanges.Exchange, exchanges)  # type: ignore
 
     count = 0
     async for candle in exchange.stream_historical_candles(
@@ -34,7 +34,7 @@ async def test_stream_historical_candles(loop, request, exchange_session: Exchan
 async def test_connect_stream_candles(loop, request, exchange_session: Exchange) -> None:
     skip_not_configured(request, exchange_session)
 
-    exchange = exchanges.Exchange.from_session(exchange_session)
+    exchange = exchange_session.to_exchange(exchanges.Exchange, exchanges)  # type: ignore
 
     async with exchange.connect_stream_candles(symbol='eth-btc', interval=MIN_MS) as stream:
         async for candle in stream:

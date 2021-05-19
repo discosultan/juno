@@ -16,6 +16,7 @@ from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponent
 from juno.time import strfspan, time_ms
 from juno.utils import AbstractAsyncContextManager, key
 
+from . import exchanges as exchanges_module
 from .exchanges import Exchange
 from .models import Trade
 
@@ -34,9 +35,11 @@ class Trades(AbstractAsyncContextManager):
         exchanges: list[Exchange] = [],
     ) -> None:
         self._storage = storage
-        self._exchanges = (
-            Exchange.map_from_sessions(exchange_sessions)
-            | {type(e).__name__.lower(): e for e in exchanges}
+        self._exchanges = Session.map_to_exchanges_combined(
+            sessions=exchange_sessions,
+            type_=Exchange,  # type: ignore
+            module=exchanges_module,
+            exchanges=exchanges,
         )
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
