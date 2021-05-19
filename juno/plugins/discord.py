@@ -10,7 +10,8 @@ from discord.ext import commands
 from more_itertools import sliced
 
 from juno.asyncio import cancel, create_task_sigint_on_exception
-from juno.components import Chandler, Events, Informant
+from juno.candles import Chandler
+from juno.components import Events, Informant
 from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader

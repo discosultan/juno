@@ -6,7 +6,7 @@ from itertools import product
 import juno.json as json
 from juno import exchanges, storages
 from juno.asyncio import enumerate_async
-from juno.components import Chandler
+from juno.candles import Chandler
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple_offset
 from juno.time import MIN_MS, strftimestamp, strpinterval, strptimestamp, time_ms

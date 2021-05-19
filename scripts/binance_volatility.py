@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 from more_itertools import take
 
-from juno.components import Chandler, Informant
+from juno.candles import Chandler
+from juno.components import Informant
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.math import floor_multiple_offset

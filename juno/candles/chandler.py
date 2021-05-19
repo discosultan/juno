@@ -302,7 +302,7 @@ class Chandler(AbstractAsyncContextManager):
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),
-            before_sleep=before_sleep_log(_log, logging.WARNING)
+            before_sleep=before_sleep_log(_log, logging.WARNING),
         ):
             with attempt:
                 # We use a swap batch in order to swap the batch right before storing. With a
@@ -379,7 +379,10 @@ class Chandler(AbstractAsyncContextManager):
                     and is_candle_interval_supported
                 ):
                     async for candle in exchange_instance.stream_historical_candles(
-                        symbol, interval, start, historical_end
+                        symbol=symbol,
+                        interval=interval,
+                        start=start,
+                        end=historical_end,
                     ):
                         yield candle
                 else:

@@ -19,17 +19,18 @@ class Exchange(ABC):
     def map_candle_intervals(self) -> dict[int, int]:  # interval: offset
         pass
 
-    @abstractmethod
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
-        yield  # type: ignore
+        raise TypeError()
+        yield
 
     @asynccontextmanager
     async def connect_stream_candles(
         self, symbol: str, interval: int
     ) -> AsyncIterator[AsyncIterable[Candle]]:
-        yield  # type: ignore
+        raise TypeError()
+        yield
 
     @staticmethod
     def from_session(session: Session) -> Exchange:

@@ -4,7 +4,8 @@ from decimal import Decimal
 from typing import Any, Callable, NamedTuple, Optional
 
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
-from juno.components import Chandler, Events, Prices
+from juno.candles import Chandler
+from juno.components import Events, Prices
 from juno.config import (
     format_as_config,
     get_module_type_constructor,

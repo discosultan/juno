@@ -12,12 +12,14 @@ import juno
 from juno import agents, components, config, traders
 from juno.agents import Agent
 from juno.brokers import Broker
+from juno.candles import Chandler
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
 from juno.plugins import Plugin, map_plugin_types
 from juno.storages import Storage
 from juno.traders import Trader
+from juno.trades import Trades
 from juno.utils import full_path, map_concrete_module_types
 
 _log = logging.getLogger(__name__)
@@ -75,6 +77,7 @@ async def main() -> None:
     container.add_singleton_types(trader_types)
     container.add_singleton_instance(list[Trader], lambda: map(container.resolve, trader_types))
     container.add_singleton_types(map_concrete_module_types(components).values())
+    container.add_singleton_types([Chandler, Trades])
 
     # Load agents and plugins.
     agent_types: dict[str, type[Agent]] = map_concrete_module_types(agents)

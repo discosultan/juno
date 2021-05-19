@@ -6,7 +6,8 @@ import logging
 from decimal import Decimal
 
 from juno.brokers import Broker, Limit
-from juno.components import Chandler, Informant, Orderbook, User
+from juno.candles import Chandler
+from juno.components import Informant, Orderbook, User
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Exchange
 from juno.storages import SQLite

@@ -3,12 +3,14 @@
 import asyncio
 from decimal import Decimal
 from typing import Callable
+from unittest.mock import MagicMock
 
 import pytest
 
+import juno.candles
 from juno import Balance, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
-from juno.asyncio import cancel, resolved_stream, stream_queue
+from juno.asyncio import cancel, create_queue, resolved_stream, stream_queue
 from juno.brokers import Broker, Market
 from juno.candles import Candle, Chandler
 from juno.components import Informant, Orderbook, User
@@ -26,9 +28,21 @@ from juno.utils import load_json_file
 from . import fakes
 
 
-async def test_backtest(mocker) -> None:
-    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.map_candle_intervals.return_value = {1: 0}
+def get_container(exchange: Exchange, candles_exchange: juno.candles.Exchange) -> Container:
+    container = Container()
+    container.add_singleton_instance(Storage, lambda: Memory())
+    container.add_singleton_instance(list[Exchange], lambda: [exchange])
+    container.add_singleton_instance(list[juno.candles.Exchange], lambda: [candles_exchange])
+    container.add_singleton_instance(list[Trader], lambda: [container.resolve(Basic)])
+    container.add_singleton_type(Informant)
+    container.add_singleton_type(Orderbook)
+    container.add_singleton_type(Chandler)
+    container.add_singleton_type(User)
+    return container
+
+
+async def test_backtest(storage: Storage) -> None:
+    exchange = MagicMock(spec=Exchange)
     exchange.map_tickers.return_value = {}
     fees = Fees(Decimal('0.0'), Decimal('0.0'))
     filters = Filters(
@@ -52,7 +66,9 @@ async def test_backtest(mocker) -> None:
         Candle(time=5, close=Decimal('10.0')),
         # Liquidate. Price 10. Size 5. Quote 50.
     ]
-    exchange.stream_historical_candles.return_value = resolved_stream(*candles)
+    candles_exchange = MagicMock(spec=juno.candles.Exchange)
+    candles_exchange.map_candle_intervals.return_value = {1: 0}
+    candles_exchange.stream_historical_candles.return_value = resolved_stream(*candles)
 
     config = Backtest.Config(
         exchange='magicmock',
@@ -70,7 +86,7 @@ async def test_backtest(mocker) -> None:
             'close_on_exit': True,
         },
     )
-    container = _get_container(exchange)
+    container = get_container(exchange, candles_exchange)
     agent = container.resolve(Backtest)
 
     async with container:
@@ -99,9 +115,8 @@ async def test_backtest(mocker) -> None:
 # 1. was failing as quote was incorrectly calculated after closing a position.
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
-async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
-    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.map_candle_intervals.return_value = {HOUR_MS: 0}
+async def test_backtest_scenarios(scenario_nr: int) -> None:
+    exchange = MagicMock(spec=Exchange)
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo(
         fees={'__all__': Fees(maker=Decimal('0.001'), taker=Decimal('0.001'))},
@@ -114,12 +129,14 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
             )
         )},
     )
-    exchange.stream_historical_candles.return_value = resolved_stream(*raw_to_type(
+    candles_exchange = MagicMock(spec=juno.candles.Exchange)
+    candles_exchange.map_candle_intervals.return_value = {HOUR_MS: 0}
+    candles_exchange.stream_historical_candles.return_value = resolved_stream(*raw_to_type(
         load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
         list[Candle],
     ))
 
-    container = _get_container(exchange)
+    container = get_container(exchange, candles_exchange)
     agent = container.resolve(Backtest)
 
     config = Backtest.Config(
@@ -146,22 +163,10 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
         await agent.run(config)
 
 
-async def test_paper(mocker) -> None:
-    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.map_candle_intervals.return_value = {1: 0}
+async def test_paper() -> None:
+    exchange = MagicMock(Exchange)
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
-    candles: asyncio.Queue[Candle] = asyncio.Queue()
-    for candle in [
-        Candle(time=0, close=Decimal('5.0')),
-        Candle(time=1, close=Decimal('10.0')),
-        # Long. Size 5 + 1.
-        Candle(time=2, close=Decimal('30.0')),
-        Candle(time=3, close=Decimal('20.0')),
-        # Liquidate. Size 4 + 2.
-    ]:
-        candles.put_nowait(candle)
-    exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
     exchange.can_stream_depth_snapshot = False
     exchange.get_depth.return_value = Depth.Snapshot(
         bids=[
@@ -185,8 +190,23 @@ async def test_paper(mocker) -> None:
             fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
         ),
     ]
+    candles: asyncio.Queue[Candle] = asyncio.Queue()
+    for candle in [
+        Candle(time=0, close=Decimal('5.0')),
+        Candle(time=1, close=Decimal('10.0')),
+        # Long. Size 5 + 1.
+        Candle(time=2, close=Decimal('30.0')),
+        Candle(time=3, close=Decimal('20.0')),
+        # Liquidate. Size 4 + 2.
+    ]:
+        candles.put_nowait(candle)
+    candles_exchange = MagicMock(spec=juno.candles.Exchange)
+    candles_exchange.map_candle_intervals.return_value = {1: 0}
+    candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
+        candles
+    )
 
-    container = _get_container(exchange)
+    container = get_container(exchange, candles_exchange)
     container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
     container.add_singleton_type(Broker, lambda: Market)
     agent = container.resolve(Paper)
@@ -219,22 +239,10 @@ async def test_paper(mocker) -> None:
     assert pos.profit == 0
 
 
-async def test_live(mocker) -> None:
-    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.map_candle_intervals.return_value = {1: 0}
+async def test_live() -> None:
+    exchange = MagicMock(spec=Exchange)
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
-    candles: asyncio.Queue[Candle] = asyncio.Queue()
-    for candle in [
-        Candle(time=0, close=Decimal('5.0')),
-        Candle(time=1, close=Decimal('10.0')),
-        # Long. Size 5 + 1.
-        Candle(time=2, close=Decimal('30.0')),
-        Candle(time=3, close=Decimal('20.0')),
-        # Liquidate. Size 4 + 2.
-    ]:
-        candles.put_nowait(candle)
-    exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
     exchange.map_balances.return_value = {
         'spot': {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
     }
@@ -250,8 +258,21 @@ async def test_live(mocker) -> None:
             fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
         ),
     ]
+    candles = create_queue([
+        Candle(time=0, close=Decimal('5.0')),
+        Candle(time=1, close=Decimal('10.0')),
+        # Long. Size 5 + 1.
+        Candle(time=2, close=Decimal('30.0')),
+        Candle(time=3, close=Decimal('20.0')),
+        # Liquidate. Size 4 + 2.
+    ])
+    candles_exchange = MagicMock(spec=juno.candles.Exchange)
+    candles_exchange.map_candle_intervals.return_value = {1: 0}
+    candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
+        candles
+    )
 
-    container = _get_container(exchange)
+    container = get_container(exchange, candles_exchange)
     container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
     container.add_singleton_type(Broker, lambda: Market)
     agent = container.resolve(Live)
@@ -283,17 +304,19 @@ async def test_live(mocker) -> None:
 
 
 @pytest.mark.parametrize('strategy', ['fixed', 'fourweekrule'])
-async def test_live_persist_and_resume(mocker, strategy: str) -> None:
-    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.map_candle_intervals.return_value = {1: 0}
+async def test_live_persist_and_resume(strategy: str) -> None:
+    exchange = MagicMock(spec=Exchange)
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
-    candles: asyncio.Queue[Candle] = asyncio.Queue()
-    candles.put_nowait(Candle(time=0, close=Decimal('1.0')))
-    exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
     exchange.map_balances.return_value = {'spot': {'btc': Balance(available=Decimal('1.0'))}}
+    candles = create_queue([Candle(time=0, close=Decimal('1.0'))])
+    candles_exchange = MagicMock(spec=juno.candles.Exchange)
+    candles_exchange.map_candle_intervals.return_value = {1: 0}
+    candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
+        candles
+    )
 
-    container = _get_container(exchange)
+    container = get_container(exchange, candles_exchange)
     container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
     container.add_singleton_type(Broker, lambda: Market)
     agent = container.resolve(Live)
@@ -315,8 +338,8 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
         await cancel(agent_run_task)
 
         candles.put_nowait(Candle(time=1, close=Decimal('1.0')))
-        exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
-            candles
+        candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = (
+            stream_queue(candles)
         )
         agent_run_task = asyncio.create_task(agent.run(config))
         await asyncio.wait_for(candles.join(), 1)
@@ -327,15 +350,3 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
     assert state.first_candle.time == 0
     assert state.last_candle
     assert state.last_candle.time == 1
-
-
-def _get_container(exchange: Exchange) -> Container:
-    container = Container()
-    container.add_singleton_instance(Storage, lambda: Memory())
-    container.add_singleton_instance(list[Exchange], lambda: [exchange])
-    container.add_singleton_instance(list[Trader], lambda: [container.resolve(Basic)])
-    container.add_singleton_type(Informant)
-    container.add_singleton_type(Orderbook)
-    container.add_singleton_type(Chandler)
-    container.add_singleton_type(User)
-    return container

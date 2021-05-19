@@ -21,7 +21,8 @@ from tenacity import (
 from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp
 from juno.asyncio import gather_dict
 from juno.brokers import Broker
-from juno.components import Chandler, Informant, User
+from juno.candles import Chandler
+from juno.components import Informant, User
 from juno.math import annualized, ceil_multiple, floor_multiple_offset, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_assets, unpack_base_asset, unpack_quote_asset

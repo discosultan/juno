@@ -23,7 +23,7 @@ def parametrize_exchange(exchange_types: list[Type[Exchange]]):
 
 
 @asynccontextmanager
-async def try_init_exchange(type_, config):
+async def try_init_exchange_session(type_, config):
     try:
         async with init_instance(type_, config) as exchange:
             yield exchange

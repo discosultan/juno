@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import Any
 
 from juno import Filters, MissedCandlePolicy, stop_loss, strategies
-from juno.candles import Candle
-from juno.components import Chandler, Informant
+from juno.candles import Candle, Chandler
+from juno.components import Informant
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple

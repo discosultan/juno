@@ -200,17 +200,17 @@ async def stream_queue(
     if timeout is None:
         while True:
             item = await queue.get()
+            queue.task_done()
             if raise_on_exc and isinstance(item, Exception):
                 raise item
             yield item
-            queue.task_done()
     else:
         while True:
             item = await asyncio.wait_for(queue.get(), timeout=timeout)
+            queue.task_done()
             if raise_on_exc and isinstance(item, Exception):
                 raise item
             yield item
-            queue.task_done()
 
 
 async def process_task_on_queue(queue: asyncio.Queue, coro: Awaitable[T]) -> T:

@@ -4,7 +4,7 @@ import asyncio
 import logging
 
 from juno import exchanges
-from juno.components import Chandler
+from juno.candles import Chandler
 from juno.config import from_env, init_instance
 from juno.storages import SQLite
 from juno.time import strfinterval, strftimestamp, strpinterval

@@ -1,11 +1,12 @@
 from decimal import Decimal
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
 from juno import Fill
-from juno.candles import Candle
-from juno.components import Events
+from juno.candles import Candle, Chandler
+from juno.components import Events, Informant
 from juno.time import DAY_MS
 from juno.trading import CloseReason, Position, TradingSummary
 from juno.utils import full_path
@@ -13,15 +14,15 @@ from juno.utils import full_path
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_discord(request, config: dict[str, Any], mocker) -> None:
+async def test_discord(request, config: dict[str, Any]) -> None:
     skip_non_configured(request, config)
 
     from juno.plugins.discord import Discord
 
     events = Events()
     async with Discord(
-        chandler=mocker.patch('juno.components.chandler.Chandler'),
-        informant=mocker.patch('juno.components.informant.Informant'),
+        chandler=MagicMock(spec=Chandler),
+        informant=MagicMock(spec=Informant),
         events=events,
         config=config,
     ) as discord:

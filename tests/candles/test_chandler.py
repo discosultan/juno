@@ -1,16 +1,57 @@
 import asyncio
 from decimal import Decimal
+from typing import AsyncIterable, Callable, Union
+from unittest.mock import MagicMock
 
 import pytest
 
 from juno import ExchangeException
-from juno.asyncio import cancel, list_async, resolved_stream
-from juno.candles import Candle, Chandler
+from juno.asyncio import cancel, create_queue, list_async, resolved_stream, stream_queue
+from juno.candles import Candle, Chandler, Exchange
 from juno.storages import Storage
 from juno.time import WEEK_MS, strptimestamp
-from juno.trades import Trade
+from juno.trades import Trade, Trades
 from juno.utils import key
 from tests import fakes
+
+EXCHANGE = 'magicmock'
+SYMBOL = 'eth-btc'
+INTERVAL = 1
+TIMEOUT = 1
+
+
+def mock_exchange(
+    can_stream_candles: bool = True,
+    can_stream_historical_candles: bool = True,
+    can_stream_historical_earliest_candle: bool = True,
+    candle_intervals: dict[int, int] = {1: 0},
+    historical_candles: list[Candle] = [],
+    future_candles: Union[list[Candle], asyncio.Queue] = [],
+) -> MagicMock:
+    exchange = MagicMock(spec=Exchange)
+    exchange.can_stream_candles = can_stream_candles
+    exchange.can_stream_historical_candles = can_stream_historical_candles
+    exchange.can_stream_historical_earliest_candle = can_stream_historical_earliest_candle
+    exchange.map_candle_intervals.return_value = candle_intervals
+    exchange.stream_historical_candles.return_value = resolved_stream(*historical_candles)
+    exchange.connect_stream_candles.return_value.__aenter__.side_effect = lambda _: (
+        stream_queue(future_candles, raise_on_exc=True)
+        if isinstance(future_candles, asyncio.Queue)
+        else resolved_stream(*future_candles)
+    )
+    return exchange
+
+
+def create_stream_candles(
+    candles: list[Candle],
+) -> Callable[[str, int, int, int], AsyncIterable[Candle]]:
+    async def stream_candles(
+        symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
+        for candle in candles:
+            if candle.time >= start and candle.time < end:
+                yield candle
+    return stream_candles
 
 
 @pytest.mark.parametrize(
@@ -25,13 +66,8 @@ from tests import fakes
     ]
 )
 async def test_stream_candles(
-    storage: fakes.Storage, start, end, closed, efrom, eto, espans
+    storage: Storage, start, end, closed, efrom, eto, espans
 ) -> None:
-    EXCHANGE = 'exchange'
-    SYMBOL = 'eth-btc'
-    INTERVAL = 1
-    CURRENT = 5
-    STORAGE_BATCH_SIZE = 2
     historical_candles = [
         Candle(time=0),
         Candle(time=1),
@@ -46,17 +82,15 @@ async def test_stream_candles(
     expected_candles = (historical_candles + future_candles)[efrom:eto]
     if closed:
         expected_candles = [c for c in expected_candles if c.closed]
-    time = fakes.Time(CURRENT, increment=1)
-    exchange = fakes.Exchange(
-        historical_candles=historical_candles,
+    exchange = mock_exchange(
+        historical_candles=[c for c in historical_candles if c.time >= start and c.time < end],
         future_candles=future_candles,
-        candle_intervals={1: 0},
     )
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
-        get_time_ms=time.get_time,
-        storage_batch_size=STORAGE_BATCH_SIZE
+        get_time_ms=fakes.Time(5, increment=1).get_time,
+        storage_batch_size=2,
     )
 
     output_candles = await list_async(
@@ -73,56 +107,57 @@ async def test_stream_candles(
     assert stored_spans == espans
 
 
-async def test_stream_future_candles_span_stored_until_cancelled(storage: fakes.Storage) -> None:
-    EXCHANGE = 'exchange'
-    SYMBOL = 'eth-btc'
-    INTERVAL = 1
-    START = 0
-    CANCEL_AT = 5
-    END = 10
+async def test_stream_future_candles_span_stored_until_cancelled(storage: Storage) -> None:
+    start = 0
+    end = 10
     candles = [Candle(time=1)]
-    exchange = fakes.Exchange(future_candles=candles, candle_intervals={INTERVAL: 0})
-    time = fakes.Time(START, increment=1)
+    candle_queue = create_queue(candles)
+    time = fakes.Time(start, increment=1)
+    exchange = mock_exchange(
+        future_candles=candle_queue,
+    )
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
-        get_time_ms=time.get_time
+        get_time_ms=time.get_time,
     )
 
     task = asyncio.create_task(
-        list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, START, END))
+        list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, start, end))
     )
-    await exchange.candle_queue.join()
-    time.time = CANCEL_AT
+    await asyncio.wait_for(candle_queue.join(), TIMEOUT)
+    time.time = 5
     await cancel(task)
 
     shard = key(EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
-        list_async(storage.stream_time_series_spans(shard, 'candle', START, END)),
-        list_async(storage.stream_time_series(shard, 'candle', Candle, START, END)),
+        list_async(storage.stream_time_series_spans(shard, 'candle', start, end)),
+        list_async(storage.stream_time_series(shard, 'candle', Candle, start, end)),
     )
 
     assert stored_candles == candles
-    assert stored_spans == [(START, candles[-1].time + INTERVAL)]
+    assert stored_spans == [(start, candles[-1].time + INTERVAL)]
 
 
 async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
-    exchange = fakes.Exchange(candle_intervals={5: 0})
-    exchange.can_stream_historical_candles = False
-    exchange.can_stream_candles = False
-
-    trades = fakes.Trades(trades=[
+    trades = MagicMock(spec=Trades)
+    trades.stream_trades.return_value = resolved_stream(
         Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
         Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
         Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
-    ])
+    )
+    exchange = mock_exchange(
+        candle_intervals={5: 0},
+        can_stream_candles=False,
+        can_stream_historical_candles=False,
+    )
     chandler = Chandler(
-        trades=trades,
         storage=storage,
-        exchanges=[exchange]
+        exchanges=[exchange],
+        trades=trades,
     )
 
-    output_candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 5, 0, 5))
+    output_candles = await list_async(chandler.stream_candles(EXCHANGE, SYMBOL, 5, 0, 5))
 
     assert output_candles == [
         Candle(
@@ -132,89 +167,90 @@ async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            closed=True
+            closed=True,
         )
     ]
 
 
 async def test_stream_candles_cancel_does_not_store_twice(storage: fakes.Storage) -> None:
     candles = [Candle(time=1)]
-    exchange = fakes.Exchange(historical_candles=candles, candle_intervals={1: 0})
-    chandler = Chandler(storage=storage, exchanges=[exchange], storage_batch_size=1)
+    exchange = mock_exchange(historical_candles=candles)
+    chandler = Chandler(storage=storage, storage_batch_size=1, exchanges=[exchange])
 
     stream_candles_task = asyncio.create_task(
-        list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 2))
+        list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, 0, 2))
     )
 
     await storage.stored_time_series_and_span.wait()
     await cancel(stream_candles_task)
 
     stored_candles = await list_async(
-        storage.stream_time_series(key('exchange', 'eth-btc', 1), 'candle', Candle, 0, 2)
+        storage.stream_time_series(key(EXCHANGE, SYMBOL, INTERVAL), 'candle', Candle, 0, 2)
     )
     assert stored_candles == candles
 
 
-async def test_stream_candles_on_exchange_exception(storage: fakes.Storage) -> None:
+async def test_stream_candles_on_exchange_exception(storage: Storage) -> None:
     time = fakes.Time(0)
-    exchange = fakes.Exchange(
-        candle_intervals={1: 0},
-        future_candles=[
-            Candle(time=0),
-            Candle(time=1),
-        ],
-    )
-    chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
-
-    stream_candles_task = asyncio.create_task(
-        list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 5))
-    )
-    await exchange.candle_queue.join()
-
-    time.time = 3
-    exchange.historical_candles = [
+    candles: asyncio.Queue[Union[Candle, ExchangeException]] = create_queue([
         Candle(time=0),
         Candle(time=1),
-        Candle(time=2),
-    ]
-    for exc_or_candle in [ExchangeException(), Candle(time=3)]:
-        exchange.candle_queue.put_nowait(exc_or_candle)
-    await exchange.candle_queue.join()
+    ])
+    exchange = mock_exchange(future_candles=candles)
+    chandler = Chandler(
+        storage=storage,
+        exchanges=[exchange],
+        get_time_ms=time.get_time,
+    )
+
+    stream_candles_task = asyncio.create_task(
+        list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, 0, 5))
+    )
+    await asyncio.wait_for(candles.join(), TIMEOUT)
+
+    time.time = 3
+    exchange.stream_historical_candles.return_value = resolved_stream(Candle(time=2))
+    candles.put_nowait(ExchangeException())
+    candles.put_nowait(Candle(time=3))
+    await asyncio.wait_for(candles.join(), TIMEOUT)
 
     time.time = 5
-    for exc_or_candle in [Candle(time=4), Candle(time=5)]:
-        exchange.candle_queue.put_nowait(exc_or_candle)
+    candles.put_nowait(Candle(time=4))
+    candles.put_nowait(Candle(time=5))  # Should not be taken from the queue.
 
     result = await stream_candles_task
 
     assert len(result) == 5
     for i, candle in enumerate(result):
         assert candle.time == i
+    exchange.stream_historical_candles.assert_called_once_with(
+        symbol=SYMBOL,
+        interval=INTERVAL,
+        start=2,
+        end=3,
+    )
 
 
 async def test_stream_candles_on_exchange_exception_and_cancelled(storage: fakes.Storage) -> None:
     time = fakes.Time(0)
-    exchange = fakes.Exchange(
-        candle_intervals={1: 0},
-        future_candles=[
-            Candle(time=0),
-        ],
-    )
+    candles: asyncio.Queue[Union[Candle, ExchangeException]] = create_queue([
+        Candle(time=0),
+    ])
+    exchange = mock_exchange(future_candles=candles)
     chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     stream_candles_task = asyncio.create_task(
-        list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 4))
+        list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, 0, 4))
     )
-    await exchange.candle_queue.join()
+    await asyncio.wait_for(candles.join(), TIMEOUT)
 
     time.time = 2
-    exchange.historical_candles = [
-        Candle(time=0),
+    exchange.stream_historical_candles.return_value = resolved_stream(
         Candle(time=1),
-    ]
-    for exc_or_candle in [ExchangeException(), Candle(time=2)]:
-        exchange.candle_queue.put_nowait(exc_or_candle)
-    await exchange.candle_queue.join()
+    )
+    candles.put_nowait(ExchangeException())
+    candles.put_nowait(Candle(time=2))
+    await asyncio.wait_for(candles.join(), TIMEOUT)
 
     await cancel(stream_candles_task)
 
@@ -227,6 +263,12 @@ async def test_stream_candles_on_exchange_exception_and_cancelled(storage: fakes
     assert items2 == [Candle(time=1), Candle(time=2)]
     assert start2 == 1
     assert end2 == 3
+    exchange.stream_historical_candles.assert_called_once_with(
+        symbol=SYMBOL,
+        interval=INTERVAL,
+        start=1,
+        end=2,
+    )
 
 
 async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> None:
@@ -244,8 +286,7 @@ async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> 
         low=Decimal('1.0'),
         close=Decimal('3.0'),
     )
-    exchange = fakes.Exchange(
-        candle_intervals={1: 0},
+    exchange = mock_exchange(
         historical_candles=[
             # Missed candle should NOT get filled.
             first_candle,
@@ -256,9 +297,9 @@ async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> 
     chandler = Chandler(storage=storage, exchanges=[exchange])
     output = await list_async(
         chandler.stream_candles(
-            exchange='exchange',
-            symbol='eth-btc',
-            interval=1,
+            exchange=EXCHANGE,
+            symbol=SYMBOL,
+            interval=INTERVAL,
             start=0,
             end=4,
             fill_missing_with_last=True,
@@ -284,21 +325,22 @@ async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> 
 async def test_stream_candles_construct_from_trades_if_interval_not_supported(
     storage: fakes.Storage
 ) -> None:
-    exchange = fakes.Exchange(candle_intervals={1: 0})
-    exchange.can_stream_historical_candles = True
-
-    trades = fakes.Trades(trades=[
+    trades = MagicMock(spec=Trades)
+    trades.stream_trades.return_value = resolved_stream(
         Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
         Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
         Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
-    ])
+    )
     chandler = Chandler(
         trades=trades,
         storage=storage,
-        exchanges=[exchange]
+        exchanges=[mock_exchange(
+            can_stream_historical_candles=True,
+            candle_intervals={1: 0},
+        )],
     )
 
-    output_candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 5, 0, 5))
+    output_candles = await list_async(chandler.stream_candles(EXCHANGE, SYMBOL, 5, 0, 5))
 
     assert output_candles == [
         Candle(
@@ -308,8 +350,8 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            closed=True
-        )
+            closed=True,
+        ),
     ]
 
 
@@ -317,60 +359,59 @@ async def test_stream_candles_no_duplicates_if_same_candle_from_rest_and_websock
     storage
 ) -> None:
     time = fakes.Time(1)
-    exchange = fakes.Exchange(
-        candle_intervals={1: 0},
+    exchange = mock_exchange(
         historical_candles=[Candle(time=0)],
         future_candles=[Candle(time=0), Candle(time=1)],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     count = 0
-    async for candle in chandler.stream_candles('exchange', 'eth-btc', 1, 0, 2):
+    async for candle in chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, 0, 2):
         time.time = candle.time + 1
         count += 1
     assert count == 2
 
 
 async def test_stream_historical_candles_bad_time_adjust_to_previous(storage) -> None:
-    exchange = fakes.Exchange(
+    exchange = mock_exchange(
         candle_intervals={2: 0},
         historical_candles=[Candle(time=0), Candle(time=3)],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
-    candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4))
+    candles = await list_async(chandler.stream_candles(EXCHANGE, SYMBOL, 2, 0, 4))
 
     assert candles == [Candle(time=0), Candle(time=2)]
 
 
 async def test_stream_historical_candles_bad_time_skip_when_no_volume(storage) -> None:
-    exchange = fakes.Exchange(
+    exchange = mock_exchange(
         candle_intervals={2: 0},
         historical_candles=[Candle(time=0), Candle(time=1, volume=Decimal('0.0'))],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
-    candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4))
+    candles = await list_async(chandler.stream_candles(EXCHANGE, SYMBOL, 2, 0, 4))
 
     assert candles == [Candle(time=0)]
 
 
 async def test_stream_historical_candles_bad_time_error_when_unadjustable(storage) -> None:
-    exchange = fakes.Exchange(
+    exchange = mock_exchange(
         candle_intervals={2: 0},
         historical_candles=[Candle(time=0), Candle(time=1, volume=Decimal('1.0'))],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
     with pytest.raises(RuntimeError):
-        async for _candle in chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4):
+        async for _candle in chandler.stream_candles(EXCHANGE, SYMBOL, 2, 0, 4):
             pass
 
 
 async def test_stream_historical_candles_do_not_adjust_over_daily_interval(storage) -> None:
     start = strptimestamp('2019-12-26')
     end = strptimestamp('2020-01-02')
-    exchange = fakes.Exchange(
+    exchange = mock_exchange(
         candle_intervals={WEEK_MS: 0},
         historical_candles=[Candle(time=start)],
     )
@@ -378,8 +419,8 @@ async def test_stream_historical_candles_do_not_adjust_over_daily_interval(stora
 
     candles = await list_async(
         chandler.stream_candles(
-            'exchange',
-            'eth-btc',
+            EXCHANGE,
+            SYMBOL,
             WEEK_MS,
             start,
             end,
@@ -400,11 +441,12 @@ async def test_get_first_candle_by_search(storage, earliest_exchange_start, time
         Candle(time=16),
         Candle(time=18),
     ]
-    exchange = fakes.Exchange(
+    exchange = mock_exchange(
+        can_stream_historical_earliest_candle=False,
         candle_intervals={2: 0},
-        historical_candles=candles,
     )
-    exchange.can_stream_historical_earliest_candle = False
+
+    exchange.stream_historical_candles.side_effect = create_stream_candles(candles)
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
@@ -412,7 +454,7 @@ async def test_get_first_candle_by_search(storage, earliest_exchange_start, time
         earliest_exchange_start=earliest_exchange_start,
     )
 
-    first_candle = await chandler.get_first_candle('exchange', 'eth-btc', 2)
+    first_candle = await chandler.get_first_candle(EXCHANGE, SYMBOL, 2)
 
     assert first_candle.time == 12
 
@@ -424,8 +466,10 @@ async def test_get_first_candle_by_search(storage, earliest_exchange_start, time
 async def test_get_first_candle_by_search_not_found(
     storage, earliest_exchange_start, time
 ) -> None:
-    exchange = fakes.Exchange(historical_candles=[Candle(time=0)])
-    exchange.can_stream_historical_earliest_candle = False
+    exchange = mock_exchange(
+        can_stream_historical_earliest_candle=False,
+        historical_candles=[Candle(time=0)],
+    )
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
@@ -434,59 +478,60 @@ async def test_get_first_candle_by_search_not_found(
     )
 
     with pytest.raises(ValueError):
-        await chandler.get_first_candle('exchange', 'eth-btc', 1)
+        await chandler.get_first_candle(EXCHANGE, SYMBOL, INTERVAL)
 
 
 async def test_get_first_candle_caching_to_storage(storage) -> None:
-    exchange = fakes.Exchange(historical_candles=[Candle()])
+    exchange = mock_exchange(historical_candles=[Candle()])
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
         earliest_exchange_start=0,
     )
 
-    await chandler.get_first_candle('exchange', 'eth-btc', 1)
+    await chandler.get_first_candle(EXCHANGE, SYMBOL, INTERVAL)
 
     assert len(storage.get_calls) == 1
     assert len(storage.set_calls) == 1
 
-    await chandler.get_first_candle('exchange', 'eth-btc', 1)
+    await chandler.get_first_candle(EXCHANGE, SYMBOL, INTERVAL)
 
     assert len(storage.get_calls) == 2
     assert len(storage.set_calls) == 1
 
 
 async def test_get_last_candle(storage) -> None:
-    exchange = fakes.Exchange(historical_candles=[Candle(time=0), Candle(time=2)])
+    exchange = mock_exchange()
+    exchange.stream_historical_candles.side_effect = create_stream_candles(
+        [Candle(time=0), Candle(time=2)]
+    )
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
         get_time_ms=fakes.Time(4).get_time,
     )
 
-    candle = await chandler.get_last_candle('exchange', 'eth-btc', 2)
+    candle = await chandler.get_last_candle(EXCHANGE, SYMBOL, 2)
 
     assert candle.time == 2
 
 
 async def test_list_candles(storage) -> None:
-    exchange = fakes.Exchange(
-        candle_intervals={1: 0},
+    exchange = mock_exchange(
         historical_candles=[Candle(time=0), Candle(time=1)],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
-    candles = await chandler.list_candles('exchange', 'eth-btc', 1, 0, 2)
+    candles = await chandler.list_candles(EXCHANGE, SYMBOL, INTERVAL, 0, 2)
 
     assert len(candles) == 2
 
 
 async def test_map_symbol_interval_candles(storage, mocker) -> None:
-    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.map_candle_intervals.return_value = {
+    exchange = mock_exchange(candle_intervals={
         1: 0,
         2: 0,
-    }
+    })
 
     def stream_historical_candles_side_effect(symbol, interval, start, end):
         if interval == 1:
@@ -494,11 +539,13 @@ async def test_map_symbol_interval_candles(storage, mocker) -> None:
         else:  # 2
             return resolved_stream(*[Candle(time=0)])
 
-    exchange.stream_historical_candles.side_effect = stream_historical_candles_side_effect
+    exchange.stream_historical_candles.side_effect = (
+        stream_historical_candles_side_effect
+    )
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
     candles = await chandler.map_symbol_interval_candles(
-        'magicmock', ['eth-btc', 'ltc-btc'], [1, 2], 0, 2
+        EXCHANGE, ['eth-btc', 'ltc-btc'], [1, 2], 0, 2
     )
 
     assert len(candles) == 4
@@ -528,17 +575,18 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
                     volume=Decimal('2.0'),
                 )
 
-    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.map_candle_intervals.return_value = {
-        1: 0,
-        2: 0,
-    }
+    exchange = mock_exchange(
+        candle_intervals={
+            1: 0,
+            2: 0,
+        }
+    )
     exchange.stream_historical_candles.side_effect = stream_historical_candles
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
     candles = await chandler.list_candles(
-        exchange='magicmock',
-        symbol='eth-btc',
+        exchange=EXCHANGE,
+        symbol=SYMBOL,
         interval=2,
         start=0,
         end=6,
@@ -566,10 +614,10 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
     ([1, 2, 3], [1, 2], [1, 2]),
 ])
 async def test_map_candle_intervals(storage, intervals, patterns, expected_output) -> None:
-    exchange = fakes.Exchange(candle_intervals={i: 0 for i in intervals})
+    exchange = mock_exchange(candle_intervals={i: 0 for i in intervals})
 
     async with Chandler(storage=storage, exchanges=[exchange]) as chandler:
-        output = chandler.map_candle_intervals('exchange', patterns)
+        output = chandler.map_candle_intervals(EXCHANGE, patterns)
 
     assert len(output) == len(expected_output)
     assert set(output) == set(expected_output)

@@ -1,4 +1,3 @@
-import aiohttp
 import pytest
 
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
@@ -6,12 +5,6 @@ from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.trades import Trade, exchanges
 from juno.typing import types_match
 from tests.exchanges import parametrize_exchange, skip_not_configured
-
-
-@pytest.fixture(scope='session')
-def loop():
-    with aiohttp.test_utils.loop_context() as loop:
-        yield loop
 
 
 @pytest.mark.exchange

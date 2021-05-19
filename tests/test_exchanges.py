@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-import aiohttp
 import pytest
 
 from juno import BadOrder, Balance, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker
@@ -8,12 +7,6 @@ from juno.asyncio import resolved_stream, zip_async
 from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
 from juno.typing import types_match
 from tests.exchanges import parametrize_exchange, skip_not_configured
-
-
-@pytest.fixture(scope='session')
-def loop():
-    with aiohttp.test_utils.loop_context() as loop:
-        yield loop
 
 
 @pytest.mark.exchange

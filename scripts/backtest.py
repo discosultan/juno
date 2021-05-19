@@ -8,7 +8,8 @@ from typing import Any
 import juno.json as json
 from juno import MissedCandlePolicy, exchanges, stop_loss, strategies, take_profit
 from juno.asyncio import gather_dict
-from juno.components import Chandler, Informant
+from juno.candles import Chandler
+from juno.components import Informant
 from juno.config import format_as_config, from_env, init_instance
 from juno.statistics import CoreStatistics
 from juno.storages import SQLite

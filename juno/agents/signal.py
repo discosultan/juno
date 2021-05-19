@@ -2,7 +2,8 @@ import logging
 from typing import Any, NamedTuple, Optional
 
 from juno import Advice, Interval, strategies
-from juno.components import Chandler, Events
+from juno.candles import Chandler
+from juno.components import Events
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple_offset
 from juno.storages import Memory, Storage

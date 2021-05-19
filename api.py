@@ -5,7 +5,7 @@ from typing import AsyncIterator
 from aiohttp import web
 
 import juno.json as json
-from juno.components import Chandler
+from juno.candles import Chandler
 from juno.exchanges import Binance
 from juno.logging import create_handlers
 from juno.storages import SQLite

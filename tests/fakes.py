@@ -12,6 +12,7 @@ from juno import (
     Filters,
     OrderResult,
     OrderStatus,
+    candles,
     components,
     exchanges,
     storages,
@@ -116,7 +117,7 @@ async def _stream_queue(queue):
         yield item
 
 
-class Chandler(components.Chandler):
+class Chandler(candles.Chandler):
     def __init__(
         self,
         candles={},

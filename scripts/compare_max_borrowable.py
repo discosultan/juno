@@ -4,7 +4,8 @@ import logging
 from decimal import Decimal
 
 from juno import time
-from juno.components import Chandler, Informant, User
+from juno.candles import Chandler
+from juno.components import Informant, User
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite

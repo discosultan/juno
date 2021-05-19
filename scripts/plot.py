@@ -3,7 +3,7 @@ import asyncio
 import plotly.graph_objs as go
 import plotly.offline as py
 
-from juno.components import Chandler
+from juno.candles import Chandler
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite
