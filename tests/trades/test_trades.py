@@ -1,33 +1,19 @@
 import asyncio
 from decimal import Decimal
-from typing import Union
-from unittest.mock import MagicMock
 
 import pytest
 
-from juno.asyncio import cancel, create_queue, list_async, resolved_stream, stream_queue
+from juno.asyncio import cancel, create_queue, list_async
 from juno.storages import Storage
-from juno.trades import Exchange, Trade, Trades
+from juno.trades import Trade, Trades
 from juno.utils import key
 from tests import fakes
+
+from .mock import mock_exchange_trades
 
 EXCHANGE = 'magicmock'
 SYMBOL = 'eth-btc'
 TIMEOUT = 1
-
-
-def mock_exchange(
-    historical_trades: list[Trade] = [],
-    future_trades: Union[list[Trade], asyncio.Queue] = [],
-) -> MagicMock:
-    exchange = MagicMock(spec=Exchange)
-    exchange.stream_historical_trades.return_value = resolved_stream(*historical_trades)
-    exchange.connect_stream_trades.return_value.__aenter__.side_effect = lambda: (
-        stream_queue(future_trades, raise_on_exc=True)
-        if isinstance(future_trades, asyncio.Queue)
-        else resolved_stream(*future_trades)
-    )
-    return exchange
 
 
 async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) -> None:
@@ -36,7 +22,7 @@ async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) 
     trades = [Trade(time=1)]
     future_trades = create_queue(trades)
     time = fakes.Time(start, increment=1)
-    exchange = mock_exchange(future_trades=future_trades)
+    exchange = mock_exchange_trades(future_trades=future_trades)
     service = Trades(
         storage=storage,
         exchanges=[exchange],
@@ -81,7 +67,7 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
     ]
     expected_trades = (historical_trades + future_trades)[efrom:eto]
     time = fakes.Time(6, increment=1)
-    exchange = mock_exchange(
+    exchange = mock_exchange_trades(
         historical_trades=[t for t in historical_trades if t.time >= start and t.time < end],
         future_trades=future_trades,
     )
@@ -108,7 +94,7 @@ async def test_stream_trades_no_duplicates_if_same_trade_from_rest_and_websocket
     storage: Storage
 ) -> None:
     time = fakes.Time(1)
-    exchange = mock_exchange(
+    exchange = mock_exchange_trades(
         historical_trades=[Trade(time=0)],
         future_trades=[Trade(time=0), Trade(time=1), Trade(time=2)],
     )

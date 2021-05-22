@@ -82,6 +82,7 @@ async def test_insufficient_balance() -> None:
     snapshot = Depth.Snapshot(asks=[], bids=[(Decimal('1.0'), Decimal('1.0'))])
     exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
     exchange.can_stream_depth_snapshot = False
+    assets_exchange = MagicMock()
     async with init_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(BadOrder):

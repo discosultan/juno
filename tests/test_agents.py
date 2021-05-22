@@ -6,12 +6,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import juno.assets
-import juno.candles
 from juno import Balance, Depth, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
 from juno.assets import ExchangeInfo, Fees, Informant
-from juno.asyncio import cancel, create_queue, resolved_stream, stream_queue
+from juno.asyncio import cancel, create_queue, stream_queue
 from juno.brokers import Market
 from juno.candles import Candle, Chandler
 from juno.components import Orderbook, User
@@ -24,21 +22,28 @@ from juno.traders import Basic, BasicState
 from juno.trading import Position
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
+from tests.assets.mock import mock_exchange_assets
+from tests.candles.mock import mock_exchange_candles
 
 from . import fakes
 
+EXCHANGE = 'magicmock'
+SYMBOL = 'eth-btc'
+INTERVAL = 1
+TIMEOUT = 1
+
 
 async def test_backtest(storage: Storage) -> None:
-    assets_exchange = MagicMock(spec=juno.assets.Exchange)
-    assets_exchange.map_tickers.return_value = {}
     fees = Fees(Decimal('0.0'), Decimal('0.0'))
     filters = Filters(
         price=Price(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
         size=Size(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
     )
-    assets_exchange.get_exchange_info.return_value = ExchangeInfo(
-        fees={'__all__': fees},
-        filters={'__all__': filters},
+    exchange_assets = mock_exchange_assets(
+        exchange_info=ExchangeInfo(
+            fees={'__all__': fees},
+            filters={'__all__': filters},
+        )
     )
     candles = [
         # Quote 100.
@@ -53,13 +58,11 @@ async def test_backtest(storage: Storage) -> None:
         Candle(time=5, close=Decimal('10.0')),
         # Liquidate. Price 10. Size 5. Quote 50.
     ]
-    candles_exchange = MagicMock(spec=juno.candles.Exchange)
-    candles_exchange.map_candle_intervals.return_value = {1: 0}
-    candles_exchange.stream_historical_candles.return_value = resolved_stream(*candles)
+    exchange_candles = mock_exchange_candles(historical_candles=candles)
 
     config = Backtest.Config(
-        exchange='magicmock',
-        interval=1,
+        exchange=EXCHANGE,
+        interval=INTERVAL,
         start=0,
         end=6,
         quote=Decimal('100.0'),
@@ -69,12 +72,12 @@ async def test_backtest(storage: Storage) -> None:
         },
         trader={
             'type': 'basic',
-            'symbol': 'eth-btc',
+            'symbol': SYMBOL,
             'close_on_exit': True,
         },
     )
-    informant = Informant(storage=storage, exchanges=[assets_exchange])
-    chandler = Chandler(storage=storage, exchanges=[candles_exchange])
+    informant = Informant(storage=storage, exchanges=[exchange_assets])
+    chandler = Chandler(storage=storage, exchanges=[exchange_candles])
     trader = Basic(chandler, informant)
     agent = Backtest(traders=[trader], chandler=chandler)
 
@@ -105,33 +108,34 @@ async def test_backtest(storage: Storage) -> None:
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(scenario_nr: int, storage: Storage) -> None:
-    assets_exchange = MagicMock(spec=juno.assets.Exchange)
-    assets_exchange.map_tickers.return_value = {}
-    assets_exchange.get_exchange_info.return_value = ExchangeInfo(
-        fees={'__all__': Fees(maker=Decimal('0.001'), taker=Decimal('0.001'))},
-        filters={'__all__': Filters(
-            price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
-            size=Size(
-                min=Decimal('0.00100000'),
-                max=Decimal('100000.00000000'),
-                step=Decimal('0.00100000'),
-            )
-        )},
+    exchange_assets = mock_exchange_assets(
+        exchange_info=ExchangeInfo(
+            fees={'__all__': Fees(maker=Decimal('0.001'), taker=Decimal('0.001'))},
+            filters={'__all__': Filters(
+                price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
+                size=Size(
+                    min=Decimal('0.00100000'),
+                    max=Decimal('100000.00000000'),
+                    step=Decimal('0.00100000'),
+                )
+            )},
+        ),
     )
-    candles_exchange = MagicMock(spec=juno.candles.Exchange)
-    candles_exchange.map_candle_intervals.return_value = {HOUR_MS: 0}
-    candles_exchange.stream_historical_candles.return_value = resolved_stream(*raw_to_type(
-        load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
-        list[Candle],
-    ))
+    exchange_candles = mock_exchange_candles(
+        candle_intervals={HOUR_MS: 0},
+        historical_candles=raw_to_type(
+            load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
+            list[Candle],
+        ),
+    )
 
-    informant = Informant(storage=storage, exchanges=[assets_exchange])
-    chandler = Chandler(storage=storage, exchanges=[candles_exchange])
+    informant = Informant(storage=storage, exchanges=[exchange_assets])
+    chandler = Chandler(storage=storage, exchanges=[exchange_candles])
     trader = Basic(chandler, informant)
     agent = Backtest(traders=[trader], chandler=chandler)
 
     config = Backtest.Config(
-        exchange='magicmock',
+        exchange=EXCHANGE,
         start=1483225200000,
         end=1514761200000,
         interval=HOUR_MS,
@@ -146,7 +150,7 @@ async def test_backtest_scenarios(scenario_nr: int, storage: Storage) -> None:
         },
         trader={
             'type': 'basic',
-            'symbol': 'eth-btc',
+            'symbol': SYMBOL,
             'missed_candle_policy': 'ignore',
         },
     )
@@ -155,10 +159,7 @@ async def test_backtest_scenarios(scenario_nr: int, storage: Storage) -> None:
 
 
 async def test_paper(storage: Storage) -> None:
-    assets_exchange = MagicMock(juno.assets.Exchange)
-    assets_exchange.map_tickers.return_value = {}
-    assets_exchange.get_exchange_info.return_value = ExchangeInfo()
-
+    exchange_assets = mock_exchange_assets()
     exchange = MagicMock(Exchange)
     exchange.can_stream_depth_snapshot = False
     exchange.get_depth.return_value = Depth.Snapshot(
@@ -193,14 +194,10 @@ async def test_paper(storage: Storage) -> None:
         # Liquidate. Size 4 + 2.
     ]:
         candles.put_nowait(candle)
-    candles_exchange = MagicMock(spec=juno.candles.Exchange)
-    candles_exchange.map_candle_intervals.return_value = {1: 0}
-    candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
-        candles
-    )
+    exchange_candles = mock_exchange_candles(future_candles=candles)
 
-    informant = Informant(storage=storage, exchanges=[assets_exchange])
-    chandler = Chandler(storage=storage, exchanges=[candles_exchange])
+    informant = Informant(storage=storage, exchanges=[exchange_assets])
+    chandler = Chandler(storage=storage, exchanges=[exchange_candles])
     orderbook = Orderbook(exchanges=[exchange])
     user = User(exchanges=[exchange])
     broker = Market(informant=informant, orderbook=orderbook, user=user)
@@ -208,8 +205,8 @@ async def test_paper(storage: Storage) -> None:
     agent = Paper(traders=[trader], informant=informant)
 
     config = Paper.Config(
-        exchange='magicmock',
-        interval=1,
+        exchange=EXCHANGE,
+        interval=INTERVAL,
         quote=Decimal('100.0'),
         strategy={
             'type': 'fixed',
@@ -217,12 +214,12 @@ async def test_paper(storage: Storage) -> None:
         },
         trader={
             'type': 'basic',
-            'symbol': 'eth-btc',
+            'symbol': SYMBOL,
         },
     )
     async with informant, chandler:
         task = asyncio.create_task(agent.run(config))
-        await asyncio.wait_for(candles.join(), 1)
+        await asyncio.wait_for(candles.join(), TIMEOUT)
         await cancel(task)
 
     summary = task.result().summary
@@ -236,9 +233,7 @@ async def test_paper(storage: Storage) -> None:
 
 
 async def test_live(storage: Storage) -> None:
-    assets_exchange = MagicMock(juno.assets.Exchange)
-    assets_exchange.map_tickers.return_value = {}
-    assets_exchange.get_exchange_info.return_value = ExchangeInfo()
+    exchange_assets = mock_exchange_assets()
     exchange = MagicMock(spec=Exchange)
     exchange.map_balances.return_value = {
         'spot': {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
@@ -263,14 +258,10 @@ async def test_live(storage: Storage) -> None:
         Candle(time=3, close=Decimal('20.0')),
         # Liquidate. Size 4 + 2.
     ])
-    candles_exchange = MagicMock(spec=juno.candles.Exchange)
-    candles_exchange.map_candle_intervals.return_value = {1: 0}
-    candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
-        candles
-    )
+    exchange_candles = mock_exchange_candles(future_candles=candles)
 
-    informant = Informant(storage=storage, exchanges=[assets_exchange])
-    chandler = Chandler(storage=storage, exchanges=[candles_exchange])
+    informant = Informant(storage=storage, exchanges=[exchange_assets])
+    chandler = Chandler(storage=storage, exchanges=[exchange_candles])
     orderbook = Orderbook(exchanges=[exchange])
     user = User(exchanges=[exchange])
     broker = Market(informant=informant, orderbook=orderbook, user=user)
@@ -278,20 +269,20 @@ async def test_live(storage: Storage) -> None:
     agent = Live(traders=[trader], informant=informant, storage=storage)
 
     config = Live.Config(
-        exchange='magicmock',
-        interval=1,
+        exchange=EXCHANGE,
+        interval=INTERVAL,
         strategy={
             'type': 'fixed',
             'advices': ['none', 'long', 'none', 'liquidate'],
         },
         trader={
             'type': 'basic',
-            'symbol': 'eth-btc',
+            'symbol': SYMBOL,
         },
     )
     async with informant, chandler:
         task = asyncio.create_task(agent.run(config))
-        await asyncio.wait_for(candles.join(), 1)
+        await asyncio.wait_for(candles.join(), TIMEOUT)
         await cancel(task)
 
     summary = task.result().summary
@@ -305,20 +296,14 @@ async def test_live(storage: Storage) -> None:
 
 @pytest.mark.parametrize('strategy', ['fixed', 'fourweekrule'])
 async def test_live_persist_and_resume(strategy: str, storage: Storage) -> None:
-    assets_exchange = MagicMock(juno.assets.Exchange)
-    assets_exchange.map_tickers.return_value = {}
-    assets_exchange.get_exchange_info.return_value = ExchangeInfo()
+    exchange_assets = mock_exchange_assets()
     exchange = MagicMock(spec=Exchange)
     exchange.map_balances.return_value = {'spot': {'btc': Balance(available=Decimal('1.0'))}}
     candles = create_queue([Candle(time=0, close=Decimal('1.0'))])
-    candles_exchange = MagicMock(spec=juno.candles.Exchange)
-    candles_exchange.map_candle_intervals.return_value = {1: 0}
-    candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
-        candles
-    )
+    exchange_candles = mock_exchange_candles(future_candles=candles)
 
-    informant = Informant(storage=storage, exchanges=[assets_exchange])
-    chandler = Chandler(storage=storage, exchanges=[candles_exchange])
+    informant = Informant(storage=storage, exchanges=[exchange_assets])
+    chandler = Chandler(storage=storage, exchanges=[exchange_candles])
     orderbook = Orderbook(exchanges=[exchange])
     user = User(exchanges=[exchange])
     broker = Market(informant=informant, orderbook=orderbook, user=user)
@@ -333,25 +318,25 @@ async def test_live_persist_and_resume(strategy: str, storage: Storage) -> None:
     config = Live.Config(
         name='name',
         persist=True,
-        exchange='magicmock',
-        interval=1,
+        exchange=EXCHANGE,
+        interval=INTERVAL,
         strategy={'type': strategy},
         trader={
             'type': 'basic',
-            'symbol': 'eth-btc',
+            'symbol': SYMBOL,
         },
     )
     async with informant, chandler:
         agent_run_task = asyncio.create_task(agent.run(config))
-        await asyncio.wait_for(candles.join(), 1)
+        await asyncio.wait_for(candles.join(), TIMEOUT)
         await cancel(agent_run_task)
 
         candles.put_nowait(Candle(time=1, close=Decimal('1.0')))
-        candles_exchange.connect_stream_candles.return_value.__aenter__.return_value = (
+        exchange_candles.connect_stream_candles.return_value.__aenter__.return_value = (
             stream_queue(candles)
         )
         agent_run_task = asyncio.create_task(agent.run(config))
-        await asyncio.wait_for(candles.join(), 1)
+        await asyncio.wait_for(candles.join(), TIMEOUT)
         await cancel(agent_run_task)
 
     state: BasicState = agent_run_task.result()
