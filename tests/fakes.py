@@ -3,36 +3,20 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from juno import (
-    AssetInfo,
-    BorrowInfo,
-    Depth,
-    ExchangeInfo,
-    Fees,
-    Filters,
-    OrderResult,
-    OrderStatus,
-    candles,
-    components,
-    exchanges,
-    storages,
-    trades,
-)
+from juno import Depth, OrderResult, OrderStatus, candles, components, exchanges, storages, trades
+from juno.assets import AssetInfo, BorrowInfo, Fees, Filters
 from juno.candles import Candle
 
 
 class Exchange(exchanges.Exchange):
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = True
-    can_list_all_tickers: bool = True
     can_margin_trade: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
 
     def __init__(
         self,
-        exchange_info=ExchangeInfo(),
-        tickers={},
         balances={'spot': {}},
         future_balances=[],
         depth=Depth.Snapshot(),
@@ -42,10 +26,6 @@ class Exchange(exchanges.Exchange):
         client_id=str(uuid4()),
     ):
         super().__init__()
-
-        self.exchange_info = exchange_info
-        self.get_exchange_info_calls = []
-        self.tickers = tickers
 
         self.balances = balances
         self.balance_queue = asyncio.Queue()
@@ -70,14 +50,6 @@ class Exchange(exchanges.Exchange):
 
     def generate_client_id(self):
         return self.client_id
-
-    async def get_exchange_info(self):
-        result = self.exchange_info
-        self.get_exchange_info_calls.append([result])
-        return result
-
-    async def map_tickers(self):
-        return self.tickers
 
     async def map_balances(self, account):
         return self.balances

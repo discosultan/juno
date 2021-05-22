@@ -10,7 +10,8 @@ from typing import AsyncIterable, AsyncIterator, Optional
 
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import Depth, ExchangeException, Fill, Filters, Side
+from juno import Depth, ExchangeException, Fill, Side
+from juno.assets import Filters
 from juno.asyncio import (
     Event,
     cancel,

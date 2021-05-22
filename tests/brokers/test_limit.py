@@ -6,7 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from juno import BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus, OrderUpdate
+from juno import BadOrder, Depth, Fill, OrderResult, OrderStatus, OrderUpdate
+from juno.assets import ExchangeInfo, Fees
 from juno.asyncio import Event, stream_queue
 from juno.brokers import Limit
 from juno.components import Informant, Orderbook, User

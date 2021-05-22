@@ -4,16 +4,8 @@ from typing import cast
 
 import pytest
 
-from juno import (
-    Advice,
-    BorrowInfo,
-    Filters,
-    MissedCandlePolicy,
-    stop_loss,
-    strategies,
-    take_profit,
-    traders,
-)
+from juno import Advice, MissedCandlePolicy, stop_loss, strategies, take_profit, traders
+from juno.assets import BorrowInfo, Filters
 from juno.asyncio import cancel
 from juno.candles import Candle
 from juno.strategies import Fixed, MidTrendPolicy

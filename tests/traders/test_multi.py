@@ -3,19 +3,8 @@ from decimal import Decimal
 
 import pytest
 
-from juno import (
-    Advice,
-    Balance,
-    Fees,
-    Fill,
-    Filters,
-    OrderResult,
-    OrderStatus,
-    Ticker,
-    stop_loss,
-    take_profit,
-    traders,
-)
+from juno import Advice, Balance, Fill, OrderResult, OrderStatus, stop_loss, take_profit, traders
+from juno.assets import Fees, Filters, Ticker
 from juno.asyncio import cancel
 from juno.candles import Candle
 from juno.strategies import Fixed

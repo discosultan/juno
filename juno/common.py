@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
 from typing import NamedTuple, Optional, Union
 
 from juno.aliases import Timestamp
-from juno.filters import Filters
 from juno.math import round_down, round_half_up
 
 
@@ -53,16 +51,6 @@ class Balance(NamedTuple):
         return Balance(available=Decimal('0.0'), hold=Decimal('0.0'))
 
 
-@dataclass
-class BorrowInfo:
-    daily_interest_rate: Decimal = Decimal('0.0')
-    limit: Decimal = Decimal('0.0')
-
-    @property
-    def hourly_interest_rate(self) -> Decimal:
-        return self.daily_interest_rate / 24
-
-
 class Depth(ModuleType):
     class Snapshot(NamedTuple):
         bids: list[tuple[Decimal, Decimal]] = []
@@ -76,12 +64,6 @@ class Depth(ModuleType):
         last_id: int = 0
 
     Any = Union[Snapshot, Update]
-
-
-@dataclass
-class Fees:
-    maker: Decimal = Decimal('0.0')
-    taker: Decimal = Decimal('0.0')
 
 
 class Fill(NamedTuple):
@@ -214,12 +196,6 @@ class Side(IntEnum):
     SELL = 1
 
 
-class Ticker(NamedTuple):
-    volume: Decimal  # 24h.
-    quote_volume: Decimal  # 24h.
-    price: Decimal  # Last.
-
-
 class TimeInForce(IntEnum):
     # A Good-Til-Cancelled order will continue to work within the system and in the marketplace
     # until it executes or is cancelled.
@@ -233,22 +209,3 @@ class TimeInForce(IntEnum):
     # A Good-Til-Time orders remain open on the book until cancelled or the allotted time is
     # depleted on the matching engine.
     # GTT = 3
-
-
-@dataclass
-class ExchangeInfo:
-    # Key: asset
-    assets: dict[str, AssetInfo] = field(default_factory=lambda: {'__all__': AssetInfo()})
-    # Key: symbol
-    fees: dict[str, Fees] = field(default_factory=lambda: {'__all__': Fees()})
-    # Key: symbol
-    filters: dict[str, Filters] = field(default_factory=lambda: {'__all__': Filters()})
-    # Keys: account, asset
-    borrow_info: dict[str, dict[str, BorrowInfo]] = field(
-        default_factory=lambda: {'__all__': {'__all__': BorrowInfo()}}
-    )
-
-
-@dataclass
-class AssetInfo:
-    precision: int = 8

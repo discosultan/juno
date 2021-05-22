@@ -8,17 +8,7 @@ from types import ModuleType
 from typing import AsyncIterable, AsyncIterator, Optional, TypeVar
 from uuid import uuid4
 
-from juno import (
-    Balance,
-    Depth,
-    ExchangeInfo,
-    OrderResult,
-    OrderType,
-    OrderUpdate,
-    Side,
-    Ticker,
-    TimeInForce,
-)
+from juno import Balance, Depth, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
 
 T = TypeVar('T')
 
@@ -27,21 +17,12 @@ class Exchange(ABC):
     # Capabilities.
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.
-    can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
     can_margin_trade: bool = False
     can_place_market_order: bool = False
     can_place_market_order_quote: bool = False  # Whether market order accepts quote param.
 
     def generate_client_id(self) -> str:
         return str(uuid4())
-
-    @abstractmethod
-    async def get_exchange_info(self) -> ExchangeInfo:
-        pass
-
-    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
-        # Empty list to disable filter.
-        pass
 
     # Result outer key - account
     # Result inner key - asset

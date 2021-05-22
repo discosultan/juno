@@ -23,14 +23,10 @@ from tenacity import (
 )
 
 from juno import (
-    AssetInfo,
     BadOrder,
     Balance,
-    BorrowInfo,
     Depth,
     ExchangeException,
-    ExchangeInfo,
-    Fees,
     Fill,
     Order,
     OrderMissing,
@@ -40,15 +36,13 @@ from juno import (
     OrderUpdate,
     OrderWouldBeTaker,
     Side,
-    Ticker,
     TimeInForce,
     json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
-from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page
-from juno.time import DAY_MS, DAY_SEC, HOUR_SEC, MIN_MS, MIN_SEC, strptimestamp, time_ms
+from juno.time import DAY_MS, DAY_SEC, HOUR_SEC, MIN_SEC, strptimestamp, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import AsyncLimiter, unpack_assets
 
@@ -59,7 +53,7 @@ _BASE_WS_URL = 'wss://stream.binance.com:9443'
 
 _SEC_NONE = 0  # Endpoint can be accessed freely.
 _SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
-_SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
+SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
 _SEC_MARGIN = 5  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
@@ -83,7 +77,6 @@ class Binance(Exchange):
     # Capabilities.
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = False
-    can_list_all_tickers: bool = True
     can_margin_trade: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
@@ -132,155 +125,11 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_exchange_info(self) -> ExchangeInfo:
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
-        fees_ret, filters_ret, isolated_pairs, margin_ret, isolated_ret = await asyncio.gather(
-            self.api_request('GET', '/sapi/v1/asset/tradeFee', security=_SEC_USER_DATA),
-            self.api_request('GET', '/api/v3/exchangeInfo', weight=10),
-            self._list_symbols(isolated=True),
-            self._request_json(
-                method='GET',
-                url='https://www.binance.com/gateway-api/v1/friendly/margin/vip/spec/list-all',
-            ),
-            self._request_json(
-                method='GET',
-                url='https://www.binance.com/gateway-api/v1/public/isolated-margin/pair/vip-level',
-            ),
-        )
-        _, fees_content = fees_ret
-        _, filters_content = filters_ret
-        _, margin_content = margin_ret
-        _, isolated_content = isolated_ret
-
-        # Process fees.
-        fees = {
-            _from_symbol(fee['symbol']):
-            Fees(maker=Decimal(fee['makerCommission']), taker=Decimal(fee['takerCommission']))
-            for fee in fees_content
-        }
-
-        # Process borrow info.
-        # The data below is not available through official Binance API. We can get borrow limit but
-        # there is no way to get interest rate.
-        borrow_info = {
-            'margin': {
-                a['assetName'].lower(): BorrowInfo(
-                    daily_interest_rate=Decimal(s['dailyInterestRate']),
-                    limit=Decimal(s['borrowLimit']),
-                ) for a, s in ((a, a['specs'][0]) for a in margin_content['data'])
-            },
-        }
-        for p in isolated_content['data']:
-            base = p['base']
-            base_asset = base['assetName'].lower()
-            quote = p['quote']
-            quote_asset = quote['assetName'].lower()
-
-            base_levels = base['levelDetails']
-            if len(base_levels) == 0:
-                _log.info(
-                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
-                    f'{base_asset} asset'
-                )
-                continue
-            base_details = base_levels[0]
-
-            quote_levels = quote['levelDetails']
-            if len(quote_levels) == 0:
-                _log.info(
-                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
-                    f'{quote_asset} asset'
-                )
-                continue
-            quote_details = quote_levels[0]
-
-            borrow_info[f'{base_asset}-{quote_asset}'] = {
-                base_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(base_details['interestRate']),
-                    limit=Decimal(base_details['maxBorrowable']),
-                ),
-                quote_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(quote_details['interestRate']),
-                    limit=Decimal(quote_details['maxBorrowable']),
-                ),
-            }
-
-        # Process symbol info.
-        isolated_pairs_set = set(isolated_pairs)
-        filters = {}
-        for symbol_info in filters_content['symbols']:
-            for f in symbol_info['filters']:
-                t = f['filterType']
-                if t == 'PRICE_FILTER':
-                    price = f
-                elif t == 'PERCENT_PRICE':
-                    percent_price = f
-                elif t == 'LOT_SIZE':
-                    lot_size = f
-                elif t == 'MIN_NOTIONAL':
-                    min_notional = f
-            assert all((price, percent_price, lot_size, min_notional))
-
-            symbol = f"{symbol_info['baseAsset'].lower()}-{symbol_info['quoteAsset'].lower()}"
-            filters[symbol] = Filters(
-                price=Price(
-                    min=Decimal(price['minPrice']),
-                    max=Decimal(price['maxPrice']),
-                    step=Decimal(price['tickSize'])
-                ),
-                percent_price=PercentPrice(
-                    multiplier_up=Decimal(percent_price['multiplierUp']),
-                    multiplier_down=Decimal(percent_price['multiplierDown']),
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
-                ),
-                size=Size(
-                    min=Decimal(lot_size['minQty']),
-                    max=Decimal(lot_size['maxQty']),
-                    step=Decimal(lot_size['stepSize'])
-                ),
-                min_notional=MinNotional(
-                    min_notional=Decimal(min_notional['minNotional']),
-                    apply_to_market=min_notional['applyToMarket'],
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
-                ),
-                base_precision=symbol_info['baseAssetPrecision'],
-                quote_precision=symbol_info['quoteAssetPrecision'],
-                spot='SPOT' in symbol_info['permissions'],
-                cross_margin='MARGIN' in symbol_info['permissions'],
-                isolated_margin=(symbol in isolated_pairs_set) and (symbol in borrow_info),
-            )
-
-        return ExchangeInfo(
-            assets={'__all__': AssetInfo(precision=8)},
-            fees=fees,
-            filters=filters,
-            borrow_info=borrow_info,
-        )
-
-    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
-        if len(symbols) > 1:
-            raise NotImplementedError()
-
-        data = {'symbol': to_http_symbol(symbols[0])} if symbols else None
-        weight = 1 if symbols else 40
-        _, content = await self.api_request(
-            'GET', '/api/v3/ticker/24hr', data=data, weight=weight
-        )
-        response_data = [content] if symbols else content
-        return {
-            _from_symbol(t['symbol']): Ticker(
-                volume=Decimal(t['volume']),
-                quote_volume=Decimal(t['quoteVolume']),
-                price=Decimal(t['lastPrice']),
-            ) for t in response_data
-        }
-
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
             _, content = await self.api_request(
-                'GET', '/api/v3/account', weight=10, security=_SEC_USER_DATA
+                'GET', '/api/v3/account', weight=10, security=SEC_USER_DATA
             )
             result['spot'] = {
                 b['asset'].lower(): Balance(
@@ -291,7 +140,7 @@ class Binance(Exchange):
             }
         elif account == 'margin':
             _, content = await self.api_request(
-                'GET', '/sapi/v1/margin/account', weight=1, security=_SEC_USER_DATA
+                'GET', '/sapi/v1/margin/account', weight=1, security=SEC_USER_DATA
             )
             result['margin'] = {
                 b['asset'].lower(): Balance(
@@ -307,10 +156,10 @@ class Binance(Exchange):
             # The weight is the same though, so not much benefit to using that.
             # https://binance-docs.github.io/apidocs/spot/en/#query-isolated-margin-account-info-user_data
             _, content = await self.api_request(
-                'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
+                'GET', '/sapi/v1/margin/isolated/account', weight=1, security=SEC_USER_DATA
             )
             for balances in content['assets']:
-                base_asset, quote_asset = unpack_assets(_from_symbol(balances['symbol']))
+                base_asset, quote_asset = unpack_assets(from_symbol(balances['symbol']))
                 base_balance = balances['baseAsset']
                 quote_balance = balances['quoteAsset']
                 result[f'{base_asset}-{quote_asset}'] = {
@@ -427,13 +276,13 @@ class Binance(Exchange):
             'GET',
             url,
             data=data,
-            security=_SEC_USER_DATA,
+            security=SEC_USER_DATA,
             weight=weight,
         )
         return [
             Order(
                 client_id=o['clientOrderId'],
-                symbol=_from_symbol(o['symbol']),
+                symbol=from_symbol(o['symbol']),
                 price=Decimal(o['price']),
                 size=Decimal(o['origQty']),
             ) for o in content
@@ -445,7 +294,7 @@ class Binance(Exchange):
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async def inner(stream: AsyncIterable[dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
-                res_symbol = _from_symbol(data['s'])
+                res_symbol = from_symbol(data['s'])
                 if res_symbol != symbol:
                     continue
                 status = _from_order_status(data['X'])
@@ -643,7 +492,7 @@ class Binance(Exchange):
             'GET',
             '/sapi/v1/margin/maxBorrowable',
             data=data,
-            security=_SEC_USER_DATA,
+            security=SEC_USER_DATA,
             weight=5,
         )
         return Decimal(content['amount'])
@@ -657,7 +506,7 @@ class Binance(Exchange):
             'GET',
             '/sapi/v1/margin/maxTransferable',
             data=data,
-            security=_SEC_USER_DATA,
+            security=SEC_USER_DATA,
             weight=5,
         )
         return Decimal(content['amount'])
@@ -667,16 +516,8 @@ class Binance(Exchange):
             'POST',
             '/sapi/v1/asset/dust',
             data=MultiDict([('asset', to_asset(a)) for a in assets]),
-            security=_SEC_USER_DATA,
+            security=SEC_USER_DATA,
         )
-
-    async def _list_symbols(self, isolated: bool = False) -> list[str]:
-        _, content = await self.api_request(
-            'GET',
-            f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
-            security=_SEC_USER_DATA,
-        )
-        return [_from_symbol(s['symbol']) for s in content]
 
     async def list_deposit_history(self, end: Optional[int] = None):
         # Does not support FIAT.
@@ -690,7 +531,7 @@ class Binance(Exchange):
                     'startTime': page_start,
                     'endTime': page_end - 1,
                 },
-                security=_SEC_USER_DATA,
+                security=SEC_USER_DATA,
             ))
         results = await asyncio.gather(*tasks)
         return [record for _, content in results for record in content]
@@ -707,7 +548,7 @@ class Binance(Exchange):
                     'startTime': page_start,
                     'endTime': page_end - 1,
                 },
-                security=_SEC_USER_DATA,
+                security=SEC_USER_DATA,
             ))
         results = await asyncio.gather(*tasks)
         return [record for _, content in results for record in content]
@@ -809,11 +650,11 @@ class Binance(Exchange):
         kwargs: dict[str, Any] = {}
 
         if security in [
-            _SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN, _SEC_USER_STREAM, _SEC_MARKET_DATA
+            _SEC_TRADE, SEC_USER_DATA, _SEC_MARGIN, _SEC_USER_STREAM, _SEC_MARKET_DATA
         ]:
             kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
 
-        if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN]:
+        if security in [_SEC_TRADE, SEC_USER_DATA, _SEC_MARGIN]:
             await self._clock.wait()
 
             data = data or {}
@@ -825,9 +666,9 @@ class Binance(Exchange):
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
 
-        return await self._request_json(method=method, url=_BASE_REST_URL + url, **kwargs)
+        return await self.request_json(method=method, url=_BASE_REST_URL + url, **kwargs)
 
-    async def _request_json(
+    async def request_json(
         self, method: str, url: str, **kwargs: Any
     ) -> tuple[ClientResponse, Any]:
         async with self._session.request(method=method, url=url, **kwargs) as response:
@@ -1108,7 +949,7 @@ def to_ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '')
 
 
-def _from_symbol(symbol: str) -> str:
+def from_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
     # since there is no separator used. We simply map based on known quote assets.
     known_quote_assets = [

@@ -18,7 +18,8 @@ from tenacity import (
     wait_exponential,
 )
 
-from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp
+from juno import BadOrder, Balance, Fill, Interval, Timestamp
+from juno.assets import Filters
 from juno.asyncio import gather_dict
 from juno.brokers import Broker
 from juno.candles import Chandler

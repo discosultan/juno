@@ -10,21 +10,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
-from juno import (
-    AssetInfo,
-    Balance,
-    Depth,
-    ExchangeInfo,
-    Fees,
-    Filters,
-    OrderResult,
-    OrderType,
-    OrderUpdate,
-    Side,
-    Ticker,
-    TimeInForce,
-    json,
-)
+from juno import Balance, Depth, OrderResult, OrderType, OrderUpdate, Side, TimeInForce, json
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import time_ms
@@ -79,53 +65,6 @@ class Kraken(Exchange):
             self.public_ws.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
-
-    async def get_exchange_info(self) -> ExchangeInfo:
-        assets_res, symbols_res = await asyncio.gather(
-            self.request_public('GET', '/0/public/Assets'),
-            self.request_public('GET', '/0/public/AssetPairs'),
-        )
-
-        assets = {
-            from_http_symbol(val['altname']): AssetInfo(precision=val['decimals'])
-            for val in assets_res['result'].values()
-        }
-
-        fees, filters = {}, {}
-        for val in symbols_res['result'].values():
-            name = from_http_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
-            # TODO: Take into account different fee levels. Currently only worst level.
-            taker_fee = val['fees'][0][1] / 100
-            maker_fees = val.get('fees_maker')
-            fees[name] = Fees(
-                maker=maker_fees[0][1] / 100 if maker_fees else taker_fee,
-                taker=taker_fee
-            )
-            filters[name] = Filters(
-                base_precision=val['lot_decimals'],
-                quote_precision=val['pair_decimals'],
-            )
-
-        return ExchangeInfo(
-            assets=assets,
-            fees=fees,
-            filters=filters,
-        )
-
-    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
-        if not symbols:
-            raise ValueError('Empty symbols list not supported')
-
-        data = {'pair': ','.join((to_http_symbol(s) for s in symbols))}
-
-        res = await self.request_public('GET', '/0/public/Ticker', data=data)
-        return {
-            from_http_symbol(pair): Ticker(
-                volume=Decimal(val['v'][1]),
-                quote_volume=Decimal('0.0'),  # Not supported.
-                price=Decimal(val['c'][0]),
-            ) for pair, val in res['result'].items()
-        }
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
