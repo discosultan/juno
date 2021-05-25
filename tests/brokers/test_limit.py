@@ -15,33 +15,34 @@ from juno.exchanges import Exchange
 from juno.filters import Filters, MinNotional, Price, Size
 from juno.storages import Memory
 from tests import fakes
+from tests.assets import mock_exchange_assets, mock_informant
 
-filters = Filters(
+EXCHANGE = 'magicmock'
+FILTERS = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
     size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
 )
-exchange_info = ExchangeInfo(
+EXCHANGE_INFO = ExchangeInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
-    filters={'__all__': filters},
+    filters={'__all__': FILTERS},
 )
-order_client_id = str(uuid4())
+ORDER_CLIENT_ID = str(uuid4())
 
 
 async def test_fill() -> None:
     snapshot = Depth.Snapshot(
         asks=[],
-        bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
+        bids=[(Decimal('1.0') - FILTERS.price.step, Decimal('1.0'))],
     )
     exchange = fakes.Exchange(
         depth=snapshot,
-        exchange_info=exchange_info,
         place_order_result=OrderResult(time=0, status=OrderStatus.NEW),
         future_orders=[
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             ),
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('1.0'),
                     size=Decimal('0.5'),
@@ -51,7 +52,7 @@ async def test_fill() -> None:
                 ),
             ),
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('1.0'),
                     size=Decimal('0.5'),
@@ -62,15 +63,16 @@ async def test_fill() -> None:
             ),
             OrderUpdate.Done(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             ),
         ],
-        client_id=order_client_id,
+        client_id=ORDER_CLIENT_ID,
     )
+    exchange_assets = mock_exchange_assets(exchange_info=EXCHANGE_INFO)
     exchange.can_stream_depth_snapshot = False
-    async with init_broker(exchange) as broker:
+    async with init_broker(exchange, exchange_assets) as broker:
         await broker.buy(
-            exchange='exchange',
+            exchange=EXCHANGE,
             account='spot',
             symbol='eth-btc',
             quote=Decimal('1.0'),
@@ -80,14 +82,14 @@ async def test_fill() -> None:
 
 async def test_insufficient_balance() -> None:
     snapshot = Depth.Snapshot(asks=[], bids=[(Decimal('1.0'), Decimal('1.0'))])
-    exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
+    exchange = fakes.Exchange(depth=snapshot)
     exchange.can_stream_depth_snapshot = False
-    assets_exchange = MagicMock()
-    async with init_broker(exchange) as broker:
+    exchange_assets = mock_exchange_assets(exchange_info=EXCHANGE_INFO)
+    async with init_broker(exchange, exchange_assets) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(BadOrder):
             await broker.buy(
-                exchange='exchange',
+                exchange=EXCHANGE,
                 account='spot',
                 symbol='eth-btc',
                 quote=Decimal('0.1'),
@@ -98,17 +100,16 @@ async def test_insufficient_balance() -> None:
 async def test_partial_fill_adjust_fill() -> None:
     snapshot = Depth.Snapshot(
         asks=[(Decimal('5.0'), Decimal('1.0'))],
-        bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
+        bids=[(Decimal('1.0') - FILTERS.price.step, Decimal('1.0'))],
     )
     exchange = fakes.Exchange(
         depth=snapshot,
-        exchange_info=exchange_info,
         future_orders=[
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             ),
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('1.0'),
                     size=Decimal('1.0'),
@@ -118,12 +119,13 @@ async def test_partial_fill_adjust_fill() -> None:
                 ),
             ),
         ],
-        client_id=order_client_id,
+        client_id=ORDER_CLIENT_ID,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_broker(exchange) as broker:
+    exchange_assets = mock_exchange_assets(exchange_info=EXCHANGE_INFO)
+    async with init_broker(exchange, exchange_assets) as broker:
         task = asyncio.create_task(broker.buy(
-            exchange='exchange',
+            exchange=EXCHANGE,
             account='spot',
             symbol='eth-btc',
             quote=Decimal('2.0'),
@@ -131,25 +133,25 @@ async def test_partial_fill_adjust_fill() -> None:
         ))
         await yield_control()
         await exchange.depth_queue.put(
-            Depth.Update(bids=[(Decimal('2.0') - filters.price.step, Decimal('1.0'))])
+            Depth.Update(bids=[(Decimal('2.0') - FILTERS.price.step, Decimal('1.0'))])
         )
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Cancelled(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('2.0'),
                     size=Decimal('0.5'),
@@ -162,7 +164,7 @@ async def test_partial_fill_adjust_fill() -> None:
         await exchange.orders_queue.put(
             OrderUpdate.Done(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         result = await asyncio.wait_for(task, timeout=1)
@@ -181,17 +183,17 @@ async def test_partial_fill_adjust_fill() -> None:
 async def test_multiple_cancels() -> None:
     snapshot = Depth.Snapshot(
         asks=[(Decimal('10.0'), Decimal('1.0'))],
-        bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
+        bids=[(Decimal('1.0') - FILTERS.price.step, Decimal('1.0'))],
     )
     exchange = fakes.Exchange(
         depth=snapshot,
-        exchange_info=exchange_info,
-        client_id=order_client_id,
+        client_id=ORDER_CLIENT_ID,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_broker(exchange) as broker:
+    exchange_assets = mock_exchange_assets(exchange_info=EXCHANGE_INFO)
+    async with init_broker(exchange, exchange_assets) as broker:
         task = asyncio.create_task(broker.buy(
-            exchange='exchange',
+            exchange=EXCHANGE,
             account='spot',
             symbol='eth-btc',
             quote=Decimal('10.0'),
@@ -200,12 +202,12 @@ async def test_multiple_cancels() -> None:
         await yield_control()  # New order.
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.orders_queue.put(
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('1.0'),
                     size=Decimal('5.0'),
@@ -217,42 +219,42 @@ async def test_multiple_cancels() -> None:
         )
         await yield_control()
         await exchange.depth_queue.put(
-            Depth.Update(bids=[(Decimal('2.0') - filters.price.step, Decimal('1.0'))])
+            Depth.Update(bids=[(Decimal('2.0') - FILTERS.price.step, Decimal('1.0'))])
         )
         await yield_control()  # Cancel order.
         await exchange.orders_queue.put(
             OrderUpdate.Cancelled(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await yield_control()  # New order.
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await yield_control()
         await exchange.depth_queue.put(
-            Depth.Update(bids=[(Decimal('5.0') - filters.price.step, Decimal('1.0'))])
+            Depth.Update(bids=[(Decimal('5.0') - FILTERS.price.step, Decimal('1.0'))])
         )
         await yield_control()  # Cancel order.
         await exchange.orders_queue.put(
             OrderUpdate.Cancelled(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await yield_control()  # New order.
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('5.0'),
                     size=Decimal('1.0'),
@@ -265,7 +267,7 @@ async def test_multiple_cancels() -> None:
         await exchange.orders_queue.put(
             OrderUpdate.Done(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         result = await asyncio.wait_for(task, timeout=1)
@@ -291,13 +293,13 @@ async def test_partial_fill_cancel_min_notional() -> None:
     )
     exchange = fakes.Exchange(
         depth=snapshot,
-        exchange_info=exchange_info,
-        client_id=order_client_id,
+        client_id=ORDER_CLIENT_ID,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_broker(exchange) as broker:
+    exchange_assets = mock_exchange_assets(exchange_info=exchange_info)
+    async with init_broker(exchange, exchange_assets) as broker:
         task = asyncio.create_task(broker.buy(
-            exchange='exchange',
+            exchange=EXCHANGE,
             account='spot',
             symbol='eth-btc',
             quote=Decimal('100.0'),
@@ -306,7 +308,7 @@ async def test_partial_fill_cancel_min_notional() -> None:
         await yield_control()  # New order.
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.depth_queue.put(
@@ -315,7 +317,7 @@ async def test_partial_fill_cancel_min_notional() -> None:
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('100.0'),
                     size=Decimal('0.9'),
@@ -336,7 +338,7 @@ async def test_partial_fill_cancel_min_notional() -> None:
         await exchange.orders_queue.put(
             OrderUpdate.Cancelled(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await yield_control()
@@ -357,13 +359,13 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
     )
     exchange = fakes.Exchange(
         depth=snapshot,
-        exchange_info=exchange_info,
-        client_id=order_client_id,
+        client_id=ORDER_CLIENT_ID,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_broker(exchange) as broker:
+    exchange_assets = mock_exchange_assets(exchange_info=EXCHANGE_INFO)
+    async with init_broker(exchange, exchange_assets) as broker:
         task = asyncio.create_task(broker.buy(
-            exchange='exchange',
+            exchange=EXCHANGE,
             account='spot',
             symbol='eth-btc',
             quote=Decimal('0.9'),
@@ -372,7 +374,7 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
         await yield_control()  # New order.
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.depth_queue.put(
@@ -381,7 +383,7 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
         await yield_control()  # Shouldn't cancel previous order because no spread.
         await exchange.orders_queue.put(
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('0.9'),
                     size=Decimal('1.0'),
@@ -394,7 +396,7 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
         await exchange.orders_queue.put(
             OrderUpdate.Done(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         result = await asyncio.wait_for(task, timeout=1)
@@ -408,8 +410,7 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
 async def test_cancels_open_order_on_error(mocker) -> None:
     client_id = str(uuid4())
 
-    informant = mocker.patch('juno.components.Informant', autospec=True)
-    informant.get_fees_filters.return_value = (Fees(), Filters())
+    informant = mock_informant()
 
     orderbook_sync = mocker.patch('juno.components.Orderbook.SyncContext')
     # orderbook_sync.list_asks.return_value = [(Decimal('2.0'), Decimal('1.0'))]
@@ -434,7 +435,7 @@ async def test_cancels_open_order_on_error(mocker) -> None:
     )
 
     task = asyncio.create_task(broker.buy(
-        exchange='exchange',
+        exchange=EXCHANGE,
         account='spot',
         symbol='eth-btc',
         quote=Decimal('1.0'),
@@ -462,14 +463,12 @@ async def test_buy_does_not_place_higher_bid_if_highest_only_self() -> None:
         asks=[(Decimal('2.0'), Decimal('1.0'))],
         bids=[(Decimal('1.0'), Decimal('1.0'))],
     )
-    exchange = fakes.Exchange(
-        depth=snapshot,
-        exchange_info=exchange_info,
-    )
+    exchange = fakes.Exchange(depth=snapshot)
     exchange.can_stream_depth_snapshot = False
-    async with init_broker(exchange, cancel_order_on_error=False) as broker:
+    exchange_assets = mock_exchange_assets(exchange_info=EXCHANGE_INFO)
+    async with init_broker(exchange, exchange_assets, cancel_order_on_error=False) as broker:
         task = asyncio.create_task(broker.buy(
-            exchange='exchange',
+            exchange=EXCHANGE,
             account='spot',
             symbol='eth-btc',
             quote=Decimal('1.1'),
@@ -478,7 +477,7 @@ async def test_buy_does_not_place_higher_bid_if_highest_only_self() -> None:
         await yield_control()  # New order.
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.depth_queue.put(
@@ -506,13 +505,15 @@ async def test_buy_matching_order_placement_strategy() -> None:
     )
     exchange = fakes.Exchange(
         depth=snapshot,
-        exchange_info=exchange_info,
-        client_id=order_client_id,
+        client_id=ORDER_CLIENT_ID,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_broker(exchange, order_placement_strategy='matching') as broker:
+    exchange_assets = mock_exchange_assets(exchange_info=EXCHANGE_INFO)
+    async with init_broker(
+        exchange, exchange_assets, order_placement_strategy='matching'
+    ) as broker:
         task = asyncio.create_task(broker.buy(
-            exchange='exchange',
+            exchange=EXCHANGE,
             account='spot',
             symbol='eth-btc',
             quote=Decimal('1'),
@@ -521,7 +522,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
         await yield_control()  # New order.
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.depth_queue.put(
@@ -530,7 +531,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('1.0'),
                     size=Decimal('0.5'),
@@ -547,7 +548,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
         await exchange.orders_queue.put(
             OrderUpdate.Cancelled(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.depth_queue.put(
@@ -556,7 +557,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.New(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.depth_queue.put(
@@ -573,7 +574,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
         await exchange.orders_queue.put(
             OrderUpdate.Cancelled(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
         await exchange.depth_queue.put(
@@ -582,7 +583,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Match(
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
                 fill=Fill(
                     price=Decimal('0.5'),
                     size=Decimal('1'),
@@ -599,7 +600,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
         await exchange.orders_queue.put(
             OrderUpdate.Done(
                 time=0,
-                client_id=order_client_id,
+                client_id=ORDER_CLIENT_ID,
             )
         )
 
@@ -612,7 +613,9 @@ async def test_buy_matching_order_placement_strategy() -> None:
 
 
 @asynccontextmanager
-async def init_broker(exchange: Exchange, **kwargs) -> AsyncIterator[Limit]:
+async def init_broker(
+    exchange: Exchange, exchange_assets: ExchangeAssets, **kwargs
+) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange])

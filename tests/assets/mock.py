@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from juno.assets import Exchange, ExchangeInfo, Ticker
+from juno.assets import Exchange, ExchangeInfo, Fees, Filters, Informant, Ticker
 
 
 def mock_exchange_assets(
@@ -13,3 +13,12 @@ def mock_exchange_assets(
     exchange.get_exchange_info.return_value = exchange_info
     exchange.map_tickers.return_value = tickers
     return exchange
+
+
+def mock_informant(
+    fees: Fees = Fees(),
+    filters: Filters = Filters(),
+) -> MagicMock:
+    informant = MagicMock(spec=Informant)
+    informant.get_fees_filters.return_value = (fees, filters)
+    return informant
