@@ -107,7 +107,7 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
                 iter_next[it] = fut
         done, _ = await asyncio.wait(iter_next.values(),  # type: ignore
                                      return_when=asyncio.FIRST_COMPLETED)
-        for fut in done:
+        for fut in done:  # type: ignore
             iter_next[fut._orig_iter] = None  # type: ignore
             try:
                 ret = fut.result()

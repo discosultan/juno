@@ -19,6 +19,8 @@ setup(
         'pytweening',
         'simplejson',
         'tenacity',
+        'types-python-dateutil',
+        'types-simplejson',
         'typing-inspect',
     ],
     extras_require={
@@ -37,6 +39,7 @@ setup(
             'pytest-mock',
             'pyyaml',
             'rope',
+            'types-pyyaml',
             'yapf',
         ],
         'discord': [
