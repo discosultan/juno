@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Optional
@@ -34,60 +34,58 @@ class Exchange(ABC):
     def generate_client_id(self) -> str:
         return str(uuid4())
 
-    @abstractmethod
     def map_candle_intervals(self) -> dict[int, int]:  # interval: offset
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
-        pass
+        raise NotImplementedError()
 
     async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         # Empty list to disable filter.
-        pass
+        raise NotImplementedError()
 
     # Result outer key - account
     # Result inner key - asset
-    @abstractmethod
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
-        pass
+        raise NotImplementedError()
 
     @asynccontextmanager
     async def connect_stream_balances(
         self, account: str
     ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
+        raise NotImplementedError()
         yield  # type: ignore
 
-    @abstractmethod
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
+        raise NotImplementedError()
         yield  # type: ignore
 
     @asynccontextmanager
     async def connect_stream_candles(
         self, symbol: str, interval: int
     ) -> AsyncIterator[AsyncIterable[Candle]]:
+        raise NotImplementedError()
         yield  # type: ignore
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
         raise NotImplementedError()
 
-    @abstractmethod
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
     ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+        raise NotImplementedError()
         yield  # type: ignore
 
-    @abstractmethod
     @asynccontextmanager
     async def connect_stream_orders(
         self, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        raise NotImplementedError()
         yield  # type: ignore
 
-    @abstractmethod
     async def place_order(
         self,
         account: str,
@@ -100,39 +98,46 @@ class Exchange(ABC):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
     ) -> OrderResult:
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     async def cancel_order(
         self,
         account: str,
         symbol: str,
         client_id: str,
     ) -> None:
-        pass
+        raise NotImplementedError()
 
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
+        raise NotImplementedError()
         yield  # type: ignore
 
     @asynccontextmanager
     async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
+        raise NotImplementedError()
         yield  # type: ignore
 
     async def transfer(
         self, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
-        pass
+        raise NotImplementedError()
 
     async def borrow(self, asset: str, size: Decimal, account: str) -> None:
-        pass
+        raise NotImplementedError()
 
     async def repay(self, asset: str, size: Decimal, account: str) -> None:
-        pass
+        raise NotImplementedError()
 
     async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
-        pass
+        raise NotImplementedError()
 
     async def create_account(self, account: str) -> None:
-        pass
+        raise NotImplementedError()
+
+    async def get_deposit_address(self, asset: str) -> str:
+        raise NotImplementedError()
+
+    async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
+        raise NotImplementedError()

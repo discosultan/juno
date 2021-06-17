@@ -816,7 +816,28 @@ class Binance(Exchange):
         )
         return [_from_symbol(s['symbol']) for s in content]
 
-    async def list_deposit_history(self, end: Optional[int] = None):
+    async def get_deposit_address(self, asset: str) -> str:
+        _, content = await self._api_request(
+            'GET',
+            '/sapi/v1/capital/deposit/address',
+            data={'coin': _to_asset(asset)},
+            security=_SEC_USER_DATA,
+        )
+        return content['address']
+
+    async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/capital/withdraw/apply',
+            data={
+                'coin': _to_asset(asset),
+                'address': address,
+                'amount': _to_decimal(amount),
+            },
+            security=_SEC_USER_DATA,
+        )
+
+    async def list_deposit_history(self, end: Optional[int] = None) -> list[Any]:
         # Does not support FIAT.
         end = time_ms() if end is None else end
         tasks = []
@@ -833,7 +854,7 @@ class Binance(Exchange):
         results = await asyncio.gather(*tasks)
         return [record for _, content in results for record in content]
 
-    async def list_withdraw_history(self, end: Optional[int] = None):
+    async def list_withdraw_history(self, end: Optional[int] = None) -> list[Any]:
         # Does not support FIAT.
         end = time_ms() if end is None else end
         tasks = []

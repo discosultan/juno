@@ -289,6 +289,16 @@ async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> 
         )
 
 
+@pytest.mark.exchange
+@pytest.mark.manual
+@parametrize_exchange([Binance])
+async def test_get_deposit_address(loop, request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+
+    address = await exchange.get_deposit_address('btc')
+    assert type(address) is str
+
+
 def skip_not_configured(request, exchange):
     markers = ['exchange', 'manual']
     if request.config.option.markexpr not in markers:
