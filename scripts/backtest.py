@@ -6,17 +6,17 @@ from typing import Any
 
 # import yaml
 import juno.json as json
-from juno import MissedCandlePolicy, exchanges, stop_loss, strategies, take_profit
+from juno import MissedCandlePolicy, stop_loss, strategies, take_profit
 from juno.asyncio import gather_dict
 from juno.components import Chandler, Informant
-from juno.config import format_as_config, from_env, init_instance
+from juno.config import format_as_config
+from juno.exchanges import Exchange
 from juno.statistics import CoreStatistics
 from juno.storages import SQLite
 from juno.time import DAY_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
 from juno.typing import TypeConstructor, type_to_raw
-from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--exchange', default='binance')
@@ -51,13 +51,13 @@ STRATEGIES = [
 
 
 async def main() -> None:
-    client = init_instance(get_module_type(exchanges, args.exchange), from_env())
+    exchange = Exchange.from_env(args.exchange)
     storage = SQLite()
 
-    chandler = Chandler(storage, [client])
-    informant = Informant(storage, [client])
+    chandler = Chandler(storage, [exchange])
+    informant = Informant(storage, [exchange])
     trader = Basic(chandler, informant)
-    async with client, storage, chandler, informant:
+    async with exchange, storage, chandler, informant:
         summaries_stats = await gather_dict(
             {type(strategy).__name__: backtest(trader, strategy) for strategy in STRATEGIES}
         )

@@ -6,8 +6,8 @@ from juno.exchanges import Binance
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as client:
-        logging.info(await client.list_symbols(isolated=True))
+    async with init_instance(Binance, from_env()) as exchange:
+        logging.info(await exchange.list_symbols(isolated=True))
 
 
 asyncio.run(main())

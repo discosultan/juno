@@ -3,12 +3,10 @@ import argparse
 import asyncio
 import logging
 
-from juno import exchanges
 from juno.components import Chandler, Trades
-from juno.config import from_env, init_instance
+from juno.exchanges import Exchange
 from juno.storages import SQLite
 from juno.time import strfinterval, strftimestamp, strpinterval
-from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
 parser.add_argument('exchange', nargs='?', default='binance')
@@ -18,7 +16,7 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    exchange = init_instance(get_module_type(exchanges, args.exchange), from_env())
+    exchange = Exchange.from_env(args.exchange)
     storage = SQLite()
     trades = Trades(storage=storage, exchanges=[exchange])
     chandler = Chandler(storage=storage, exchanges=[exchange], trades=trades)

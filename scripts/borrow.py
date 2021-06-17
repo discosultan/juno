@@ -3,9 +3,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import exchanges
-from juno.config import from_env, init_instance
-from juno.utils import get_module_type
+from juno.exchanges import Exchange
 
 parser = argparse.ArgumentParser()
 parser.add_argument('asset', nargs='?', default='eth')
@@ -16,11 +14,11 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(get_module_type(exchanges, args.exchange), from_env()) as client:
+    async with Exchange.from_env(args.exchange) as exchange:
         size = args.size
         if size is None:
             size = Decimal('0.0000_0001')
-        await client.borrow(args.asset, size, args.account)
+        await exchange.borrow(args.asset, size, args.account)
         logging.info(f'borrowed {size} {args.asset} to {args.account} account')
 
 

@@ -4,10 +4,10 @@ import logging
 from decimal import Decimal
 from typing import Awaitable, Callable
 
-from juno import BadOrder, Fill, Side, brokers, exchanges
+from juno import BadOrder, Fill, Side, brokers
 from juno.common import OrderResult
 from juno.components import Informant, Orderbook, User
-from juno.config import from_env, init_instance
+from juno.exchanges import Exchange
 from juno.storages import SQLite
 from juno.utils import get_module_type, unpack_assets
 
@@ -23,7 +23,7 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    exchange = init_instance(get_module_type(exchanges, args.exchange), from_env())
+    exchange = Exchange.from_env(args.exchange)
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=[exchange])
     user = User(exchanges=[exchange])

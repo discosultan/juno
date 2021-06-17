@@ -23,10 +23,10 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as client:
+    async with init_instance(Binance, from_env()) as exchange:
         raw_deposits, raw_withdrawals = await asyncio.gather(
-            client.list_deposit_history(end=args.end),
-            client.list_withdraw_history(end=args.end),
+            exchange.list_deposit_history(end=args.end),
+            exchange.list_withdraw_history(end=args.end),
         )
     raw_deposits.sort(key=lambda x: x['insertTime'])
     raw_withdrawals.sort(key=lambda x: x['applyTime'])

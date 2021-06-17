@@ -12,8 +12,8 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as client:
-        orders = await client.list_orders(account=args.account, symbol=args.symbol)
+    async with init_instance(Binance, from_env()) as exchange:
+        orders = await exchange.list_orders(account=args.account, symbol=args.symbol)
         logging.info(orders)
 
 

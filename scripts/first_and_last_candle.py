@@ -3,12 +3,10 @@ import asyncio
 import logging
 from itertools import product
 
-from juno import exchanges
 from juno.components import Chandler, Trades
-from juno.config import from_env, init_instance
+from juno.exchanges import Exchange
 from juno.storages import SQLite
 from juno.time import HOUR_MS, strfinterval, strftimestamp, strpinterval, time_ms
-from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
 parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default=['eth-btc'])
@@ -21,10 +19,10 @@ args = parser.parse_args()
 
 async def main() -> None:
     sqlite = SQLite()
-    client = init_instance(get_module_type(exchanges, args.exchange), from_env())
-    trades = Trades(sqlite, [client])
-    chandler = Chandler(trades=trades, storage=sqlite, exchanges=[client])
-    async with client, trades, chandler:
+    exchange = Exchange.from_env(args.exchange)
+    trades = Trades(sqlite, [exchange])
+    chandler = Chandler(trades=trades, storage=sqlite, exchanges=[exchange])
+    async with exchange, trades, chandler:
         await asyncio.gather(
             *(log_first_last(chandler, s, i) for s, i in product(args.symbols, args.intervals))
         )

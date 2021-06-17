@@ -10,8 +10,8 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as client:
-        await client.create_account(args.symbol)
+    async with init_instance(Binance, from_env()) as exchange:
+        await exchange.create_account(args.symbol)
 
 
 asyncio.run(main())

@@ -12,8 +12,8 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as client:
-        max_borrowable = await client.get_max_borrowable(asset=args.asset, account=args.account)
+    async with init_instance(Binance, from_env()) as exchange:
+        max_borrowable = await exchange.get_max_borrowable(asset=args.asset, account=args.account)
         logging.info(f'max borrowable {max_borrowable} {args.asset}')
 
 

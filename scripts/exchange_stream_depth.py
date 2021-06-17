@@ -1,16 +1,15 @@
 import asyncio
 import logging
 
-from juno import exchanges
-from juno.config import from_env, init_instance
+from juno.exchanges import Exchange
 
-EXCHANGE_TYPE = exchanges.Kraken
+EXCHANGE = 'kraken'
 SYMBOL = 'ada-eur'
 
 
 async def main() -> None:
-    async with init_instance(EXCHANGE_TYPE, from_env()) as client:
-        async with client.connect_stream_depth(SYMBOL) as stream:
+    async with Exchange.from_env(EXCHANGE) as exchange:
+        async with exchange.connect_stream_depth(SYMBOL) as stream:
             async for val in stream:
                 logging.info(val)
 

@@ -2,10 +2,9 @@ import argparse
 import asyncio
 import logging
 
-from juno import Balance, exchanges
+from juno import Balance
 from juno.components import User
-from juno.config import from_env, init_instance
-from juno.utils import get_module_type
+from juno.exchanges import Exchange
 
 parser = argparse.ArgumentParser()
 parser.add_argument('accounts', nargs='?', type=lambda a: a.split(','), default=None)
@@ -16,12 +15,12 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    client = init_instance(get_module_type(exchanges, args.exchange), from_env())
-    user = User([client])
-    async with client, user:
+    exchange = Exchange.from_env(args.exchange)
+    user = User([exchange])
+    async with exchange, user:
         accounts = args.accounts
         if accounts is None:
-            accounts = ['spot', 'margin', 'isolated'] if client.can_margin_trade else ['spot']
+            accounts = ['spot', 'margin', 'isolated'] if exchange.can_margin_trade else ['spot']
         logging.info(f'fetching balances for accounts: {accounts}')
 
         await log_accounts(user, accounts)

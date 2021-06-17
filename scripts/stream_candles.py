@@ -4,10 +4,10 @@ import logging
 from itertools import product
 
 import juno.json as json
-from juno import exchanges, storages
+from juno import storages
 from juno.asyncio import enumerate_async
 from juno.components import Chandler, Trades
-from juno.config import from_env, init_instance
+from juno.exchanges import Exchange
 from juno.math import floor_multiple_offset
 from juno.time import MIN_MS, strftimestamp, strpinterval, strptimestamp, time_ms
 from juno.utils import get_module_type
@@ -33,10 +33,10 @@ now = time_ms()
 
 async def main() -> None:
     storage = get_module_type(storages, args.storage)()
-    client = init_instance(get_module_type(exchanges, args.exchange), from_env())
-    trades = Trades(storage=storage, exchanges=[client])
-    chandler = Chandler(trades=trades, storage=storage, exchanges=[client])
-    async with client, trades, chandler:
+    exchange = Exchange.from_env(args.exchange)
+    trades = Trades(storage=storage, exchanges=[exchange])
+    chandler = Chandler(trades=trades, storage=storage, exchanges=[exchange])
+    async with exchange, trades, chandler:
         await asyncio.gather(
             *(stream_candles(chandler, s, i)
               for s, i in product(args.symbols, args.intervals))

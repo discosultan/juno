@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -16,10 +18,13 @@ from juno import (
     Ticker,
     TimeInForce,
     Trade,
+    config,
+    exchanges,
 )
+from juno.utils import AbstractAsyncContextManager, get_module_type
 
 
-class Exchange(ABC):
+class Exchange(AbstractAsyncContextManager, ABC):
     # Capabilities.
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.
@@ -141,3 +146,7 @@ class Exchange(ABC):
 
     async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
         raise NotImplementedError()
+
+    @staticmethod
+    def from_env(exchange: str) -> Exchange:
+        return config.init_instance(get_module_type(exchanges, exchange), config.from_env())
