@@ -61,7 +61,7 @@ class Limit(Broker):
         orderbook: Orderbook,
         user: User,
         cancel_order_on_error: bool = True,
-        order_placement_strategy: str = 'leading',  # leading or matching
+        order_placement_strategy: str = 'matching',  # leading or matching
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
