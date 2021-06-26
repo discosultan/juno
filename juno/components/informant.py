@@ -236,7 +236,7 @@ class Informant:
         stop=stop_after_attempt_with_reset(8, 300),
         wait=wait_none_then_exponential(),
         retry=retry_if_exception_type(ExchangeException),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _sync_for_exchange(
         self, exchange: str, key: str, type_: type[_Timestamped[T]],

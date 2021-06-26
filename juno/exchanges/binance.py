@@ -932,7 +932,7 @@ class Binance(Exchange):
     @retry(
         stop=stop_after_attempt(2),
         retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _request(
         self,
@@ -1066,7 +1066,7 @@ class Clock:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _sync_clock(self) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
@@ -1200,7 +1200,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _create_listen_key(self) -> tuple[ClientResponse, Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
@@ -1220,7 +1220,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _update_listen_key(self, listen_key: str) -> tuple[ClientResponse, Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
@@ -1240,7 +1240,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _delete_listen_key(self, listen_key: str) -> tuple[ClientResponse, Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey

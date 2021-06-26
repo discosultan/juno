@@ -41,8 +41,12 @@ def test_stop_after_attempt_with_reset_success() -> None:
         RaiseException(CustomException()),
     ]
 
-    @retry(stop=stop_after_attempt_with_reset(
-        max_attempt_number=3, time_to_reset=1.0, get_time=time.get_time)
+    @retry(
+        stop=stop_after_attempt_with_reset(
+            max_attempt_number=3,
+            time_to_reset=1.0,
+            get_time=time.get_time,
+        ),
     )
     def target() -> None:
         while len(steps) > 0:
@@ -68,8 +72,12 @@ def test_stop_after_attempt_with_reset_failure_after_reset() -> None:
         RaiseException(CustomException()),
     ]
 
-    @retry(stop=stop_after_attempt_with_reset(
-        max_attempt_number=3, time_to_reset=1.0, get_time=time.get_time)
+    @retry(
+        stop=stop_after_attempt_with_reset(
+            max_attempt_number=3,
+            time_to_reset=1.0,
+            get_time=time.get_time,
+        ),
     )
     def target() -> None:
         while len(steps) > 0:

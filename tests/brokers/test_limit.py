@@ -610,13 +610,23 @@ async def test_buy_matching_order_placement_strategy() -> None:
 
 
 @asynccontextmanager
-async def init_broker(exchange: Exchange, **kwargs) -> AsyncIterator[Limit]:
+async def init_broker(
+    exchange: Exchange,
+    cancel_order_on_error: bool = True,
+    order_placement_strategy: str = 'leading',
+) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange])
     user = User([exchange])
     async with memory, informant, orderbook, user:
-        broker = Limit(informant, orderbook, user, **kwargs)
+        broker = Limit(
+            informant=informant,
+            orderbook=orderbook,
+            user=user,
+            cancel_order_on_error=cancel_order_on_error,
+            order_placement_strategy=order_placement_strategy,
+        )
         yield broker
 
 

@@ -587,7 +587,7 @@ class PositionMixin(ABC):
         stop=stop_after_attempt(5),
         wait=wait_exponential(),
         retry=retry_if_exception_type(_UnexpectedExchangeResult),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _get_max_borrowable_with_retries(
         self, exchange: str, account: str, asset: str
@@ -734,7 +734,7 @@ class PositionMixin(ABC):
         stop=stop_after_attempt(5),
         wait=wait_exponential(),
         retry=retry_if_exception_type(_UnexpectedExchangeResult),
-        before_sleep=before_sleep_log(_log, logging.WARNING)
+        before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _get_repaid_balance_with_retries(
         self, exchange: str, account: str, asset: str, original_borrowed: Decimal
