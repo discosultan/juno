@@ -1137,7 +1137,7 @@ class UserDataStream:
     async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
             if not self._listen_key:
-                _, content = await self._create_listen_key()
+                content = await self._create_listen_key()
                 self._listen_key = content['listenKey']
 
     async def _ensure_connection(self) -> None:
