@@ -969,11 +969,18 @@ class Binance(Exchange):
         response.raise_for_status()
         return content
 
+    @retry(
+        stop=stop_after_attempt(2),
+        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def _request_json(self, method: str, url: str, **kwargs: Any) -> Any:
         response = await self._request(method, url, **kwargs)
         response.raise_for_status()
         return await response.json()
 
+    # We don't want to retry here because the caller of this method may need to adjust request
+    # params on retry.
     async def _request(self, method: str, url: str, **kwargs: Any) -> ClientResponse:
         async with self._session.request(method=method, url=url, **kwargs) as response:
             # TODO: If status 50X (502 for example during exchange maintenance), we may
