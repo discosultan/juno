@@ -20,6 +20,7 @@ setup(
         "simplejson",
         "tenacity",
         "types-python-dateutil",
+        "types-setuptools",
         "types-simplejson",
         "typing-inspect",
     ],
