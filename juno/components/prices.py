@@ -23,7 +23,7 @@ class Prices:
         end: int,
         interval: int = DAY_MS,
         fiat_exchange: Optional[str] = None,
-        fiat_asset: str = 'usdt',
+        fiat_asset: str = "usdt",
     ) -> dict[str, list[Decimal]]:
         """Maps all assets found in symbols to their fiat prices."""
         start = floor_multiple(start, interval)
@@ -35,7 +35,7 @@ class Prices:
 
         # Quote -> fiat.
         quote_fiat_symbols = {
-            f'{q}-{fiat_asset}' if q != fiat_asset else f'{b}-{q}'
+            f"{q}-{fiat_asset}" if q != fiat_asset else f"{b}-{q}"
             for b, q in map(unpack_assets, symbols)
         }
 
@@ -57,6 +57,7 @@ class Prices:
                     quote_prices.append(candle.open)
                 quote_prices.append(candle.close)
             result[quote_asset] = quote_prices
+
         await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
 
         # Base -> fiat.
@@ -73,24 +74,28 @@ class Prices:
             assert base_asset not in result
             base_prices: list[Decimal] = []
             quote_prices = result[quote_asset]
-            async for price_i, candle in enumerate_async(self._chandler.stream_candles(
-                exchange, symbol, interval, start, end, fill_missing_with_last=True
-            ), 1):
+            async for price_i, candle in enumerate_async(
+                self._chandler.stream_candles(
+                    exchange, symbol, interval, start, end, fill_missing_with_last=True
+                ),
+                1,
+            ):
                 if len(base_prices) == 0:
                     base_prices.append(
                         candle.open
-                        * (quote_prices[0] if quote_asset != fiat_asset else Decimal('1.0'))
+                        * (quote_prices[0] if quote_asset != fiat_asset else Decimal("1.0"))
                     )
                 base_prices.append(
                     candle.close
-                    * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal('1.0'))
+                    * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal("1.0"))
                 )
             result[base_asset] = base_prices
+
         await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
 
         # Add fiat currency itself to prices if it's specified as a quote of any symbol.
         if fiat_asset in (q for _, q in map(unpack_assets, symbols)):
-            result[fiat_asset] = [Decimal('1.0')] * (((end - start) // interval) + 1)
+            result[fiat_asset] = [Decimal("1.0")] * (((end - start) // interval) + 1)
 
         # # Validate we have enough data points.
         # num_points = (end - start) // interval
@@ -106,6 +111,6 @@ class Prices:
         first = await self._chandler.get_first_candle(exchange, symbol, interval)
         if first.time > start:
             raise ValueError(
-                f'Unable to map prices; first candle for {symbol} at {strftimestamp(first.time)} '
-                f'but requested start at {strftimestamp(start)}'
+                f"Unable to map prices; first candle for {symbol} at {strftimestamp(first.time)} "
+                f"but requested start at {strftimestamp(start)}"
             )

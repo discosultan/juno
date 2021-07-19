@@ -3,15 +3,15 @@ from decimal import Decimal
 
 # Directional Movement Indicator
 class DM:
-    plus_value: Decimal = Decimal('0.0')
-    minus_value: Decimal = Decimal('0.0')
+    plus_value: Decimal = Decimal("0.0")
+    minus_value: Decimal = Decimal("0.0")
 
     _per: Decimal
 
-    _dmup: Decimal = Decimal('0.0')
-    _dmdown: Decimal = Decimal('0.0')
-    _prev_high: Decimal = Decimal('0.0')
-    _prev_low: Decimal = Decimal('0.0')
+    _dmup: Decimal = Decimal("0.0")
+    _dmdown: Decimal = Decimal("0.0")
+    _prev_high: Decimal = Decimal("0.0")
+    _prev_low: Decimal = Decimal("0.0")
 
     _t: int = 0
     _t1: int = 2
@@ -20,7 +20,7 @@ class DM:
 
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'Invalid period ({period})')
+            raise ValueError(f"Invalid period ({period})")
 
         self._per = (period - 1) / Decimal(period)
 
@@ -66,19 +66,20 @@ class DM:
         return self.plus_value, self.minus_value
 
 
-def _calc_direction(prev_high: Decimal, prev_low: Decimal, high: Decimal,
-                    low: Decimal) -> tuple[Decimal, Decimal]:
+def _calc_direction(
+    prev_high: Decimal, prev_low: Decimal, high: Decimal, low: Decimal
+) -> tuple[Decimal, Decimal]:
     up = high - prev_high
     down = prev_low - low
 
     if up < 0:
-        up = Decimal('0.0')
+        up = Decimal("0.0")
     elif up > down:
-        down = Decimal('0.0')
+        down = Decimal("0.0")
 
     if down < 0:
-        down = Decimal('0.0')
+        down = Decimal("0.0")
     elif down > up:
-        up = Decimal('0.0')
+        up = Decimal("0.0")
 
     return up, down

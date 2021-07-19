@@ -7,8 +7,8 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
 parser = argparse.ArgumentParser()
-parser.add_argument('symbols', type=lambda s: s.split(','))
-parser.add_argument('--cycles', type=int, default=1)
+parser.add_argument("symbols", type=lambda s: s.split(","))
+parser.add_argument("--cycles", type=int, default=1)
 args = parser.parse_args()
 
 
@@ -21,8 +21,8 @@ async def main() -> None:
 
 async def process(orderbook: Orderbook, symbol: str) -> None:
     for i in range(args.cycles):
-        logging.info(f'{symbol} cycle {i}')
-        async with orderbook.sync('binance', symbol) as ctx:
+        logging.info(f"{symbol} cycle {i}")
+        async with orderbook.sync("binance", symbol) as ctx:
             await ctx.updated.wait()
 
 

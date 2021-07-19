@@ -33,38 +33,38 @@ exchange_type_fixtures = {
 
 def parametrize_exchange(exchange_types: list[Type[Exchange]]):
     return pytest.mark.parametrize(
-        'exchange',
+        "exchange",
         [exchange_type_fixtures[e] for e in exchange_types],
         ids=[e.__name__ for e in exchange_types],
     )
 
 
 # We use a session-scoped loop for shared rate-limiting.
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def loop():
     with aiohttp.test_utils.loop_context() as loop:
         yield loop
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 async def binance(loop, config):
     async with try_init_exchange(Binance, config) as exchange:
         yield exchange
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 async def coinbase(loop, config):
     async with try_init_exchange(Coinbase, config) as exchange:
         yield exchange
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 async def gateio(loop, config):
     async with try_init_exchange(GateIO, config) as exchange:
         yield exchange
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 async def kraken(loop, config):
     async with try_init_exchange(Kraken, config) as exchange:
         yield exchange
@@ -79,21 +79,21 @@ async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
     info = await exchange.get_exchange_info()
 
     assert len(info.assets) > 0
-    if '__all__' not in info.assets:
-        assert info.assets['btc']
+    if "__all__" not in info.assets:
+        assert info.assets["btc"]
 
     assert len(info.fees) > 0
     first_fees = next(iter(info.fees.values()))
-    assert 0 <= first_fees.taker <= Decimal('0.1')
-    assert 0 <= first_fees.maker <= Decimal('0.1')
+    assert 0 <= first_fees.taker <= Decimal("0.1")
+    assert 0 <= first_fees.maker <= Decimal("0.1")
     assert -4 <= first_fees.taker.as_tuple().exponent <= -1
     assert -4 <= first_fees.maker.as_tuple().exponent <= -1
-    if '__all__' not in info.fees:
-        assert info.fees['eth-btc']
+    if "__all__" not in info.fees:
+        assert info.fees["eth-btc"]
 
     assert len(info.filters) > 0
-    if '__all__' not in info.filters:
-        assert info.filters['eth-btc']
+    if "__all__" not in info.filters:
+        assert info.filters["eth-btc"]
 
     assert types_match(info, ExchangeInfo)
 
@@ -117,7 +117,7 @@ async def test_map_tickers(loop, request, exchange: Exchange) -> None:
 async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    tickers = await exchange.map_tickers(symbols=['eth-btc'])
+    tickers = await exchange.map_tickers(symbols=["eth-btc"])
 
     assert len(tickers) == 1
     assert types_match(tickers, dict[str, Ticker])
@@ -129,7 +129,7 @@ async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
 async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    balances = await exchange.map_balances(account='spot')
+    balances = await exchange.map_balances(account="spot")
     assert types_match(balances, dict[str, dict[str, Balance]])
 
 
@@ -139,7 +139,7 @@ async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
 async def test_map_cross_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    balances = await exchange.map_balances(account='margin')
+    balances = await exchange.map_balances(account="margin")
     assert types_match(balances, dict[str, dict[str, Balance]])
 
 
@@ -149,7 +149,7 @@ async def test_map_cross_margin_balances(loop, request, exchange: Exchange) -> N
 async def test_map_isolated_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)  # TODO: Add coinbase, gateio, kraken
 
-    balances = await exchange.map_balances(account='isolated')
+    balances = await exchange.map_balances(account="isolated")
     assert types_match(balances, dict[str, dict[str, Balance]])
 
 
@@ -159,7 +159,7 @@ async def test_map_isolated_margin_balances(loop, request, exchange: Exchange) -
 async def test_get_max_borrowable(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)  # TODO: Add coinbase, gateio, kraken
 
-    size = await exchange.get_max_borrowable(account='margin', asset='btc')
+    size = await exchange.get_max_borrowable(account="margin", asset="btc")
 
     assert types_match(size, Decimal)
 
@@ -170,14 +170,14 @@ async def test_get_max_borrowable(loop, request, exchange: Exchange) -> None:
 async def test_stream_historical_candles(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    start = strptimestamp('2018-01-01')
+    start = strptimestamp("2018-01-01")
 
     count = 0
     async for candle in exchange.stream_historical_candles(
-        symbol='eth-btc', interval=HOUR_MS, start=start, end=start + HOUR_MS
+        symbol="eth-btc", interval=HOUR_MS, start=start, end=start + HOUR_MS
     ):
         if count == 1:
-            pytest.fail('Expected a single candle')
+            pytest.fail("Expected a single candle")
         count += 1
 
         assert types_match(candle, Candle)
@@ -190,7 +190,7 @@ async def test_stream_historical_candles(loop, request, exchange: Exchange) -> N
 async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    async with exchange.connect_stream_candles(symbol='eth-btc', interval=MIN_MS) as stream:
+    async with exchange.connect_stream_candles(symbol="eth-btc", interval=MIN_MS) as stream:
         async for candle in stream:
             assert types_match(candle, Candle)
             break
@@ -202,7 +202,7 @@ async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None
 async def test_get_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    depth = await exchange.get_depth('eth-btc')
+    depth = await exchange.get_depth("eth-btc")
 
     assert types_match(depth, Depth.Snapshot)
 
@@ -217,7 +217,7 @@ async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
         [Depth.Snapshot, Depth.Update] if exchange.can_stream_depth_snapshot else [Depth.Update]
     )
 
-    async with exchange.connect_stream_depth('eth-btc') as stream:
+    async with exchange.connect_stream_depth("eth-btc") as stream:
         async for depth, expected_type in zip_async(stream, resolved_stream(*expected_types)):
             assert types_match(depth, expected_type)
 
@@ -233,10 +233,10 @@ async def test_stream_historical_trades(loop, request, exchange: Exchange) -> No
         end = time_ms()
         start = end - 5 * MIN_MS
     else:
-        start = strptimestamp('2018-01-01')
+        start = strptimestamp("2018-01-01")
         end = start + HOUR_MS
 
-    stream = exchange.stream_historical_trades(symbol='eth-btc', start=start, end=end)
+    stream = exchange.stream_historical_trades(symbol="eth-btc", start=start, end=end)
     async for trade in stream:
         assert types_match(trade, Trade)
         assert trade.time >= start
@@ -250,7 +250,7 @@ async def test_connect_stream_trades(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     # FIAT pairs seem to be more active where supported.
-    symbol = 'eth-btc' if isinstance(exchange, Binance) else 'eth-eur'
+    symbol = "eth-btc" if isinstance(exchange, Binance) else "eth-eur"
 
     async with exchange.connect_stream_trades(symbol=symbol) as stream:
         async for trade in stream:
@@ -267,11 +267,11 @@ async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
 
     with pytest.raises(BadOrder):
         await exchange.place_order(
-            account='spot',
-            symbol='eth-btc',
+            account="spot",
+            symbol="eth-btc",
             side=Side.BUY,
             type_=OrderType.MARKET,
-            size=Decimal('0.0'),
+            size=Decimal("0.0"),
         )
 
 
@@ -283,8 +283,8 @@ async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> 
 
     with pytest.raises(OrderMissing):
         await exchange.cancel_order(
-            account='spot',
-            symbol='eth-btc',
+            account="spot",
+            symbol="eth-btc",
             client_id=exchange.generate_client_id(),
         )
 
@@ -295,16 +295,16 @@ async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> 
 async def test_get_deposit_address(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    address = await exchange.get_deposit_address('btc')
+    address = await exchange.get_deposit_address("btc")
     assert type(address) is str
 
 
 def skip_not_configured(request, exchange):
-    markers = ['exchange', 'manual']
+    markers = ["exchange", "manual"]
     if request.config.option.markexpr not in markers:
         pytest.skip(f'Specify {"" or "".join(markers)} marker to run!')
     if not exchange:
-        pytest.skip('Exchange params not configured')
+        pytest.skip("Exchange params not configured")
 
 
 @asynccontextmanager

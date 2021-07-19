@@ -17,5 +17,5 @@ class LimitMatching(Limit):
             orderbook,
             user,
             cancel_order_on_error,
-            order_placement_strategy='matching',
+            order_placement_strategy="matching",
         )

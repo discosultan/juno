@@ -64,10 +64,10 @@ class Fixed(Signal):
                 )
         else:
             if self.cancel:
-                _log.info('cancelling as no more advice defined')
+                _log.info("cancelling as no more advice defined")
                 current_task = asyncio.current_task()
                 assert current_task
                 current_task.cancel()
             else:
-                _log.warning('ran out of predetermined advices; no more advice given')
+                _log.warning("ran out of predetermined advices; no more advice given")
             self._advice = Advice.NONE

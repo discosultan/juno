@@ -3,7 +3,7 @@ from .sqlite import SQLite
 from .storage import Storage
 
 __all__ = [
-    'Memory',
-    'SQLite',
-    'Storage',
+    "Memory",
+    "SQLite",
+    "Storage",
 ]

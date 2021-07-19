@@ -37,7 +37,7 @@ class Backtest(Agent):
         start: Optional[Timestamp] = None
         end: Optional[Timestamp] = None
         fiat_exchange: Optional[str] = None
-        fiat_asset: str = 'usdt'
+        fiat_asset: str = "usdt"
 
     @dataclass
     class State:
@@ -71,7 +71,7 @@ class Backtest(Agent):
         start = config.start
         if config.end is None:
             end = now
-            _log.info(f'end not specified; end set to {strftimestamp(now)}')
+            _log.info(f"end not specified; end set to {strftimestamp(now)}")
         else:
             end = config.end
 
@@ -86,11 +86,13 @@ class Backtest(Agent):
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
             stop_loss=(
-                None if config.stop_loss is None
+                None
+                if config.stop_loss is None
                 else get_module_type_constructor(stop_loss, config.stop_loss)
             ),
             take_profit=(
-                None if config.take_profit is None
+                None
+                if config.take_profit is None
                 else get_module_type_constructor(take_profit, config.take_profit)
             ),
             channel=state.name,
@@ -99,8 +101,8 @@ class Backtest(Agent):
         if not state.result:
             state.result = await trader.initialize(trader_config)
 
-        _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
-        await self._events.emit(state.name, 'starting', config, state, trader)
+        _log.info(f"{self.get_name(state)}: running with config {format_as_config(config)}")
+        await self._events.emit(state.name, "starting", config, state, trader)
 
         await trader.run(state.result)
 
@@ -108,14 +110,13 @@ class Backtest(Agent):
         assert summary
 
         if not self._prices:
-            _log.warning('skipping analysis; prices component not available')
+            _log.warning("skipping analysis; prices component not available")
             return
 
         # Fetch necessary market data.
-        symbols = (
-            [p.symbol for p in summary.get_positions()]
-            + [f'btc-{config.fiat_asset}']  # Use BTC as benchmark.
-        )
+        symbols = [p.symbol for p in summary.get_positions()] + [
+            f"btc-{config.fiat_asset}"
+        ]  # Use BTC as benchmark.
         fiat_prices = await self._prices.map_asset_prices(
             exchange=config.exchange,
             symbols=symbols,
@@ -125,15 +126,12 @@ class Backtest(Agent):
             fiat_exchange=config.fiat_exchange,
         )
 
-        _log.info(f'calculating benchmark and portfolio statistics ({config.fiat_asset})')
+        _log.info(f"calculating benchmark and portfolio statistics ({config.fiat_asset})")
         stats = ExtendedStatistics.compose(summary=summary, asset_prices=fiat_prices)
         _log.info(format_as_config(stats))
 
     async def on_finally(self, config: Config, state: State) -> None:
         assert state.result
         stats = CoreStatistics.compose(state.result.summary)
-        _log.info(
-            f'{self.get_name(state)}: finished with result '
-            f'{format_as_config(stats)}'
-        )
-        await self._events.emit(state.name, 'finished', state.result.summary)
+        _log.info(f"{self.get_name(state)}: finished with result " f"{format_as_config(stats)}")
+        await self._events.emit(state.name, "finished", state.result.summary)

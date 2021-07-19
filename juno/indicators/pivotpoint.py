@@ -2,11 +2,11 @@ from decimal import Decimal
 
 
 class PivotPoint:
-    value: Decimal = Decimal('0.0')
-    support1: Decimal = Decimal('0.0')
-    support2: Decimal = Decimal('0.0')
-    resistance1: Decimal = Decimal('0.0')
-    resistance2: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
+    support1: Decimal = Decimal("0.0")
+    support2: Decimal = Decimal("0.0")
+    resistance1: Decimal = Decimal("0.0")
+    resistance2: Decimal = Decimal("0.0")
 
     @property
     def maturity(self) -> int:

@@ -27,46 +27,44 @@ _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
 # TODO: Use v52 next.
-_VERSION = 'v49'
+_VERSION = "v49"
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 Primitive = Union[bool, int, float, Decimal, str]
 
 
 def _serialize_decimal(d: Decimal) -> bytes:
-    return str(d).encode('ascii')
+    return str(d).encode("ascii")
 
 
 def _deserialize_decimal(s: bytes) -> Decimal:
-    return Decimal(s.decode('ascii'))
+    return Decimal(s.decode("ascii"))
 
 
 sqlite3.register_adapter(Decimal, _serialize_decimal)
-sqlite3.register_converter('DECIMAL', _deserialize_decimal)
+sqlite3.register_converter("DECIMAL", _deserialize_decimal)
 
 sqlite3.register_adapter(bool, int)
-sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
+sqlite3.register_converter("BOOLEAN", lambda v: bool(int(v)))
 
 
 class SQLite(Storage):
     def __init__(self, version: Optional[str] = None) -> None:
         self._version = _VERSION if version is None else version
         self._tables: dict[Any, set[str]] = defaultdict(set)
-        _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {self._version}')
+        _log.info(f"sqlite version: {sqlite3.sqlite_version}; schema version: {self._version}")
 
     async def stream_time_series_spans(
         self, shard: str, key: str, start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[tuple[int, int]]:
         def inner() -> list[tuple[int, int]]:
-            _log.info(
-                f'streaming span(s) between {strfspan(start, end)} from shard {shard} {key}'
-            )
+            _log.info(f"streaming span(s) between {strfspan(start, end)} from shard {shard} {key}")
             with self._connect(shard) as conn:
-                span_key = f'{key}_{_SPAN_KEY}'
+                span_key = f"{key}_{_SPAN_KEY}"
                 self._ensure_table(conn, span_key, Span)
                 return conn.execute(
-                    f'SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start',
+                    f"SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start",
                     [end, start],
                 ).fetchall()
 
@@ -78,15 +76,14 @@ class SQLite(Storage):
         self, shard: str, key: str, type_: type[T], start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[T]:
         def inner() -> list[T]:
-            _log.info(
-                f'streaming items between {strfspan(start, end)} from shard {shard} {key}'
-            )
+            _log.info(f"streaming items between {strfspan(start, end)} from shard {shard} {key}")
             with self._connect(shard) as conn:
                 self._ensure_table(conn, key, type_)
                 return conn.execute(
-                    f'SELECT * FROM {key} WHERE time >= ? AND time < ? ORDER BY time',
+                    f"SELECT * FROM {key} WHERE time >= ? AND time < ? ORDER BY time",
                     [start, end],
                 ).fetchall()
+
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
         for row in rows:
             yield raw_to_type(row, type_)
@@ -98,14 +95,14 @@ class SQLite(Storage):
         if len(items) > 0:
             type_ = type(items[0])
             if start > items[0].time:
-                raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
+                raise ValueError(f"Span start {start} bigger than first item time {items[0].time}")
             if end <= items[-1].time:
                 raise ValueError(
-                    f'Span end {end} smaller than or equal to last item time {items[-1].time}'
+                    f"Span end {end} smaller than or equal to last item time {items[-1].time}"
                 )
 
         def inner() -> None:
-            span_key = f'{key}_{_SPAN_KEY}'
+            span_key = f"{key}_{_SPAN_KEY}"
             with self._connect(shard) as conn:
                 self._ensure_table(conn, span_key, Span)
                 if len(items) > 0:
@@ -113,7 +110,7 @@ class SQLite(Storage):
 
                 c = conn.cursor()
                 existing_spans = c.execute(
-                    f'SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start',
+                    f"SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start",
                     [end, start],
                 ).fetchall()
                 merged_existing_spans = merge_adjacent_spans(existing_spans)
@@ -121,38 +118,39 @@ class SQLite(Storage):
                 if len(missing_spans) == 0:
                     return
                 missing_item_spans = (
-                    [items] if len(existing_spans) == 0
+                    [items]
+                    if len(existing_spans) == 0
                     else [
                         [i for i in items if i.time >= s and i.time < e] for s, e in missing_spans
                     ]
                 )
                 for (mstart, mend), mitems in zip(missing_spans, missing_item_spans):
                     _log.info(
-                        f'inserting {len(mitems)} item(s) between {strfspan(mstart, mend)} to '
-                        f'shard {shard} {key}'
+                        f"inserting {len(mitems)} item(s) between {strfspan(mstart, mend)} to "
+                        f"shard {shard} {key}"
                     )
                     if len(mitems) > 0:
                         try:
                             c.executemany(
-                                f'INSERT INTO {key} '
+                                f"INSERT INTO {key} "
                                 f'VALUES ({", ".join(["?"] * len(get_type_hints(type_)))})',
                                 mitems,
                             )
                         except sqlite3.IntegrityError as err:
-                            _log.error(f'{err} {shard} {key}')
+                            _log.error(f"{err} {shard} {key}")
                             raise
-                    c.execute(f'INSERT INTO {span_key} VALUES (?, ?)', [mstart, mend])
+                    c.execute(f"INSERT INTO {span_key} VALUES (?, ?)", [mstart, mend])
                 conn.commit()
 
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def get(self, shard: str, key: str, type_: type[T]) -> Optional[T]:
         def inner() -> Optional[T]:
-            _log.info(f'getting {key} from shard {shard}')
+            _log.info(f"getting {key} from shard {shard}")
             with self._connect(shard) as conn:
                 self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 row = conn.execute(
-                    f'SELECT * FROM {_KEY_VALUE_PAIR_KEY} WHERE key=? LIMIT 1', [key]
+                    f"SELECT * FROM {_KEY_VALUE_PAIR_KEY} WHERE key=? LIMIT 1", [key]
                 ).fetchone()
                 return raw_to_type(json.loads(row[1]), type_) if row else None
 
@@ -160,11 +158,11 @@ class SQLite(Storage):
 
     async def set(self, shard: str, key: str, item: T) -> None:
         def inner() -> None:
-            _log.info(f'setting {key} to shard {shard}')
+            _log.info(f"setting {key} to shard {shard}")
             with self._connect(shard) as conn:
                 self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 conn.execute(
-                    f'INSERT OR REPLACE INTO {_KEY_VALUE_PAIR_KEY} VALUES (?, ?)',
+                    f"INSERT OR REPLACE INTO {_KEY_VALUE_PAIR_KEY} VALUES (?, ?)",
                     [key, json.dumps(type_to_raw(item))],
                 )
                 conn.commit()
@@ -172,8 +170,8 @@ class SQLite(Storage):
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
     def _connect(self, shard: str) -> ContextManager[sqlite3.Connection]:
-        path = str(home_path('data') / f'{self._version}_{shard}.db')
-        _log.debug(f'opening shard {path}')
+        path = str(home_path("data") / f"{self._version}_{shard}.db")
+        _log.debug(f"opening shard {path}")
         return closing(sqlite3.connect(path, detect_types=sqlite3.PARSE_DECLTYPES))
 
     def _ensure_table(self, conn: sqlite3.Connection, name: str, type_: type[Any]) -> None:
@@ -192,19 +190,19 @@ def _create_table(c: sqlite3.Cursor, type_: type[Any], name: str) -> None:
     # Create table.
     cols = []
     for col_name, col_type in col_types:
-        cols.append(f'{col_name} {col_type} NOT NULL')
+        cols.append(f"{col_name} {col_type} NOT NULL")
     c.execute(f'CREATE TABLE IF NOT EXISTS {name} ({", ".join(cols)})')
 
     # Add indices.
-    meta_getter = getattr(type_, 'meta', None)
+    meta_getter = getattr(type_, "meta", None)
     meta = meta_getter() if meta_getter else None
     if meta:
         for cname, ctype in meta.items():
-            if ctype == 'index':
-                c.execute(f'CREATE INDEX IF NOT EXISTS {name}Index ON {name}({cname})')
-            elif ctype == 'unique':
+            if ctype == "index":
+                c.execute(f"CREATE INDEX IF NOT EXISTS {name}Index ON {name}({cname})")
+            elif ctype == "unique":
                 c.execute(
-                    f'CREATE UNIQUE INDEX IF NOT EXISTS {name}UniqueIndex ON {name}({cname})'
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS {name}UniqueIndex ON {name}({cname})"
                 )
             else:
                 raise NotImplementedError()
@@ -216,29 +214,29 @@ def _create_table(c: sqlite3.Cursor, type_: type[Any], name: str) -> None:
         if type_ is Timestamp:
             view_cols.append(
                 f"strftime('%Y-%m-%d %H:%M:%S', {col_name} / 1000, 'unixepoch') AS "
-                f'{col_name}_representation'
+                f"{col_name}_representation"
             )
             create_view = True
         view_cols.append(col_name)
     if create_view:
         c.execute(
-            f'CREATE VIEW IF NOT EXISTS {name}View AS '
+            f"CREATE VIEW IF NOT EXISTS {name}View AS "
             f'SELECT {", ".join(view_cols)} FROM {name}'
         )
 
 
 def _type_to_sql_type(type_: type[Primitive]) -> str:
     if type_ in [Interval, Timestamp, int]:
-        return 'INTEGER'
+        return "INTEGER"
     if type_ is float:
-        return 'REAL'
+        return "REAL"
     if type_ is Decimal:
-        return 'DECIMAL'
+        return "DECIMAL"
     if type_ is str:
-        return 'TEXT'
+        return "TEXT"
     if type_ is bool:
-        return 'BOOLEAN'
-    raise NotImplementedError(f'Missing conversion for type {type_}')
+        return "BOOLEAN"
+    raise NotImplementedError(f"Missing conversion for type {type_}")
 
 
 class KeyValuePair(NamedTuple):
@@ -248,7 +246,7 @@ class KeyValuePair(NamedTuple):
     @staticmethod
     def meta() -> dict[str, str]:
         return {
-            'key': 'unique',
+            "key": "unique",
         }
 
 
@@ -259,8 +257,8 @@ class Span(NamedTuple):
     @staticmethod
     def meta() -> dict[str, str]:
         return {
-            'start': 'unique',
-            'end': 'unique',
+            "start": "unique",
+            "end": "unique",
         }
 
 

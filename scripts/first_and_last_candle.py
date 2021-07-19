@@ -9,11 +9,11 @@ from juno.storages import SQLite
 from juno.time import HOUR_MS, strfinterval, strftimestamp, strpinterval, time_ms
 
 parser = argparse.ArgumentParser()
-parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default=['eth-btc'])
+parser.add_argument("symbols", nargs="?", type=lambda s: s.split(","), default=["eth-btc"])
 parser.add_argument(
-    'intervals', nargs='?', type=lambda s: map(strpinterval, s.split(',')), default=[HOUR_MS]
+    "intervals", nargs="?", type=lambda s: map(strpinterval, s.split(",")), default=[HOUR_MS]
 )
-parser.add_argument('--exchange', '-e', default='binance')
+parser.add_argument("--exchange", "-e", default="binance")
 args = parser.parse_args()
 
 
@@ -34,11 +34,11 @@ async def log_first_last(chandler: Chandler, symbol: str, interval: int) -> None
         chandler.get_last_candle(args.exchange, symbol, interval),
     )
     logging.info(
-        f'got the following {symbol} {strfinterval(interval)} candles at '
-        f'{strftimestamp(time_ms())}:'
+        f"got the following {symbol} {strfinterval(interval)} candles at "
+        f"{strftimestamp(time_ms())}:"
     )
-    logging.info(f'    first - {strftimestamp(first_candle.time)} ({first_candle.time})')
-    logging.info(f'    last  - {strftimestamp(last_candle.time)} ({last_candle.time})')
+    logging.info(f"    first - {strftimestamp(first_candle.time)} ({first_candle.time})")
+    logging.info(f"    last  - {strftimestamp(last_candle.time)} ({last_candle.time})")
 
 
 asyncio.run(main())

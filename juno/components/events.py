@@ -10,8 +10,8 @@ _log = logging.getLogger(__name__)
 
 class Events:
     def __init__(self) -> None:
-        self._handlers: dict[tuple[str, str], list[Callable[..., Awaitable[None]]]] = (
-            defaultdict(list)
+        self._handlers: dict[tuple[str, str], list[Callable[..., Awaitable[None]]]] = defaultdict(
+            list
         )
 
     def on(self, channel: str, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:

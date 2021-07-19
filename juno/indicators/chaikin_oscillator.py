@@ -5,8 +5,8 @@ from .ema import Ema
 
 class ChaikinOscillator:
     def __init__(self, short_period: int, long_period: int) -> None:
-        self.value = Decimal('0.0')
-        self._money_flow_volume = Decimal('0.0')
+        self.value = Decimal("0.0")
+        self._money_flow_volume = Decimal("0.0")
         self._short_ema = Ema.with_com(short_period, adjust=True)
         self._long_ema = Ema.with_com(long_period, adjust=True)
 

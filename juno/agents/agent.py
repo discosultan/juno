@@ -49,7 +49,7 @@ class Agent:
         type_name = type(self).__name__.lower()
         await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
         _log.info(
-            f'{self.get_name(state)}: activated plugins '
+            f"{self.get_name(state)}: activated plugins "
             f'[{", ".join(type(p).__name__.lower() for p in plugins)}]'
         )
 
@@ -70,53 +70,53 @@ class Agent:
         return state.result
 
     async def on_running(self, config: Any, state: Any) -> None:
-        _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
-        await self._events.emit(state.name, 'starting', config, state)
+        _log.info(f"{self.get_name(state)}: running with config {format_as_config(config)}")
+        await self._events.emit(state.name, "starting", config, state)
 
     async def on_cancelled(self, config: Any, state: Any) -> None:
-        _log.info(f'{self.get_name(state)}: cancelled')
-        await self._events.emit(state.name, 'cancelled')
+        _log.info(f"{self.get_name(state)}: cancelled")
+        await self._events.emit(state.name, "cancelled")
 
     async def on_errored(self, config: Any, state: Any, exc: Exception) -> None:
-        _log.error(f'{self.get_name(state)}: unhandled exception {exc_traceback(exc)}')
-        await self._events.emit(state.name, 'errored', exc)
+        _log.error(f"{self.get_name(state)}: unhandled exception {exc_traceback(exc)}")
+        await self._events.emit(state.name, "errored", exc)
 
     async def on_finally(self, config: Any, state: Any) -> None:
         _log.info(
-            f'{self.get_name(state)}: finished with result '
-            f'{format_as_config(extract_public(state.result))}'
+            f"{self.get_name(state)}: finished with result "
+            f"{format_as_config(extract_public(state.result))}"
         )
-        await self._events.emit(state.name, 'finished', state.result)
+        await self._events.emit(state.name, "finished", state.result)
 
     def get_name(self, state: Any) -> str:
-        return f'{state.name} ({type(self).__name__.lower()})'
+        return f"{state.name} ({type(self).__name__.lower()})"
 
     async def _get_or_create_state(self, config: Any) -> Agent.State:
-        name = getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}'
+        name = getattr(config, "name", None) or f"{next(_random_names)}-{uuid.uuid4()}"
         state_type = type(self).State
 
-        if getattr(config, 'persist', False):
+        if getattr(config, "persist", False):
             existing_state = await self._storage.get(
-                'default',
+                "default",
                 self._get_storage_key(name),
                 state_type,
             )
             if existing_state:
                 if existing_state.status is AgentStatus.FINISHED:
                     raise NotImplementedError(
-                        f'Cannot continue existing session {existing_state.name} from '
-                        f'{AgentStatus.FINISHED.name} status'
+                        f"Cannot continue existing session {existing_state.name} from "
+                        f"{AgentStatus.FINISHED.name} status"
                     )
 
                 _log.info(
-                    f'existing live session {existing_state.name} found; continuing from '
-                    f'{existing_state.status.name} status'
+                    f"existing live session {existing_state.name} found; continuing from "
+                    f"{existing_state.status.name} status"
                 )
                 return existing_state
             else:
-                _log.info(f'existing state with name {name} not found; creating new')
+                _log.info(f"existing state with name {name} not found; creating new")
         else:
-            _log.info('creating new state')
+            _log.info("creating new state")
 
         return state_type(
             name=name,
@@ -124,15 +124,15 @@ class Agent:
         )
 
     async def _try_save_state(self, config: Config, state: Agent.State) -> None:
-        if getattr(config, 'persist', False):
+        if getattr(config, "persist", False):
             _log.info(
-                f'storing current state with name {state.name} and status {state.status.name}'
+                f"storing current state with name {state.name} and status {state.status.name}"
             )
             await self._storage.set(
-                'default',
+                "default",
                 self._get_storage_key(state.name),
                 state,
             )
 
     def _get_storage_key(self, name: str) -> str:
-        return f'{type(self).__name__.lower()}_{name}_state'
+        return f"{type(self).__name__.lower()}_{name}_state"

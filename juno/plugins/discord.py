@@ -40,17 +40,17 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
     def __init__(
         self, chandler: Chandler, informant: Informant, events: Events, config: dict[str, Any]
     ) -> None:
-        super().__init__(command_prefix='.')
+        super().__init__(command_prefix=".")
 
         discord_config = config.get(type(self).__name__.lower(), {})
-        if not (token := discord_config.get('token')):
-            raise ValueError('Missing token from config')
+        if not (token := discord_config.get("token")):
+            raise ValueError("Missing token from config")
 
         self._chandler = chandler
         self._informant = informant
         self._events = events
         self._token = token
-        self._channel_ids = discord_config.get('channel_id', {})
+        self._channel_ids = discord_config.get("channel_id", {})
 
     async def __aenter__(self) -> Discord:
         self._start_task = create_task_sigint_on_exception(self.start(self._token))
@@ -69,14 +69,14 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         trader_ctx: Optional[_TraderContext] = None
 
         if not (channel_id := self._channel_ids.get(channel_name)):
-            raise ValueError(f'Missing {channel_name} channel ID from config')
+            raise ValueError(f"Missing {channel_name} channel ID from config")
 
         channel_id = int(channel_id)
         send_message = partial(self._send_message, channel_id)
         send_file = partial(self._send_file, channel_id)
         format_message = partial(_format_message, channel_name, agent_name)
 
-        @self._events.on(agent_name, 'starting')
+        @self._events.on(agent_name, "starting")
         async def on_starting(config: Any, state: Any, trader: Trader) -> None:
             nonlocal trader_ctx
             trader_ctx = _TraderContext(
@@ -84,72 +84,78 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                 instance=trader,
             )
             await send_message(
-                format_message('starting with config', format_as_config(config), lang='json')
+                format_message("starting with config", format_as_config(config), lang="json")
             )
 
-        @self._events.on(agent_name, 'positions_opened')
+        @self._events.on(agent_name, "positions_opened")
         async def on_positions_opened(positions: list[Position], summary: TradingSummary) -> None:
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
-                        'position',
-                        format_as_config(extract_public(p, exclude=['fills'])),
-                        lang='json',
-                    ),
-                ) for p in positions)
+                *(
+                    send_message(
+                        format_message(
+                            f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
+                            "position",
+                            format_as_config(extract_public(p, exclude=["fills"])),
+                            lang="json",
+                        ),
+                    )
+                    for p in positions
+                )
             )
 
-        @self._events.on(agent_name, 'positions_closed')
+        @self._events.on(agent_name, "positions_closed")
         async def on_positions_closed(positions: list[Position], summary: TradingSummary) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'closed {"long" if isinstance(p, Position.Long) else "short"} '
-                        'position',
-                        format_as_config(
-                            extract_public(p, exclude=['open_fills', 'close_fills'])
+                *(
+                    send_message(
+                        format_message(
+                            f'closed {"long" if isinstance(p, Position.Long) else "short"} '
+                            "position",
+                            format_as_config(
+                                extract_public(p, exclude=["open_fills", "close_fills"])
+                            ),
+                            lang="json",
                         ),
-                        lang='json',
-                    ),
-                ) for p in positions)
+                    )
+                    for p in positions
+                )
             )
             await send_message(
-                format_message('summary', format_as_config(extract_public(summary)), lang='json')
+                format_message("summary", format_as_config(extract_public(summary)), lang="json")
             )
 
-        @self._events.on(agent_name, 'finished')
+        @self._events.on(agent_name, "finished")
         async def on_finished(summary: TradingSummary) -> None:
             await send_message(
                 format_message(
-                    'finished with summary',
+                    "finished with summary",
                     format_as_config(extract_public(summary)),
-                    lang='json',
+                    lang="json",
                 ),
             )
 
-        @self._events.on(agent_name, 'errored')
+        @self._events.on(agent_name, "errored")
         async def on_errored(exc: Exception) -> None:
-            await send_message(format_message('errored', exc_traceback(exc)))
+            await send_message(format_message("errored", exc_traceback(exc)))
 
-        @self._events.on(agent_name, 'image')
+        @self._events.on(agent_name, "image")
         async def on_image(path: str) -> None:
             await send_file(path)
 
-        @self._events.on(agent_name, 'message')
+        @self._events.on(agent_name, "message")
         async def on_message(message: str) -> None:
-            await send_message(format_message('received message', message))
+            await send_message(format_message("received message", message))
 
-        @self.command(help='Closes open positions by specified comma-separated symbols')
+        @self.command(help="Closes open positions by specified comma-separated symbols")
         async def close_positions(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
             assert trader_ctx
 
-            symbols = value.split(',')
+            symbols = value.split(",")
 
-            await send_message(f'closing {symbols} positions')
+            await send_message(f"closing {symbols} positions")
             try:
                 await trader_ctx.instance.close_positions(
                     state=trader_ctx.state,
@@ -157,49 +163,49 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                     reason=CloseReason.CANCELLED,
                 )
             except PositionNotOpen:
-                await send_message(f'not all {symbols} positions open')
+                await send_message(f"not all {symbols} positions open")
 
-        @self.command(help='Sets whether trader closes positions on exit')
+        @self.command(help="Sets whether trader closes positions on exit")
         async def close_on_exit(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
-            if value not in ['true', 'false']:
+            if value not in ["true", "false"]:
                 await send_message(
-                    'please pass true/false to set whether trader will close positions on exit'
+                    "please pass true/false to set whether trader will close positions on exit"
                 )
                 return
             assert trader_ctx
 
-            close_on_exit = True if value == 'true' else False
+            close_on_exit = True if value == "true" else False
             trader_ctx.state.close_on_exit = close_on_exit
             msg = (
                 f'agent {agent_name} ({agent_type}) will{"" if close_on_exit else " not"} close '
-                'positions on exit'
+                "positions on exit"
             )
             _log.info(msg)
             await send_message(msg)
 
-        @self.command(help='Sets whether trader opens new positions')
+        @self.command(help="Sets whether trader opens new positions")
         async def open_new_positions(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
-            if value not in ['true', 'false']:
+            if value not in ["true", "false"]:
                 await send_message(
-                    'please pass true/false to set whether trader will open new positions'
+                    "please pass true/false to set whether trader will open new positions"
                 )
                 return
             assert trader_ctx
 
-            open_new_positions = True if value == 'true' else False
+            open_new_positions = True if value == "true" else False
             trader_ctx.state.open_new_positions = open_new_positions
             msg = (
                 f'agent {agent_name} ({agent_type}) will{"" if open_new_positions else " not"} '
-                'open new positions'
+                "open new positions"
             )
             _log.info(msg)
             await send_message(msg)
 
-        @self.command(help='Gets trading summary if all open positions were closed right now')
+        @self.command(help="Gets trading summary if all open positions were closed right now")
         async def status(ctx: commands.Context) -> None:
             if ctx.channel.name != channel_name:
                 return
@@ -207,17 +213,19 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
 
             await send_message(
                 format_message(
-                    'summary',
+                    "summary",
                     format_as_config(extract_public(trader_ctx.state.summary)),
-                    lang='json',
+                    lang="json",
                 )
             )
-            await asyncio.gather(*(
-                self._send_open_position_status(ctx.channel.id, agent_type, agent_name, p)
-                for p in trader_ctx.state.open_positions
-            ))
+            await asyncio.gather(
+                *(
+                    self._send_open_position_status(ctx.channel.id, agent_type, agent_name, p)
+                    for p in trader_ctx.state.open_positions
+                )
+            )
 
-        _log.info(f'activated for {agent_name} ({agent_type})')
+        _log.info(f"activated for {agent_name} ({agent_type})")
 
     async def _send_open_position_status(
         self, channel_id: int, agent_type: str, agent_name: str, pos: Position.Open
@@ -238,11 +246,11 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                 agent_type,
                 agent_name,
                 f'{"long" if isinstance(pos, Position.OpenLong) else "short"} position open; if '
-                'closed now',
+                "closed now",
                 format_as_config(
-                    extract_public(closed_pos, exclude=['open_fills', 'close_fills'])
+                    extract_public(closed_pos, exclude=["open_fills", "close_fills"])
                 ),
-                lang='json',
+                lang="json",
             ),
         )
 
@@ -267,8 +275,6 @@ def _format_message(
     agent_name: str,
     title: str,
     content: Any,
-    lang: str = '',
+    lang: str = "",
 ) -> str:
-    return (
-        f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
-    )
+    return f"{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n"

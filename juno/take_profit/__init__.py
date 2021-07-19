@@ -5,9 +5,9 @@ from .take_profit import TakeProfit
 from .trending import Trending
 
 __all__ = [
-    'Basic',
-    'Legacy',
-    'Noop',
-    'TakeProfit',
-    'Trending',
+    "Basic",
+    "Legacy",
+    "Noop",
+    "TakeProfit",
+    "Trending",
 ]

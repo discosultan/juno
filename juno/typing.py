@@ -34,11 +34,11 @@ Traceback = Optional[TracebackType]
 JSONValue = Union[str, int, float, bool, None, dict[str, Any], list[Any]]
 JSONType = Union[dict[str, JSONValue], list[JSONValue]]
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def get_input_type_hints(obj: Any) -> dict[str, type]:
-    return {n: t for n, t in get_type_hints(obj).items() if n != 'return'}
+    return {n: t for n, t in get_type_hints(obj).items() if n != "return"}
 
 
 def get_name(type_: Any) -> str:
@@ -62,11 +62,7 @@ def isnamedtuple(obj: Any) -> bool:
         obj = type(obj)
 
     # Note that '_fields' is present only if the tuple has at least 1 field.
-    return (
-        inspect.isclass(obj)
-        and issubclass(obj, tuple)
-        and bool(getattr(obj, '_fields', False))
-    )
+    return inspect.isclass(obj) and issubclass(obj, tuple) and bool(getattr(obj, "_fields", False))
 
 
 def isenum(obj: Any) -> bool:
@@ -76,7 +72,8 @@ def isenum(obj: Any) -> bool:
 def raw_to_type(value: Any, type_: Any) -> Any:
     tagged_type = (
         get_type_by_fully_qualified_name(vt)
-        if isinstance(value, dict) and (vt := value.get('__type__')) else None
+        if isinstance(value, dict) and (vt := value.get("__type__"))
+        else None
     )
     origin_type = get_root_origin(type_)
     resolved_type = tagged_type or origin_type or type_
@@ -86,21 +83,21 @@ def raw_to_type(value: Any, type_: Any) -> Any:
 
     if resolved_type is type(None):  # noqa: E721
         if value is not None:
-            raise TypeError(f'Incorrect {value=} for {type_=}')
+            raise TypeError(f"Incorrect {value=} for {type_=}")
         return None
 
     if is_union_type(resolved_type):
         if is_optional_type(type_) and value is None:
             return None
 
-        resolved = '__missing__'
+        resolved = "__missing__"
         for arg in get_args(type_):
             try:
                 resolved = raw_to_type(value, arg)
             except TypeError:
                 pass
-        if resolved == '__missing__':
-            raise TypeError(f'Incorrect {value=} for {type_=}')
+        if resolved == "__missing__":
+            raise TypeError(f"Incorrect {value=} for {type_=}")
         return resolved
 
     if isenum(resolved_type):
@@ -111,13 +108,13 @@ def raw_to_type(value: Any, type_: Any) -> Any:
         return value
 
     if resolved_type is list:
-        sub_type, = get_args(type_)
+        (sub_type,) = get_args(type_)
         for i, sub_value in enumerate(value):
             value[i] = raw_to_type(sub_value, sub_type)
         return value
 
     if resolved_type is deque:
-        sub_type, = get_args(type_)
+        (sub_type,) = get_args(type_)
         return deque((raw_to_type(sv, sub_type) for sv in value), maxlen=len(value))
 
     if isnamedtuple(resolved_type):
@@ -197,12 +194,12 @@ def type_to_raw(value: Any) -> Any:
 
     # Data class and regular class. We don't want to use `dataclasses.asdict` because it is
     # recursive in converting dataclasses.
-    if (value_dict := getattr(value, '__dict__', None)) is not None:
+    if (value_dict := getattr(value, "__dict__", None)) is not None:
         res = {k: type_to_raw(v) for k, v in value_dict.items()}
-        res['__type__'] = get_fully_qualified_name(value)
+        res["__type__"] = get_fully_qualified_name(value)
         return res
 
-    raise NotImplementedError(f'Unable to convert {value}')
+    raise NotImplementedError(f"Unable to convert {value}")
 
 
 def types_match(obj: Any, type_: type[Any]) -> bool:
@@ -231,15 +228,11 @@ def types_match(obj: Any, type_: type[Any]) -> bool:
 
     if isinstance(obj, (list, deque)):
         assert origin
-        subtype, = get_args(type_)
+        (subtype,) = get_args(type_)
         return all(types_match(so, subtype) for so in obj)
 
     # Try matching for a regular dataclass.
-    return all(
-        types_match(
-            getattr(obj, sn), st
-        ) for sn, st in get_type_hints(origin).items()
-    )
+    return all(types_match(getattr(obj, sn), st) for sn, st in get_type_hints(origin).items())
 
 
 def map_input_args(obj: Any, args: Iterable[Any]) -> dict[str, Any]:
@@ -261,17 +254,17 @@ def get_fully_qualified_name(obj: Any) -> str:
     # We separate module and type with a '::' in order to more easily resolve these components
     # in reverse.
     type_ = obj if inspect.isclass(obj) else type(obj)
-    return f'{type_.__module__}::{type_.__qualname__}'
+    return f"{type_.__module__}::{type_.__qualname__}"
 
 
 def get_type_by_fully_qualified_name(name: str) -> type[Any]:
     # Resolve module.
-    module_name, type_name = name.split('::')
+    module_name, type_name = name.split("::")
     module = importlib.import_module(module_name)
 
     # Resolve nested classes. We do not support function local classes.
     type_ = None
-    for sub_name in type_name.split('.'):
+    for sub_name in type_name.split("."):
         type_ = getattr(type_ if type_ else module, sub_name)
     assert type_
     return type_

@@ -17,5 +17,5 @@ class LimitLeading(Limit):
             orderbook,
             user,
             cancel_order_on_error,
-            order_placement_strategy='leading',
+            order_placement_strategy="leading",
         )

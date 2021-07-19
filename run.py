@@ -5,8 +5,8 @@ import sys
 from juno.logging import create_handlers
 
 logging.basicConfig(
-    handlers=create_handlers('color', ['stdout']),
-    level=logging.getLevelName(os.getenv('JUNO__LOG_LEVEL', 'INFO').upper()),
+    handlers=create_handlers("color", ["stdout"]),
+    level=logging.getLevelName(os.getenv("JUNO__LOG_LEVEL", "INFO").upper()),
 )
 
 script_path = sys.argv[1]
@@ -20,4 +20,4 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 exec(open(script_path).read())
 
-logging.info('done')
+logging.info("done")

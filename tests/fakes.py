@@ -37,7 +37,7 @@ class Exchange(exchanges.Exchange):
         candle_intervals={},
         exchange_info=ExchangeInfo(),
         tickers={},
-        balances={'spot': {}},
+        balances={"spot": {}},
         future_balances=[],
         depth=Depth.Snapshot(),
         future_depths=[],
@@ -174,8 +174,16 @@ class Chandler(components.Chandler):
         self.candle_intervals = candle_intervals
 
     async def stream_candles(
-        self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False,
-        simulate_open_from_interval=None, exchange_timeout=None
+        self,
+        exchange,
+        symbol,
+        interval,
+        start,
+        end,
+        closed=True,
+        fill_missing_with_last=False,
+        simulate_open_from_interval=None,
+        exchange_timeout=None,
     ):
         # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):
@@ -273,8 +281,13 @@ class Informant(components.Informant):
         return self.symbols
 
     def map_tickers(
-        self, exchange, symbol_patterns=None, exclude_symbol_patterns=None, spot=True,
-        cross_margin=False, isolated_margin=False
+        self,
+        exchange,
+        symbol_patterns=None,
+        exclude_symbol_patterns=None,
+        spot=True,
+        cross_margin=False,
+        isolated_margin=False,
     ):
         return self.tickers
 

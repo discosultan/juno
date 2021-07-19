@@ -21,8 +21,8 @@ from typing import (
 
 _log = logging.getLogger(__name__)
 
-T = TypeVar('T')
-U = TypeVar('U')
+T = TypeVar("T")
+U = TypeVar("U")
 
 
 def resolved_future(result: T) -> asyncio.Future:
@@ -91,7 +91,7 @@ async def dict_async(async_iter: AsyncIterable[tuple[T, U]]) -> dict[T, U]:
 async def first_async(async_iter: AsyncIterable[T]) -> T:
     async for item in async_iter:
         return item
-    raise ValueError('First not found. No elements in sequence')
+    raise ValueError("First not found. No elements in sequence")
 
 
 # Ref: https://stackoverflow.com/a/50903757/1466456
@@ -105,8 +105,9 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
                 fut = asyncio.ensure_future(it.__anext__())
                 fut._orig_iter = it  # type: ignore
                 iter_next[it] = fut
-        done, _ = await asyncio.wait(iter_next.values(),  # type: ignore
-                                     return_when=asyncio.FIRST_COMPLETED)
+        done, _ = await asyncio.wait(
+            iter_next.values(), return_when=asyncio.FIRST_COMPLETED  # type: ignore
+        )
         for fut in done:  # type: ignore
             iter_next[fut._orig_iter] = None  # type: ignore
             try:
@@ -117,9 +118,7 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
             yield ret
 
 
-async def map_async(
-    func: Callable[[T], U], async_iter: AsyncIterable[T]
-) -> AsyncIterable[U]:
+async def map_async(func: Callable[[T], U], async_iter: AsyncIterable[T]) -> AsyncIterable[U]:
     async for item in async_iter:
         yield func(item)
 
@@ -130,9 +129,7 @@ async def gather_dict(tasks: dict):
 
     return {
         key: result
-        for key, result in await asyncio.gather(
-            *(mark(key, coro) for key, coro in tasks.items())
-        )
+        for key, result in await asyncio.gather(*(mark(key, coro) for key, coro in tasks.items()))
     }
 
 
@@ -147,19 +144,19 @@ async def _cancel(task: asyncio.Task) -> None:
         await task
     except asyncio.CancelledError:
         qualname = task.get_coro().__qualname__
-        _log.info(f'{qualname} task cancelled')
+        _log.info(f"{qualname} task cancelled")
 
 
 def create_task_sigint_on_exception(coro: Coroutine) -> asyncio.Task:
-    """ Creates a new task.
-        Sends a SIGINT on unhandled exception.
+    """Creates a new task.
+    Sends a SIGINT on unhandled exception.
     """
 
     def callback(task: asyncio.Task) -> None:
         task_name = task.get_coro().__qualname__
         if not task.cancelled() and (exc := task.exception()):
-            msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-            _log.error(f'unhandled exception in {task_name} task ({msg})')
+            msg = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            _log.error(f"unhandled exception in {task_name} task ({msg})")
             os.kill(os.getpid(), signal.SIGINT)
 
     child_task = asyncio.create_task(coro)
@@ -168,8 +165,8 @@ def create_task_sigint_on_exception(coro: Coroutine) -> asyncio.Task:
 
 
 def create_task_cancel_owner_on_exception(coro: Coroutine) -> asyncio.Task:
-    """ Creates a new task.
-        Cancels the parent task in case the child task raises an unhandled exception.
+    """Creates a new task.
+    Cancels the parent task in case the child task raises an unhandled exception.
     """
     parent_task = asyncio.current_task()
 
@@ -177,8 +174,8 @@ def create_task_cancel_owner_on_exception(coro: Coroutine) -> asyncio.Task:
         task_name = task.get_coro().__qualname__
         if not task.cancelled() and (exc := task.exception()):
             if exc := task.exception():
-                msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-                _log.error(f'unhandled exception in {task_name} task ({msg})')
+                msg = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                _log.error(f"unhandled exception in {task_name} task ({msg})")
                 # parent_task.set_exception(exc)  # Not allowed for a task.
                 parent_task.cancel()
 
@@ -225,7 +222,7 @@ async def _schedule_queue_task_done(queue: asyncio.Queue, coro: Awaitable[T]) ->
 class Barrier:
     def __init__(self, count: int) -> None:
         if count < 0:
-            raise ValueError('Count cannot be negative')
+            raise ValueError("Count cannot be negative")
 
         self._count = count
         self._event = asyncio.Event()
@@ -248,7 +245,7 @@ class Barrier:
         if self._remaining_count > 0:
             self._remaining_count -= 1
         else:
-            raise ValueError('Barrier already unlocked')
+            raise ValueError("Barrier already unlocked")
 
         if not self.locked:
             self._event.set()
@@ -287,12 +284,12 @@ class SlotBarrier(Generic[T]):
         slot_ = self._slots.get(slot)
 
         if slot_ is None:
-            raise ValueError(f'Slot {slot} does not exist')
+            raise ValueError(f"Slot {slot} does not exist")
 
         if slot_.locked:
             slot_.locked = False
         else:
-            raise ValueError(f'Slot {slot} already released')
+            raise ValueError(f"Slot {slot} already released")
 
         self._update_locked()
 
@@ -316,6 +313,7 @@ class Event(Generic[T]):
     - passing data through set
     - autoclear after wait
     - timeout on wait"""
+
     def __init__(self, autoclear: bool = False) -> None:
         self._autoclear = autoclear
         self._event = asyncio.Event()

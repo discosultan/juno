@@ -29,12 +29,12 @@ class Advice(IntEnum):
 
 
 class Balance(NamedTuple):
-    available: Decimal = Decimal('0.0')
+    available: Decimal = Decimal("0.0")
     # TODO: Do we need it? Kraken doesn't provide that data, for example.
-    hold: Decimal = Decimal('0.0')
+    hold: Decimal = Decimal("0.0")
     # Margin account related. Binance doesn't provide this through websocket!
-    borrowed: Decimal = Decimal('0.0')
-    interest: Decimal = Decimal('0.0')
+    borrowed: Decimal = Decimal("0.0")
+    interest: Decimal = Decimal("0.0")
 
     @property
     def repay(self) -> Decimal:
@@ -42,22 +42,17 @@ class Balance(NamedTuple):
 
     @property
     def significant(self) -> bool:
-        return (
-            self.available > 0
-            or self.hold > 0
-            or self.borrowed > 0
-            or self.interest > 0
-        )
+        return self.available > 0 or self.hold > 0 or self.borrowed > 0 or self.interest > 0
 
     @staticmethod
     def zero() -> Balance:
-        return Balance(available=Decimal('0.0'), hold=Decimal('0.0'))
+        return Balance(available=Decimal("0.0"), hold=Decimal("0.0"))
 
 
 @dataclass
 class BorrowInfo:
-    daily_interest_rate: Decimal = Decimal('0.0')
-    limit: Decimal = Decimal('0.0')
+    daily_interest_rate: Decimal = Decimal("0.0")
+    limit: Decimal = Decimal("0.0")
 
     @property
     def hourly_interest_rate(self) -> Decimal:
@@ -70,11 +65,11 @@ class BorrowInfo:
 # out of the box.
 class Candle(NamedTuple):
     time: Timestamp = 0  # Interval start time.
-    open: Decimal = Decimal('0.0')
-    high: Decimal = Decimal('0.0')
-    low: Decimal = Decimal('0.0')
-    close: Decimal = Decimal('0.0')
-    volume: Decimal = Decimal('0.0')  # Within interval.
+    open: Decimal = Decimal("0.0")
+    high: Decimal = Decimal("0.0")
+    low: Decimal = Decimal("0.0")
+    close: Decimal = Decimal("0.0")
+    volume: Decimal = Decimal("0.0")  # Within interval.
     closed: bool = True
 
     @property
@@ -87,15 +82,15 @@ class Candle(NamedTuple):
 
     def __repr__(self) -> str:
         return (
-            f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
-            f'open={self.open}, high={self.high}, low={self.low}, close={self.close}, '
-            f'volume={self.volume}, closed={self.closed})'
+            f"{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, "
+            f"open={self.open}, high={self.high}, low={self.low}, close={self.close}, "
+            f"volume={self.volume}, closed={self.closed})"
         )
 
     @staticmethod
     def meta() -> dict[str, str]:
         return {
-            'time': 'unique',
+            "time": "unique",
         }
 
 
@@ -116,23 +111,23 @@ class Depth(ModuleType):
 
 @dataclass
 class Fees:
-    maker: Decimal = Decimal('0.0')
-    taker: Decimal = Decimal('0.0')
+    maker: Decimal = Decimal("0.0")
+    taker: Decimal = Decimal("0.0")
 
 
 class Fill(NamedTuple):
-    price: Decimal = Decimal('0.0')
-    size: Decimal = Decimal('0.0')
-    quote: Decimal = Decimal('0.0')
-    fee: Decimal = Decimal('0.0')
-    fee_asset: str = 'btc'
+    price: Decimal = Decimal("0.0")
+    size: Decimal = Decimal("0.0")
+    quote: Decimal = Decimal("0.0")
+    fee: Decimal = Decimal("0.0")
+    fee_asset: str = "btc"
 
     @staticmethod
     def with_computed_quote(
         price: Decimal,
         size: Decimal,
-        fee: Decimal = Decimal('0.0'),
-        fee_asset: str = 'btc',
+        fee: Decimal = Decimal("0.0"),
+        fee_asset: str = "btc",
         precision: Optional[int] = None,
     ) -> Fill:
         quote = price * size
@@ -147,23 +142,23 @@ class Fill(NamedTuple):
     @staticmethod
     def mean_price(fills: list[Fill]) -> Decimal:
         total_size = Fill.total_size(fills)
-        return sum((f.price * f.size / total_size for f in fills), Decimal('0.0'))
+        return sum((f.price * f.size / total_size for f in fills), Decimal("0.0"))
 
     @staticmethod
     def total_size(fills: list[Fill]) -> Decimal:
-        return sum((f.size for f in fills), Decimal('0.0'))
+        return sum((f.size for f in fills), Decimal("0.0"))
 
     @staticmethod
     def total_quote(fills: list[Fill]) -> Decimal:
-        return sum((f.quote for f in fills), Decimal('0.0'))
+        return sum((f.quote for f in fills), Decimal("0.0"))
 
     @staticmethod
     def total_fee(fills: list[Fill], asset: str) -> Decimal:
-        return sum((f.fee for f in fills if f.fee_asset == asset), Decimal('0.0'))
+        return sum((f.fee for f in fills if f.fee_asset == asset), Decimal("0.0"))
 
     @staticmethod
     def all_fees(fills: list[Fill]) -> dict[str, Decimal]:
-        res: dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
+        res: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
         for fill in fills:
             res[fill.fee_asset] += fill.fee
         return dict(res)
@@ -172,21 +167,21 @@ class Fill(NamedTuple):
     def expected_quote(fills: list[Fill], precision: int) -> Decimal:
         return sum(
             (round_down(f.price * f.size, precision) for f in fills),
-            Decimal('0.0'),
+            Decimal("0.0"),
         )
 
     @staticmethod
     def expected_base_fee(fills: list[Fill], fee_rate: Decimal, precision: int) -> Decimal:
         return sum(
             (round_half_up(f.size * fee_rate, precision) for f in fills),
-            Decimal('0.0'),
+            Decimal("0.0"),
         )
 
     @staticmethod
     def expected_quote_fee(fills: list[Fill], fee_rate: Decimal, precision: int) -> Decimal:
         return sum(
             (round_half_up(f.size * f.price * fee_rate, precision) for f in fills),
-            Decimal('0.0'),
+            Decimal("0.0"),
         )
 
 
@@ -274,27 +269,27 @@ class TimeInForce(IntEnum):
 class Trade(NamedTuple):
     id: int = 0  # Aggregate trade id.
     time: int = 0  # Can have multiple trades at same time.
-    price: Decimal = Decimal('0.0')
-    size: Decimal = Decimal('0.0')
+    price: Decimal = Decimal("0.0")
+    size: Decimal = Decimal("0.0")
 
     @staticmethod
     def meta() -> dict[str, str]:
         return {
-            'time': 'index',
+            "time": "index",
         }
 
 
 @dataclass
 class ExchangeInfo:
     # Key: asset
-    assets: dict[str, AssetInfo] = field(default_factory=lambda: {'__all__': AssetInfo()})
+    assets: dict[str, AssetInfo] = field(default_factory=lambda: {"__all__": AssetInfo()})
     # Key: symbol
-    fees: dict[str, Fees] = field(default_factory=lambda: {'__all__': Fees()})
+    fees: dict[str, Fees] = field(default_factory=lambda: {"__all__": Fees()})
     # Key: symbol
-    filters: dict[str, Filters] = field(default_factory=lambda: {'__all__': Filters()})
+    filters: dict[str, Filters] = field(default_factory=lambda: {"__all__": Filters()})
     # Keys: account, asset
     borrow_info: dict[str, dict[str, BorrowInfo]] = field(
-        default_factory=lambda: {'__all__': {'__all__': BorrowInfo()}}
+        default_factory=lambda: {"__all__": {"__all__": BorrowInfo()}}
     )
 
 

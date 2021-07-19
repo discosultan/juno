@@ -13,7 +13,7 @@ from .strategy import Signal, Strategy, ma_choices
 
 @dataclass
 class SingleMAParams:
-    ma: str = 'ema'
+    ma: str = "ema"
     period: int = 50
 
     def construct(self) -> SingleMA:
@@ -32,13 +32,13 @@ class SingleMA(Signal):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                'ma': ma_choices,
-                'period': Int(1, 100),
+                "ma": ma_choices,
+                "period": Int(1, 100),
             }
         )
 
     _ma: MA
-    _previous_ma_value: Decimal = Decimal('0.0')
+    _previous_ma_value: Decimal = Decimal("0.0")
     _advice: Advice = Advice.NONE
     _t: int = 0
     _t1: int

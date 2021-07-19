@@ -7,10 +7,10 @@ from juno.components import User
 from juno.exchanges import Exchange
 
 parser = argparse.ArgumentParser()
-parser.add_argument('account', nargs='?', default='margin')
-parser.add_argument('asset', nargs='?', default='eth')
-parser.add_argument('size', nargs='?', type=Decimal, default=None)
-parser.add_argument('-e', '--exchange', default='binance')
+parser.add_argument("account", nargs="?", default="margin")
+parser.add_argument("asset", nargs="?", default="eth")
+parser.add_argument("size", nargs="?", type=Decimal, default=None)
+parser.add_argument("-e", "--exchange", default="binance")
 args = parser.parse_args()
 
 
@@ -26,8 +26,8 @@ async def main() -> None:
             size = balance.borrowed + balance.interest
         await exchange.repay(args.asset, size, args.account)
         logging.info(
-            f'repaid {balance.borrowed} borrowed + {balance.interest} interest {args.asset} '
-            f'({size} total) from {args.account} account'
+            f"repaid {balance.borrowed} borrowed + {balance.interest} interest {args.asset} "
+            f"({size} total) from {args.account} account"
         )
 
 

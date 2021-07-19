@@ -5,7 +5,7 @@ import juno
 from . import fakes
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def config():
     return juno.config.from_env()
 

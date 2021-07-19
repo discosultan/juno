@@ -5,7 +5,7 @@ from typing import Any, AsyncIterable, Optional, TypeVar
 
 from juno.utils import AbstractAsyncContextManager
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Storage(AbstractAsyncContextManager, ABC):

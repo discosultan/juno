@@ -11,9 +11,9 @@ from juno.storages import SQLite
 from juno.utils import unpack_assets
 
 parser = argparse.ArgumentParser()
-parser.add_argument('symbols', type=lambda s: s.split(','))
-parser.add_argument('collateral', type=Decimal)
-parser.add_argument('account', nargs='?', default='margin')
+parser.add_argument("symbols", type=lambda s: s.split(","))
+parser.add_argument("collateral", type=Decimal)
+parser.add_argument("account", nargs="?", default="margin")
 args = parser.parse_args()
 
 
@@ -38,34 +38,32 @@ async def process_symbol(
         max_manual(informant, chandler, symbol),
     )
     base_asset, _ = unpack_assets(symbol)
-    logging.info(
-        f'{base_asset} max borrowable: exchange={exchange_amount} manual={manual_amount}'
-    )
+    logging.info(f"{base_asset} max borrowable: exchange={exchange_amount} manual={manual_amount}")
     if manual_amount > exchange_amount:
-        logging.error('manual amount exceeds exchange amount')
+        logging.error("manual amount exceeds exchange amount")
 
 
 async def max_exchange(user: User, symbol: str) -> Decimal:
     base_asset, quote_asset = unpack_assets(symbol)
     await user.transfer(
-        'binance', quote_asset, args.collateral, from_account='spot', to_account=args.account
+        "binance", quote_asset, args.collateral, from_account="spot", to_account=args.account
     )
     try:
         max_borrowable = await user.get_max_borrowable(
-            'binance', asset=base_asset, account=args.account
+            "binance", asset=base_asset, account=args.account
         )
     finally:
         await user.transfer(
-            'binance', quote_asset, args.collateral, from_account=args.account, to_account='spot'
+            "binance", quote_asset, args.collateral, from_account=args.account, to_account="spot"
         )
     return max_borrowable
 
 
 async def max_manual(informant: Informant, chandler: Chandler, symbol: str) -> Decimal:
-    candle = await chandler.get_last_candle('binance', symbol, time.MIN_MS)
+    candle = await chandler.get_last_candle("binance", symbol, time.MIN_MS)
     # margin_multiplier = informant.get_margin_multiplier('binance')
     margin_multiplier = 2
-    _, filters = informant.get_fees_filters('binance', symbol)
+    _, filters = informant.get_fees_filters("binance", symbol)
 
     collateral_size = filters.size.round_down(args.collateral / candle.close)
     return collateral_size * (margin_multiplier - 1)

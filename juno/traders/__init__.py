@@ -3,11 +3,11 @@ from .multi import Multi, MultiConfig, MultiState
 from .trader import Trader
 
 __all__ = [
-    'Basic',
-    'BasicConfig',
-    'BasicState',
-    'Multi',
-    'MultiConfig',
-    'MultiState',
-    'Trader',
+    "Basic",
+    "BasicConfig",
+    "BasicState",
+    "Multi",
+    "MultiConfig",
+    "MultiState",
+    "Trader",
 ]

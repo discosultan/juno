@@ -53,7 +53,7 @@ class Signal(Agent):
             start=start,
         ):
             advice = strategy.update(candle)
-            _log.info(f'received advice: {advice.name}')
+            _log.info(f"received advice: {advice.name}")
             advice = changed.update(advice)
             if advice is not Advice.NONE:
-                await self._events.emit(state.name, 'message', advice.name)
+                await self._events.emit(state.name, "message", advice.name)

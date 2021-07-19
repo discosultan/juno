@@ -6,7 +6,7 @@ from .sma import Sma
 
 
 class Ema2:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
 
     _sma: Sma
     _a: Decimal
@@ -16,11 +16,11 @@ class Ema2:
 
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'Invalid period ({period})')
+            raise ValueError(f"Invalid period ({period})")
 
         self._sma = Sma(period)
 
-        self._a = Decimal('2.0') / (period + 1)
+        self._a = Decimal("2.0") / (period + 1)
 
         self._t1 = period
         self._t2 = period + 1

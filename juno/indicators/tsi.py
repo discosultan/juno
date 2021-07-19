@@ -5,12 +5,12 @@ from .ema2 import Ema2
 
 # True Strength Index
 class Tsi:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _pc_ema_smoothed: Ema2
     _pc_ema_dbl_smoothed: Ema2
     _abs_pc_ema_smoothed: Ema2
     _abs_pc_ema_dbl_smoothed: Ema2
-    _last_price: Decimal = Decimal('0.0')
+    _last_price: Decimal = Decimal("0.0")
     _t: int = 0
     _t1: int = 2
     _t2: int

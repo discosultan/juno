@@ -15,39 +15,43 @@ from juno.storages import Memory
 from tests import fakes
 
 filters = Filters(
-    price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
-    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
+    price=Price(min=Decimal("0.2"), max=Decimal("10.0"), step=Decimal("0.1")),
+    size=Size(min=Decimal("0.2"), max=Decimal("10.0"), step=Decimal("0.1")),
 )
 exchange_info = ExchangeInfo(
-    fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
-    filters={'__all__': filters}
+    fees={"__all__": Fees(maker=Decimal("0.1"), taker=Decimal("0.1"))},
+    filters={"__all__": filters},
 )
 order_client_id = str(uuid4())
 
 
 async def test_insufficient_balance() -> None:
-    snapshot = Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
+    snapshot = Depth.Snapshot(asks=[(Decimal("1.0"), Decimal("1.0"))], bids=[])
     exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(BadOrder):
             await broker.buy(
-                exchange='exchange',
-                account='spot',
-                symbol='eth-btc',
-                quote=Decimal('0.1'),
+                exchange="exchange",
+                account="spot",
+                symbol="eth-btc",
+                quote=Decimal("0.1"),
                 test=True,
             )
 
 
 async def test_buy() -> None:
-    snapshot = Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
-    order_result = OrderResult(time=0, status=OrderStatus.FILLED, fills=[
-        Fill.with_computed_quote(
-            price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
-        ),
-    ])
+    snapshot = Depth.Snapshot(asks=[(Decimal("1.0"), Decimal("1.0"))], bids=[])
+    order_result = OrderResult(
+        time=0,
+        status=OrderStatus.FILLED,
+        fills=[
+            Fill.with_computed_quote(
+                price=Decimal("1.0"), size=Decimal("0.2"), fee=Decimal("0.02"), fee_asset="eth"
+            ),
+        ],
+    )
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,
@@ -56,15 +60,15 @@ async def test_buy() -> None:
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
         res = await broker.buy(
-            exchange='exchange',
-            account='spot',
-            symbol='eth-btc',
-            size=Decimal('0.25'),
+            exchange="exchange",
+            account="spot",
+            symbol="eth-btc",
+            size=Decimal("0.25"),
             test=False,
         )
     assert res == order_result
     assert len(exchange.place_order_calls) == 1
-    assert exchange.place_order_calls[0]['size'] == Decimal('0.2')
+    assert exchange.place_order_calls[0]["size"] == Decimal("0.2")
 
 
 @asynccontextmanager

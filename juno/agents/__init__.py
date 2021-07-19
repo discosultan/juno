@@ -5,10 +5,10 @@ from .paper import Paper
 from .signal import Signal
 
 __all__ = [
-    'Agent',
-    'AgentStatus',
-    'Backtest',
-    'Live',
-    'Paper',
-    'Signal',
+    "Agent",
+    "AgentStatus",
+    "Backtest",
+    "Live",
+    "Paper",
+    "Signal",
 ]

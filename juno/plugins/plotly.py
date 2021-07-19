@@ -23,15 +23,15 @@ class Plotly(Plugin):
     async def activate(self, agent_name: str, agent_type: str) -> None:
         candles = []
 
-        @self._events.on(agent_name, 'candle')
+        @self._events.on(agent_name, "candle")
         async def on_candle(candle: Candle) -> None:
             candles.append(candle)
 
-        @self._events.on(agent_name, 'finished')
+        @self._events.on(agent_name, "finished")
         async def on_finished(summary: TradingSummary) -> None:
             plot(candles, summary)
 
-        _log.info(f'activated for {agent_name} ({agent_type})')
+        _log.info(f"activated for {agent_name} ({agent_type})")
 
 
 def plot(candles: list[Candle], summary: TradingSummary) -> None:
@@ -39,58 +39,66 @@ def plot(candles: list[Candle], summary: TradingSummary) -> None:
 
     traces = []
     # Candles.
-    traces.append(go.Ohlc(
-        x=times,
-        yaxis='y2',
-        open=[c.open for c in candles],
-        high=[c.high for c in candles],
-        low=[c.low for c in candles],
-        close=[c.close for c in candles],
-    ))
+    traces.append(
+        go.Ohlc(
+            x=times,
+            yaxis="y2",
+            open=[c.open for c in candles],
+            high=[c.high for c in candles],
+            low=[c.low for c in candles],
+            close=[c.close for c in candles],
+        )
+    )
     # Volume.
-    traces.append(go.Bar(
-        x=times,
-        y=[c.volume for c in candles],
-        yaxis='y',
-        marker={
-            'color': ['#006400' if c.close >= c.open else '#8b0000' for c in candles]
-        },
-    ))
+    traces.append(
+        go.Bar(
+            x=times,
+            y=[c.volume for c in candles],
+            yaxis="y",
+            marker={"color": ["#006400" if c.close >= c.open else "#8b0000" for c in candles]},
+        )
+    )
     # Openings.
-    traces.extend([
-        trace_position_openings(summary.list_positions(type_=Position.Long), 'triangle-up'),
-        trace_position_openings(summary.list_positions(type_=Position.Short), 'triangle-down'),
-    ])
+    traces.extend(
+        [
+            trace_position_openings(summary.list_positions(type_=Position.Long), "triangle-up"),
+            trace_position_openings(summary.list_positions(type_=Position.Short), "triangle-down"),
+        ]
+    )
     # Closings.
-    traces.extend([
-        trace_position_closings(summary.list_positions(reason=CloseReason.STRATEGY), 'yellow'),
-        trace_position_closings(summary.list_positions(reason=CloseReason.TAKE_PROFIT), 'purple'),
-        trace_position_closings(summary.list_positions(reason=CloseReason.STOP_LOSS), 'red'),
-        trace_position_closings(summary.list_positions(reason=CloseReason.CANCELLED), 'gray'),
-    ])
+    traces.extend(
+        [
+            trace_position_closings(summary.list_positions(reason=CloseReason.STRATEGY), "yellow"),
+            trace_position_closings(
+                summary.list_positions(reason=CloseReason.TAKE_PROFIT), "purple"
+            ),
+            trace_position_closings(summary.list_positions(reason=CloseReason.STOP_LOSS), "red"),
+            trace_position_closings(summary.list_positions(reason=CloseReason.CANCELLED), "gray"),
+        ]
+    )
     # Profit.
     traces.append(trace_profit_pct_changes(summary))
     # traces.append(trace_balance(summary))
     # traces.append(trace_adx(candles))
 
     layout = {
-        'yaxis': {
-            'title': 'Volume',
-            'domain': [0, 0.2],
+        "yaxis": {
+            "title": "Volume",
+            "domain": [0, 0.2],
         },
-        'yaxis2': {
-            'title': 'Price',
-            'domain': [0.2, 0.8],
+        "yaxis2": {
+            "title": "Price",
+            "domain": [0.2, 0.8],
         },
-        'yaxis3': {
-            'title': 'Profit %',
-            'domain': [0.8, 1.0],
+        "yaxis3": {
+            "title": "Profit %",
+            "domain": [0.8, 1.0],
         },
-        'yaxis4': {
-            'title': 'Balance',
-            'side': 'right',
-            'domain': [0.8, 1.0],
-            'overlaying': 'y3',
+        "yaxis4": {
+            "title": "Balance",
+            "side": "right",
+            "domain": [0.8, 1.0],
+            "overlaying": "y3",
         },
     }
     fig = go.Figure(data=traces, layout=layout)
@@ -99,27 +107,27 @@ def plot(candles: list[Candle], summary: TradingSummary) -> None:
 
 def trace_position_openings(positions: list[Position.Closed], symbol: str) -> go.Scatter:
     return go.Scatter(
-        mode='markers',
+        mode="markers",
         x=[datetime_utcfromtimestamp_ms(p.open_time) for p in positions],
         y=[Fill.mean_price(p.open_fills) for p in positions],
-        yaxis='y2',
+        yaxis="y2",
         marker={
-            'symbol': symbol,
-            'color': 'green',
-            'size': 16,
+            "symbol": symbol,
+            "color": "green",
+            "size": 16,
         },
     )
 
 
 def trace_position_closings(positions: list[Position.Closed], color: str) -> go.Scatter:
     return go.Scatter(
-        mode='markers',
+        mode="markers",
         x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
         y=[Fill.mean_price(p.close_fills) for p in positions],
-        yaxis='y2',
+        yaxis="y2",
         marker={
-            'color': color,
-            'size': 8,
+            "color": color,
+            "size": 8,
         },
     )
 
@@ -131,7 +139,7 @@ def trace_profit_pct_changes(summary: TradingSummary) -> go.Bar:
     return go.Bar(
         x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
         y=profit_pct_changes,
-        yaxis='y3',
+        yaxis="y3",
     )
 
 
@@ -140,15 +148,14 @@ def trace_balance(summary: TradingSummary) -> go.Scatter:
     balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
     times = list(
         map(
-            datetime_utcfromtimestamp_ms,
-            chain([summary.start], (p.close_time for p in positions))
+            datetime_utcfromtimestamp_ms, chain([summary.start], (p.close_time for p in positions))
         )
     )
     return go.Scatter(
-        mode='lines',
+        mode="lines",
         x=times,
         y=balances,
-        yaxis='y4',
+        yaxis="y4",
     )
 
 
@@ -156,8 +163,8 @@ def trace_adx(candles: list[Candle]) -> go.Scatter:
     adx = indicators.Adx(28)
     values = [adx.update(c.high, c.low) for c in candles]
     return go.Scatter(
-        mode='lines',
+        mode="lines",
         x=[datetime_utcfromtimestamp_ms(c.time) for c in candles],
         y=values,
-        yaxis='y4',
+        yaxis="y4",
     )

@@ -56,17 +56,17 @@ class CoreStatistics:
         # Drawdowns.
         quote = summary.quote
         max_quote = quote
-        max_drawdown = Decimal('0.0')
-        sum_drawdown = Decimal('0.0')
+        max_drawdown = Decimal("0.0")
+        sum_drawdown = Decimal("0.0")
         # drawdowns = []
         for pos in positions:
             quote += pos.profit
             max_quote = max(max_quote, quote)
-            drawdown = Decimal('1.0') - quote / max_quote
+            drawdown = Decimal("1.0") - quote / max_quote
             # drawdowns.append(drawdown)
             sum_drawdown += drawdown
             max_drawdown = max(max_drawdown, drawdown)
-        mean_drawdown = Decimal('0.0') if len(positions) == 0 else sum_drawdown / len(positions)
+        mean_drawdown = Decimal("0.0") if len(positions) == 0 else sum_drawdown / len(positions)
 
         return CoreStatistics(
             start=start,
@@ -98,7 +98,7 @@ class CoreStatistics:
             mean_short_position_profit=CoreStatistics._mean_position_profit(short_positions),
             max_drawdown=max_drawdown,
             mean_drawdown=mean_drawdown,
-            return_over_max_drawdown=Decimal('0.0') if max_drawdown == 0 else roi / max_drawdown,
+            return_over_max_drawdown=Decimal("0.0") if max_drawdown == 0 else roi / max_drawdown,
         )
 
     @staticmethod
@@ -112,7 +112,7 @@ class CoreStatistics:
     @staticmethod
     def _mean_position_profit(positions: Sequence[Position.Closed]) -> Decimal:
         if len(positions) == 0:
-            return Decimal('0.0')
+            return Decimal("0.0")
         return statistics.mean(x.profit for x in positions)
 
     @staticmethod
@@ -123,8 +123,11 @@ class CoreStatistics:
 
     @staticmethod
     def calculate_hodl_profit(
-        summary: TradingSummary, fees: Fees, filters: Filters, first_candle: Candle,
-        last_candle: Candle
+        summary: TradingSummary,
+        fees: Fees,
+        filters: Filters,
+        first_candle: Candle,
+        last_candle: Candle,
     ) -> Decimal:
         base_hodl = filters.size.round_down(summary.quote / first_candle.close)
         base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)

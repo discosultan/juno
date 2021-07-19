@@ -37,12 +37,12 @@ from juno.utils import AsyncLimiter, unpack_assets
 from .exchange import Exchange
 
 # https://www.kraken.com/features/api
-_API_URL = 'https://api.kraken.com'
+_API_URL = "https://api.kraken.com"
 
 # https://docs.kraken.com/websockets/
 # https://support.kraken.com/hc/en-us/articles/360022326871-Public-WebSockets-API-common-questions
-_PUBLIC_WS_URL = 'wss://ws.kraken.com'
-_PRIVATE_WS_URL = 'wss://ws-auth.kraken.com'
+_PUBLIC_WS_URL = "wss://ws.kraken.com"
+_PRIVATE_WS_URL = "wss://ws-auth.kraken.com"
 
 _log = logging.getLogger(__name__)
 
@@ -104,28 +104,27 @@ class Kraken(Exchange):
 
     async def get_exchange_info(self) -> ExchangeInfo:
         assets_res, symbols_res = await asyncio.gather(
-            self._request_public('GET', '/0/public/Assets'),
-            self._request_public('GET', '/0/public/AssetPairs'),
+            self._request_public("GET", "/0/public/Assets"),
+            self._request_public("GET", "/0/public/AssetPairs"),
         )
 
         assets = {
-            _from_symbol(val['altname']): AssetInfo(precision=val['decimals'])
-            for val in assets_res['result'].values()
+            _from_symbol(val["altname"]): AssetInfo(precision=val["decimals"])
+            for val in assets_res["result"].values()
         }
 
         fees, filters = {}, {}
-        for val in symbols_res['result'].values():
+        for val in symbols_res["result"].values():
             name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
             # TODO: Take into account different fee levels. Currently only worst level.
-            taker_fee = val['fees'][0][1] / 100
-            maker_fees = val.get('fees_maker')
+            taker_fee = val["fees"][0][1] / 100
+            maker_fees = val.get("fees_maker")
             fees[name] = Fees(
-                maker=maker_fees[0][1] / 100 if maker_fees else taker_fee,
-                taker=taker_fee
+                maker=maker_fees[0][1] / 100 if maker_fees else taker_fee, taker=taker_fee
             )
             filters[name] = Filters(
-                base_precision=val['lot_decimals'],
-                quote_precision=val['pair_decimals'],
+                base_precision=val["lot_decimals"],
+                quote_precision=val["pair_decimals"],
             )
 
         return ExchangeInfo(
@@ -136,27 +135,28 @@ class Kraken(Exchange):
 
     async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         if not symbols:
-            raise ValueError('Empty symbols list not supported')
+            raise ValueError("Empty symbols list not supported")
 
-        data = {'pair': ','.join((_to_http_symbol(s) for s in symbols))}
+        data = {"pair": ",".join((_to_http_symbol(s) for s in symbols))}
 
-        res = await self._request_public('GET', '/0/public/Ticker', data=data)
+        res = await self._request_public("GET", "/0/public/Ticker", data=data)
         return {
             _from_symbol(pair): Ticker(
-                volume=Decimal(val['v'][1]),
-                quote_volume=Decimal('0.0'),  # Not supported.
-                price=Decimal(val['c'][0]),
-            ) for pair, val in res['result'].items()
+                volume=Decimal(val["v"][1]),
+                quote_volume=Decimal("0.0"),  # Not supported.
+                price=Decimal(val["c"][0]),
+            )
+            for pair, val in res["result"].items()
         }
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
-        if account == 'spot':
-            res = await self._request_private('/0/private/Balance')
-            result['spot'] = {
-                a[1:].lower(): Balance(available=Decimal(v), hold=Decimal('0.0'))
-                for a, v in res['result'].items()
-                if len(a) == 4 and a[0] in ['X', 'Z']
+        if account == "spot":
+            res = await self._request_private("/0/private/Balance")
+            result["spot"] = {
+                a[1:].lower(): Balance(available=Decimal(v), hold=Decimal("0.0"))
+                for a, v in res["result"].items()
+                if len(a) == 4 and a[0] in ["X", "Z"]
             }
         else:
             raise NotImplementedError()
@@ -189,51 +189,53 @@ class Kraken(Exchange):
                     closed=True,
                 )
 
-        async with self._public_ws.subscribe({
-            'name': 'ohlc',
-            'interval': interval // MIN_MS
-        }, [_to_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe(
+            {"name": "ohlc", "interval": interval // MIN_MS}, [_to_ws_symbol(symbol)]
+        ) as ws:
             yield inner(ws)
 
     @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
             async for val in ws:
-                if 'as' in val or 'bs' in val:
-                    bids = val.get('bs', [])
-                    asks = val.get('as', [])
+                if "as" in val or "bs" in val:
+                    bids = val.get("bs", [])
+                    asks = val.get("as", [])
                     yield Depth.Snapshot(
                         bids=[(Decimal(u[0]), Decimal(u[1])) for u in bids],
                         asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
                     )
                 else:
-                    bids = val.get('b', [])
-                    asks = val.get('a', [])
+                    bids = val.get("b", [])
+                    asks = val.get("a", [])
                     yield Depth.Update(
                         bids=[(Decimal(u[0]), Decimal(u[1])) for u in bids],
                         asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
                     )
 
-        async with self._public_ws.subscribe({
-            'name': 'book',
-            'depth': 10,
-        }, [_to_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe(
+            {
+                "name": "book",
+                "depth": 10,
+            },
+            [_to_ws_symbol(symbol)],
+        ) as ws:
             yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, account: str, symbol: str,
+        self,
+        account: str,
+        symbol: str,
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        assert account == 'spot'
+        assert account == "spot"
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for o in ws:
                 # TODO: map
                 yield o
 
-        async with self._private_ws.subscribe({'name': 'openOrders'}) as ws:
+        async with self._private_ws.subscribe({"name": "openOrders"}) as ws:
             yield inner(ws)
 
     async def place_order(
@@ -266,16 +268,13 @@ class Kraken(Exchange):
         since = _to_time(start) - 1  # Exclusive.
         while True:
             res = await self._request_public(
-                'GET',
-                '/0/public/Trades',
-                {
-                    'pair': _to_http_symbol(symbol),
-                    'since': since
-                },
+                "GET",
+                "/0/public/Trades",
+                {"pair": _to_http_symbol(symbol), "since": since},
                 cost=2,
             )
-            result = res['result']
-            last = result['last']
+            result = res["result"]
+            last = result["last"]
 
             if last == since:  # No more trades returned.
                 break
@@ -303,12 +302,12 @@ class Kraken(Exchange):
                         size=Decimal(trade[1]),
                     )
 
-        async with self._public_ws.subscribe({'name': 'trade'}, [_to_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe({"name": "trade"}, [_to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     async def _get_websockets_token(self) -> str:
-        res = await self._request_private('/0/private/GetWebSocketsToken')
-        return res['result']['token']
+        res = await self._request_private("/0/private/GetWebSocketsToken")
+        return res["result"]["token"]
 
     async def _request_public(
         self, method: str, url: str, data: Optional[Any] = None, cost: int = 1
@@ -321,14 +320,14 @@ class Kraken(Exchange):
         url: str,
         data: Optional[Any] = None,
         cost: int = 1,
-        limiter: Optional[AsyncLimiter] = None
+        limiter: Optional[AsyncLimiter] = None,
     ) -> Any:
         if limiter is None:
             limiter = self._reqs_limiter
 
         data = data or {}
         nonce = time_ms()
-        data['nonce'] = nonce
+        data["nonce"] = nonce
         # TODO: support OTP
         # if enabled:
         #   data['otp] = 'password'
@@ -339,14 +338,19 @@ class Kraken(Exchange):
         signature = hmac.new(self._decoded_secret_key, message, hashlib.sha512)
 
         headers = {
-            'API-Key': self._api_key,
-            'API-Sign': base64.b64encode(signature.digest()).decode()
+            "API-Key": self._api_key,
+            "API-Sign": base64.b64encode(signature.digest()).decode(),
         }
-        return await self._request('POST', url, data, headers, limiter, cost)
+        return await self._request("POST", url, data, headers, limiter, cost)
 
     async def _request(
-        self, method: str, url: str, data: dict[str, Any], headers: dict[str, str],
-        limiter: AsyncLimiter, cost: int
+        self,
+        method: str,
+        url: str,
+        data: dict[str, Any],
+        headers: dict[str, str],
+        limiter: AsyncLimiter,
+        cost: int,
     ) -> Any:
         if limiter is None:
             limiter = self._reqs_limiter
@@ -354,15 +358,15 @@ class Kraken(Exchange):
             await limiter.acquire(cost)
 
         kwargs = {
-            'method': method,
-            'url': _API_URL + url,
-            'headers': headers,
+            "method": method,
+            "url": _API_URL + url,
+            "headers": headers,
         }
-        kwargs['params' if method == 'GET' else 'data'] = data
+        kwargs["params" if method == "GET" else "data"] = data
 
         async with self._session.request(**kwargs) as res:
             result = await res.json()
-            errors = result['error']
+            errors = result["error"]
             if len(errors) > 0:
                 raise Exception(errors)
             return result
@@ -406,12 +410,12 @@ class KrakenPublicFeed:
         subscribed = self.subscriptions[reqid]
         self.reqid += 1
         payload = {
-            'event': 'subscribe',
-            'reqid': reqid,
-            'subscription': subscription,
+            "event": "subscribe",
+            "reqid": reqid,
+            "subscription": subscription,
         }
         if symbols is not None:
-            payload['pair'] = symbols
+            payload["pair"] = symbols
 
         await self._send(payload)
 
@@ -446,10 +450,10 @@ class KrakenPublicFeed:
 
     def _process_message(self, data: Any) -> None:
         if isinstance(data, dict):
-            if data['event'] == 'subscriptionStatus':
+            if data["event"] == "subscriptionStatus":
                 _validate_subscription_status(data)
-                subscribed = self.subscriptions[data['reqid']]
-                received = self.channels[data['channelID']]
+                subscribed = self.subscriptions[data["reqid"]]
+                received = self.channels[data["channelID"]]
                 subscribed.set(received)
         else:  # List.
             channel_id = data[0]
@@ -457,7 +461,7 @@ class KrakenPublicFeed:
             if len(data) > 4:
                 # Consolidate.
                 val: Any = {}
-                for consolidate in data[1:len(data) - 2]:
+                for consolidate in data[1 : len(data) - 2]:
                     val.update(consolidate)
             else:
                 val = data[1]
@@ -477,15 +481,15 @@ class KrakenPrivateFeed(KrakenPublicFeed):
         self.token = token
 
     async def _send(self, payload: Any) -> None:
-        payload['subscription']['token'] = self.token
+        payload["subscription"]["token"] = self.token
         await super()._send(payload)
 
     def _process_message(self, data: Any) -> None:
         if isinstance(data, dict):
-            if data['event'] == 'subscriptionStatus':
+            if data["event"] == "subscriptionStatus":
                 _validate_subscription_status(data)
-                subscribed = self.subscriptions[data['reqid']]
-                received = self.channels[data['channelName']]
+                subscribed = self.subscriptions[data["reqid"]]
+                received = self.channels[data["channelName"]]
                 subscribed.set(received)
         else:  # List.
             channel_id = data[1]
@@ -493,8 +497,8 @@ class KrakenPrivateFeed(KrakenPublicFeed):
 
 
 def _validate_subscription_status(data: Any) -> None:
-    if data['status'] == 'error':
-        raise Exception(data['errorMessage'])
+    if data["status"] == "error":
+        raise Exception(data["errorMessage"])
 
 
 def _from_time(time: Decimal) -> int:
@@ -513,21 +517,21 @@ def _to_time(time: int) -> int:
 
 
 def _to_ws_symbol(symbol: str) -> str:
-    return symbol.replace('-', '/').upper()
+    return symbol.replace("-", "/").upper()
 
 
 ASSET_ALIAS_MAP = {
-    'btc': 'xbt',
-    'doge': 'xdg',
+    "btc": "xbt",
+    "doge": "xdg",
 }
 REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
 
 
 def _to_http_symbol(symbol: str) -> str:
     base, quote = unpack_assets(symbol)
-    return f'{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}'
+    return f"{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}"
 
 
 def _from_symbol(symbol: str) -> str:
     base, quote = unpack_assets(symbol)
-    return f'{REVERSE_ASSET_ALIAS_MAP.get(base, base)}-{REVERSE_ASSET_ALIAS_MAP.get(quote, quote)}'
+    return f"{REVERSE_ASSET_ALIAS_MAP.get(base, base)}-{REVERSE_ASSET_ALIAS_MAP.get(quote, quote)}"

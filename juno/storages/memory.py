@@ -13,6 +13,7 @@ from .sqlite import SQLite
 
 class Memory(SQLite):
     """In-memory data storage. Uses SQLite's memory mode for implementation."""
+
     def __init__(self) -> None:
         super().__init__()
         self._conns: dict[str, _ConnectionContext] = defaultdict(_ConnectionContext)
@@ -31,7 +32,7 @@ class Memory(SQLite):
         with ctx.lock:
             if not ctx.connection:
                 conn = sqlite3.connect(
-                    ':memory:',
+                    ":memory:",
                     detect_types=sqlite3.PARSE_DECLTYPES,
                     check_same_thread=False,
                 )

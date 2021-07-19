@@ -3,18 +3,18 @@ from decimal import Decimal
 
 # Simple Moving Average
 class Sma:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _prices: list[Decimal]
     _i: int = 0
-    _sum: Decimal = Decimal('0.0')
+    _sum: Decimal = Decimal("0.0")
     _t: int = 0
     _t1: int
 
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'Invalid period ({period})')
+            raise ValueError(f"Invalid period ({period})")
 
-        self._prices = [Decimal('0.0')] * period
+        self._prices = [Decimal("0.0")] * period
         self._t1 = period
 
     @property

@@ -10,9 +10,9 @@ from more_itertools import pairwise
 # When the Momersion(n) indicator is below the 50% line, price action is dominated by
 # mean-reversion and when it is above it, it is dominated by momentum.
 class Momersion:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
 
-    _prev_price: Decimal = Decimal('0.0')
+    _prev_price: Decimal = Decimal("0.0")
     _returns: deque[Decimal]
 
     _t: int = 0
@@ -21,7 +21,7 @@ class Momersion:
     # Common period of 250.
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'Invalid period ({period})')
+            raise ValueError(f"Invalid period ({period})")
 
         self._returns = deque(maxlen=period - 1)
 
@@ -49,7 +49,7 @@ class Momersion:
                         mc += 1
                     else:
                         mrc += 1
-                self.value = Decimal('100.0') * mc / (mc + mrc)
+                self.value = Decimal("100.0") * mc / (mc + mrc)
 
         self._prev_price = price
         return self.value

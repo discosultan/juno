@@ -36,6 +36,6 @@ class Broker(ABC):
     @staticmethod
     def validate_funds(size: Optional[Decimal], quote: Optional[Decimal]) -> None:
         if not size and not quote:
-            raise ValueError('Either size or quote must be specified')
+            raise ValueError("Either size or quote must be specified")
         if size and quote:
-            raise ValueError('Size and quote cannot be both specified')
+            raise ValueError("Size and quote cannot be both specified")

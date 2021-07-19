@@ -9,8 +9,8 @@ from .stop_loss import StopLoss
 class Basic(StopLoss):
     _up_threshold_factor: Decimal
     _down_threshold_factor: Decimal
-    _close_at_position: Decimal = Decimal('0.0')
-    _close: Decimal = Decimal('0.0')
+    _close_at_position: Decimal = Decimal("0.0")
+    _close: Decimal = Decimal("0.0")
 
     def __init__(self, up_threshold: Decimal, down_threshold: Optional[Decimal] = None) -> None:
         if down_threshold is None:

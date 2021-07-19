@@ -18,7 +18,7 @@ from juno.traders import Basic, BasicConfig
 from juno.typing import TypeConstructor
 from juno.utils import unpack_assets
 
-SYMBOL = 'eth-btc'
+SYMBOL = "eth-btc"
 INTERVAL = HOUR_MS
 
 Operator = Callable[[Decimal, Decimal], Decimal]
@@ -37,31 +37,33 @@ async def main() -> None:
     )
     informant = Informant(sqlite, exchanges)
     trader = Basic(informant=informant, chandler=chandler, exchanges=exchanges)
-    start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
-    end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
+    start = floor_multiple(strptimestamp("2019-01-01"), INTERVAL)
+    end = floor_multiple(strptimestamp("2019-12-01"), INTERVAL)
     base_asset, quote_asset = unpack_assets(SYMBOL)
     async with binance, coinbase, informant, chandler:
-        trader_state = await trader.initialize(BasicConfig(
-            exchange='binance',
-            symbol=SYMBOL,
-            interval=INTERVAL,
-            start=start,
-            end=end,
-            quote=Decimal('1.0'),
-            strategy=TypeConstructor.from_type(
-                strategies.DoubleMA2,
-                {
-                    'short_period': 3,
-                    'long_period': 73,
-                    'neg_threshold': Decimal('-0.102'),
-                    'pos_threshold': Decimal('0.239'),
-                    'short_ma': 'sma',
-                    'long_ma': 'smma',
-                },
-            ),
-            stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal('0.0827')),
-            missed_candle_policy=MissedCandlePolicy.LAST,
-        ))
+        trader_state = await trader.initialize(
+            BasicConfig(
+                exchange="binance",
+                symbol=SYMBOL,
+                interval=INTERVAL,
+                start=start,
+                end=end,
+                quote=Decimal("1.0"),
+                strategy=TypeConstructor.from_type(
+                    strategies.DoubleMA2,
+                    {
+                        "short_period": 3,
+                        "long_period": 73,
+                        "neg_threshold": Decimal("-0.102"),
+                        "pos_threshold": Decimal("0.239"),
+                        "short_ma": "sma",
+                        "long_ma": "smma",
+                    },
+                ),
+                stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal("0.0827")),
+                missed_candle_policy=MissedCandlePolicy.LAST,
+            )
+        )
         trading_summary = await trader.run(trader_state)
 
         start_day = floor_multiple(start, DAY_MS)
@@ -71,18 +73,18 @@ async def main() -> None:
         # 2. We run it after trading step, because it might use the same candle configuration which
         # we don't support processing concurrently.
 
-        assert quote_asset == 'btc'  # TODO: Don't support others yet.
+        assert quote_asset == "btc"  # TODO: Don't support others yet.
 
         btc_fiat_daily, symbol_daily = await asyncio.gather(
-            chandler.list_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day),
-            chandler.list_candles('binance', SYMBOL, DAY_MS, start_day, end_day),
+            chandler.list_candles("coinbase", "btc-eur", DAY_MS, start_day, end_day),
+            chandler.list_candles("binance", SYMBOL, DAY_MS, start_day, end_day),
         )
         assert len(btc_fiat_daily) == length_days
         assert len(symbol_daily) == length_days
         market_data: dict[str, dict[int, Decimal]] = defaultdict(dict)
         for btc_fiat_candle, symbol_candle in zip(btc_fiat_daily, symbol_daily):
             time = btc_fiat_candle.time
-            market_data['btc'][time] = btc_fiat_candle.close
+            market_data["btc"][time] = btc_fiat_candle.close
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
         trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
@@ -98,11 +100,11 @@ async def main() -> None:
             day_trades.append((base_asset, -pos.base_cost))
             day_trades.append((quote_asset, +pos.gain))
 
-        asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
+        asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
         asset_holdings[quote_asset] = trading_summary.quote
 
         asset_performance: dict[int, dict[str, Decimal]] = defaultdict(
-            lambda: {k: Decimal('0.0') for k in market_data.keys()}
+            lambda: {k: Decimal("0.0") for k in market_data.keys()}
         )
 
         for time_day in range(start_day, end_day, DAY_MS):
@@ -120,7 +122,7 @@ async def main() -> None:
                 if asset_fiat_value is not None:
                     asset_performance_day[asset] = asset_holdings[asset] * asset_fiat_value
                 else:  # Missing asset market data for the day.
-                    logging.warning('missing market data for day')
+                    logging.warning("missing market data for day")
                     # TODO: What if previous day also missing?? Maybe better to fill missing
                     # candles?? Remove assert above.
                     asset_performance_day[asset] = asset_performance[time_day - DAY_MS][asset]
@@ -161,29 +163,29 @@ async def main() -> None:
             (portfolio_performance.iloc[-1] / portfolio_performance.iloc[0])
             ** (1 / (length_days / 365))
         ) - 1
-        covariance_matrix = pd.concat(
-            [portfolio_g_returns, benchmark_g_returns], axis=1
-        ).dropna().cov()
+        covariance_matrix = (
+            pd.concat([portfolio_g_returns, benchmark_g_returns], axis=1).dropna().cov()
+        )
         beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
         alpha = portfolio_annualized_return - (beta * 365 * benchmark_g_returns.mean())
 
-        logging.info(f'{benchmark_total_return=}')
-        logging.info(f'{benchmark_annualized_return=}')
-        logging.info(f'{benchmark_annualized_volatility=}')
-        logging.info(f'{benchmark_annualized_downside_risk=}')
-        logging.info(f'{benchmark_sharpe_ratio=}')
-        logging.info(f'{benchmark_sortino_ratio=}')
-        logging.info(f'{benchmark_cagr=}')
+        logging.info(f"{benchmark_total_return=}")
+        logging.info(f"{benchmark_annualized_return=}")
+        logging.info(f"{benchmark_annualized_volatility=}")
+        logging.info(f"{benchmark_annualized_downside_risk=}")
+        logging.info(f"{benchmark_sharpe_ratio=}")
+        logging.info(f"{benchmark_sortino_ratio=}")
+        logging.info(f"{benchmark_cagr=}")
 
-        logging.info(f'{portfolio_total_return=}')
-        logging.info(f'{portfolio_annualized_return=}')
-        logging.info(f'{portfolio_annualized_volatility=}')
-        logging.info(f'{portfolio_annualized_downside_risk=}')
-        logging.info(f'{portfolio_sharpe_ratio=}')
-        logging.info(f'{portfolio_sortino_ratio=}')
-        logging.info(f'{portfolio_cagr=}')
-        logging.info(f'{alpha=}')
-        logging.info(f'{beta=}')
+        logging.info(f"{portfolio_total_return=}")
+        logging.info(f"{portfolio_annualized_return=}")
+        logging.info(f"{portfolio_annualized_volatility=}")
+        logging.info(f"{portfolio_annualized_downside_risk=}")
+        logging.info(f"{portfolio_sharpe_ratio=}")
+        logging.info(f"{portfolio_sortino_ratio=}")
+        logging.info(f"{portfolio_cagr=}")
+        logging.info(f"{alpha=}")
+        logging.info(f"{beta=}")
 
 
 asyncio.run(main())

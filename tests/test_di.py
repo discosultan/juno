@@ -48,11 +48,7 @@ def test_map_dependencies() -> None:
     foo = Foo()
     bar = Bar(foo)
     baz = Baz(bar)
-    assert di.map_dependencies({
-        Foo: foo,
-        Bar: bar,
-        Baz: baz,
-    }) == {
+    assert di.map_dependencies({Foo: foo, Bar: bar, Baz: baz}) == {
         baz: [bar],
         bar: [foo],
         foo: [],

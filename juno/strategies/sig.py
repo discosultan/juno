@@ -25,9 +25,7 @@ class Sig(Signal):
         self._mid_trend = MidTrend(mid_trend_policy)
         self._persistence = Persistence(level=persistence, return_previous=False)
         self._t1 = (
-            self._sig.maturity
-            + max(self._mid_trend.maturity, self._persistence.maturity)
-            - 1
+            self._sig.maturity + max(self._mid_trend.maturity, self._persistence.maturity) - 1
         )
 
     @property

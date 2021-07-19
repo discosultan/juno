@@ -15,7 +15,7 @@ from juno.trading import TradingSummary
 from juno.typing import TypeConstructor
 from juno.utils import unpack_assets
 
-SYMBOL = 'eth-btc'
+SYMBOL = "eth-btc"
 INTERVAL = HOUR_MS
 
 
@@ -29,42 +29,42 @@ async def main() -> None:
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=exchanges)
     informant = Informant(sqlite, exchanges)
     trader = Basic(chandler=chandler, informant=informant, exchanges=exchanges)
-    start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
-    end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
+    start = floor_multiple(strptimestamp("2019-01-01"), INTERVAL)
+    end = floor_multiple(strptimestamp("2019-12-01"), INTERVAL)
     async with binance, coinbase, informant, trades, chandler:
         trader_config = BasicConfig(
-            exchange='binance',
+            exchange="binance",
             symbol=SYMBOL,
             interval=INTERVAL,
             start=start,
             end=end,
-            quote=Decimal('1.0'),
+            quote=Decimal("1.0"),
             strategy=TypeConstructor.from_type(
                 strategies.DoubleMA2,
                 {
-                    'short_period': 3,
-                    'long_period': 73,
-                    'neg_threshold': Decimal('-0.102'),
-                    'pos_threshold': Decimal('0.239'),
-                    'short_ma': 'sma',
-                    'long_ma': 'smma',
+                    "short_period": 3,
+                    "long_period": 73,
+                    "neg_threshold": Decimal("-0.102"),
+                    "pos_threshold": Decimal("0.239"),
+                    "short_ma": "sma",
+                    "long_ma": "smma",
                 },
             ),
-            stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal('0.0827')),
-            missed_candle_policy=MissedCandlePolicy.LAST
+            stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal("0.0827")),
+            missed_candle_policy=MissedCandlePolicy.LAST,
         )
         trader_state = await trader.initialize(trader_config)
 
         trading_summary = await trader.run(trader_state)
 
-        _, filters = informant.get_fees_filters('binance', SYMBOL)
+        _, filters = informant.get_fees_filters("binance", SYMBOL)
 
         await asyncio.gather(
             stream_and_export_daily_candles_as_csv(
-                chandler, trading_summary, 'coinbase', 'btc-eur'
+                chandler, trading_summary, "coinbase", "btc-eur"
             ),
             stream_and_export_daily_candles_as_csv(
-                chandler, trading_summary, 'coinbase', 'eth-eur'
+                chandler, trading_summary, "coinbase", "eth-eur"
             ),
             asyncio.get_running_loop().run_in_executor(
                 None, export_trading_summary_as_csv, filters, trading_summary, SYMBOL
@@ -81,7 +81,7 @@ async def stream_and_export_daily_candles_as_csv(
         symbol,
         DAY_MS,
         floor_multiple(summary.start, DAY_MS),
-        ceil_multiple(summary.end, DAY_MS)
+        ceil_multiple(summary.end, DAY_MS),
     )
     await asyncio.get_running_loop().run_in_executor(
         None, export_daily_candles_as_csv, symbol, candles
@@ -89,8 +89,8 @@ async def stream_and_export_daily_candles_as_csv(
 
 
 def export_daily_candles_as_csv(symbol: str, candles: list[Candle]) -> None:
-    with open(f'{symbol}-max.csv', 'w', newline='') as csvfile:
-        fieldnames = ['snapped_at', 'price', 'market_cap', 'total_volume']
+    with open(f"{symbol}-max.csv", "w", newline="") as csvfile:
+        fieldnames = ["snapped_at", "price", "market_cap", "total_volume"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
@@ -100,28 +100,26 @@ def export_daily_candles_as_csv(symbol: str, candles: list[Candle]) -> None:
 
 def candle_row(candle: Candle) -> dict[str, Any]:
     return {
-        'snapped_at': datetime_utcfromtimestamp_ms(candle.time).strftime(r'%Y-%m-%d 00:00:00 UTC'),
-        'price': str(candle.close),
-        'market_cap': '0.0',
-        'total_volume': '0.0'
+        "snapped_at": datetime_utcfromtimestamp_ms(candle.time).strftime(r"%Y-%m-%d 00:00:00 UTC"),
+        "price": str(candle.close),
+        "market_cap": "0.0",
+        "total_volume": "0.0",
     }
 
 
 def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, symbol: str) -> None:
     base_asset, quote_asset = unpack_assets(symbol)
 
-    with open('tradesheet.csv', 'w', newline='') as csvfile:
-        fieldnames = ['Date', 'Buy', 'Sell', 'Units', 'Value Per Unit']
+    with open("tradesheet.csv", "w", newline="") as csvfile:
+        fieldnames = ["Date", "Buy", "Sell", "Units", "Value Per Unit"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-        EUR = Decimal('3347.23')
+        EUR = Decimal("3347.23")
 
         writer.writeheader()
+        writer.writerow(trade_row(summary.start, "EUR", "", summary.quote * EUR, Decimal("1.0")))
         writer.writerow(
-            trade_row(summary.start, 'EUR', '', summary.quote * EUR, Decimal('1.0'))
-        )
-        writer.writerow(
-            trade_row(summary.start, quote_asset, 'EUR', summary.quote, Decimal('3347.23'))
+            trade_row(summary.start, quote_asset, "EUR", summary.quote, Decimal("3347.23"))
         )
         for pos in summary.get_positions():
             buy_size = pos.base_gain
@@ -139,11 +137,11 @@ def trade_row(
     time: int, buy_asset: str, sell_asset: str, buy_size: Decimal, buy_price: Decimal
 ) -> dict[str, Any]:
     return {
-        'Date': datetime_utcfromtimestamp_ms(time).strftime(r'%m/%d/%Y'),
-        'Buy': buy_asset.upper(),
-        'Sell': sell_asset.upper(),
-        'Units': str(buy_size),
-        'Value Per Unit': str(buy_price),
+        "Date": datetime_utcfromtimestamp_ms(time).strftime(r"%m/%d/%Y"),
+        "Buy": buy_asset.upper(),
+        "Sell": sell_asset.upper(),
+        "Units": str(buy_size),
+        "Value Per Unit": str(buy_price),
     }
 
 

@@ -7,11 +7,11 @@ from .trades import Trades
 from .user import User
 
 __all__ = [
-    'Chandler',
-    'Events',
-    'Informant',
-    'Orderbook',
-    'Prices',
-    'Trades',
-    'User',
+    "Chandler",
+    "Events",
+    "Informant",
+    "Orderbook",
+    "Prices",
+    "Trades",
+    "User",
 ]

@@ -6,8 +6,8 @@ from .sma import Sma
 
 # Full Stochastic Oscillator
 class Stoch:
-    k: Decimal = Decimal('0.0')
-    d: Decimal = Decimal('0.0')
+    k: Decimal = Decimal("0.0")
+    d: Decimal = Decimal("0.0")
 
     _k_high_window: deque[Decimal]
     _k_low_window: deque[Decimal]
@@ -22,7 +22,7 @@ class Stoch:
 
     def __init__(self, k_period: int, k_sma_period: int, d_sma_period: int) -> None:
         if k_period < 1:
-            raise ValueError(f'Invalid period ({k_period})')
+            raise ValueError(f"Invalid period ({k_period})")
 
         self._k_high_window = deque(maxlen=k_period)
         self._k_low_window = deque(maxlen=k_period)

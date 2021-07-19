@@ -38,7 +38,7 @@ class User:
         ] = defaultdict(dict)
 
     async def __aenter__(self) -> User:
-        _log.info('ready')
+        _log.info("ready")
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
@@ -48,19 +48,17 @@ class User:
         return self._exchanges[exchange].generate_client_id()
 
     def can_place_market_order(self, exchange: str) -> bool:
-        if exchange == '__all__':
+        if exchange == "__all__":
             return all(e.can_place_market_order for e in self._exchanges.values())
         return self._exchanges[exchange].can_place_market_order
 
     def can_place_market_order_quote(self, exchange: str) -> bool:
-        if exchange == '__all__':
+        if exchange == "__all__":
             return all(e.can_place_market_order_quote for e in self._exchanges.values())
         return self._exchanges[exchange].can_place_market_order_quote
 
     @asynccontextmanager
-    async def sync_wallet(
-        self, exchange: str, account: str
-    ) -> AsyncIterator[WalletSyncContext]:
+    async def sync_wallet(self, exchange: str, account: str) -> AsyncIterator[WalletSyncContext]:
         id_ = str(uuid.uuid4())
         key = (exchange, account)
         ctxs = self._wallet_sync_ctxs[key]
@@ -91,14 +89,14 @@ class User:
         account: str,
         asset: str,
     ) -> Balance:
-        if account == 'isolated':
-            raise ValueError('Ambiguous account: isolated')
+        if account == "isolated":
+            raise ValueError("Ambiguous account: isolated")
         # Currently, for Binance, we need to put all isolated margin accounts into an umbrella
         # 'isolated' account when requesting balances.
-        account_arg = account if account in ['spot', 'margin'] else 'isolated'
-        return (
-            await self._exchanges[exchange].map_balances(account=account_arg)
-        )[account].get(asset, Balance.zero())
+        account_arg = account if account in ["spot", "margin"] else "isolated"
+        return (await self._exchanges[exchange].map_balances(account=account_arg))[account].get(
+            asset, Balance.zero()
+        )
 
     async def map_balances(
         self,
@@ -106,7 +104,7 @@ class User:
         accounts: list[str],
         significant: Optional[bool] = None,
     ) -> dict[str, dict[str, Balance]]:
-        account_args = {(a if a in {'spot', 'margin'} else 'isolated') for a in accounts}
+        account_args = {(a if a in {"spot", "margin"} else "isolated") for a in accounts}
 
         exchange_instance = self._exchanges[exchange]
         result: dict[str, dict[str, Balance]] = {}
@@ -115,16 +113,15 @@ class User:
         )
         for balance in balances:
             result.update(balance)
-        if 'isolated' not in accounts:
+        if "isolated" not in accounts:
             for key in list(result.keys()):
                 if key not in accounts:
                     del result[key]
         # Filtering.
         if significant is not None:
             result = {
-                k: {
-                    a: b for a, b in v.items() if b.significant == significant
-                } for k, v in result.items()
+                k: {a: b for a, b in v.items() if b.significant == significant}
+                for k, v in result.items()
             }
         return result
 
@@ -198,11 +195,11 @@ class User:
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_exponential(),
             retry=retry_if_exception_type(ExchangeException),
-            before_sleep=before_sleep_log(_log, logging.WARNING)
+            before_sleep=before_sleep_log(_log, logging.WARNING),
         ):
             with attempt:
                 async for balances in self._stream_balances(exchange, account):
-                    _log.info(f'received {exchange} {account} balance update')
+                    _log.info(f"received {exchange} {account} balance update")
                     for ctx in ctxs.values():
                         ctx.balances.update(balances)
 
@@ -230,7 +227,7 @@ class User:
                     yield balances
         else:
             _log.warning(
-                f'{exchange} does not support streaming {account} balances; fething only initial '
-                'balances; further updates not implemented'
+                f"{exchange} does not support streaming {account} balances; fething only initial "
+                "balances; further updates not implemented"
             )
             yield (await exchange_instance.map_balances(account))[account]

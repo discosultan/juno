@@ -3,8 +3,8 @@
 
 from typing import _GenericAlias  # type: ignore
 
-Interval = _GenericAlias(int, (), name='Interval')
+Interval = _GenericAlias(int, (), name="Interval")
 # Note that we alias `Interval` instead of `int`. This is required because typing module seems to
 # erase duplicate aliases to same type. If `Timestamp` also aliased `int`, `Optional[Interval]`
 # would be resolved as `Union[Timestamp, None]` instead.
-Timestamp = _GenericAlias(Interval, (), name='Timestamp')
+Timestamp = _GenericAlias(Interval, (), name="Timestamp")

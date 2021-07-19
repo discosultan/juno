@@ -16,11 +16,13 @@ class MidTrendPolicy(IntEnum):
 
 
 ma_choices = Choice([i.__name__.lower() for i in [Alma, Dema, Ema, Ema2, Kama, Sma, Smma]])
-mid_trend_policy_choices = Choice([
-    MidTrendPolicy.CURRENT,
-    MidTrendPolicy.PREVIOUS,
-    MidTrendPolicy.IGNORE,
-])
+mid_trend_policy_choices = Choice(
+    [
+        MidTrendPolicy.CURRENT,
+        MidTrendPolicy.PREVIOUS,
+        MidTrendPolicy.IGNORE,
+    ]
+)
 
 # class Maturity:
 #     """Ignore advice if strategy not mature."""
@@ -45,6 +47,7 @@ mid_trend_policy_choices = Choice([
 
 class MidTrend:
     """Ignore first advice if middle of trend."""
+
     _policy: MidTrendPolicy
     _previous: Optional[Advice] = None
     _enabled: bool = True
@@ -71,6 +74,7 @@ class MidTrend:
 
 class Persistence:
     """The number of ticks required to confirm an advice."""
+
     _age: int = 0
     _level: int
     _return_previous: bool
@@ -110,6 +114,7 @@ class Persistence:
 
 class Changed:
     """Pass an advice only if was changed on current tick."""
+
     _enabled: bool
     _previous: Advice = Advice.NONE
     _age: int = 0
@@ -172,7 +177,7 @@ class Strategy(ABC):
         for names, constraint in type_.meta().constraints.items():
             # Normalize scalars into a single element tuples.
             if not isinstance(names, tuple):
-                names = names,
+                names = (names,)
 
             to_index = from_index + len(names)
             inputs = args[from_index:to_index]

@@ -21,7 +21,7 @@ class Statistics:
         summary: TradingSummary,
         asset_prices: dict[str, list[Decimal]],
         interval: Interval = DAY_MS,
-        benchmark_asset: str = 'btc',
+        benchmark_asset: str = "btc",
     ) -> Statistics:
         return Statistics(
             core=CoreStatistics.compose(summary),

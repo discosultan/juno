@@ -46,16 +46,16 @@ class Market2(Broker):
 
         if size is not None:
             _log.info(
-                f'buying {size} (ensure size: {ensure_size}) {symbol} with market order '
-                f'({account} account)'
+                f"buying {size} (ensure size: {ensure_size}) {symbol} with market order "
+                f"({account} account)"
             )
             if ensure_size:
                 size = filters.with_fee(size, fees.taker)
             return await self._fill(exchange, account, symbol, Side.BUY, size=size)
         elif quote is not None:
             _log.info(
-                f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
-                f'({account} account)'
+                f"buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order "
+                f"({account} account)"
             )
             if not self._user.can_place_market_order_quote(exchange):
                 async with self._orderbook.sync(exchange, symbol) as orderbook:
@@ -85,7 +85,7 @@ class Market2(Broker):
         if not self._user.can_place_market_order(exchange):
             raise NotImplementedError()
 
-        _log.info(f'selling {size} {symbol} with market order ({account} account)')
+        _log.info(f"selling {size} {symbol} with market order ({account} account)")
         return await self._fill(exchange, account, symbol, Side.SELL, size=size)
 
     async def _fill(
@@ -123,18 +123,18 @@ class Market2(Broker):
             async for order in stream:
                 if order.client_id != client_id:
                     _log.debug(
-                        f'skipping {symbol} {side.name} order tracking; {order.client_id=} != '
-                        f'{client_id=}'
+                        f"skipping {symbol} {side.name} order tracking; {order.client_id=} != "
+                        f"{client_id=}"
                     )
                     continue
 
                 if isinstance(order, OrderUpdate.New):
-                    _log.info(f'new {symbol} {side.name} order {client_id} confirmed')
+                    _log.info(f"new {symbol} {side.name} order {client_id} confirmed")
                 elif isinstance(order, OrderUpdate.Match):
-                    _log.info(f'existing {symbol} {side.name} order {client_id} matched')
+                    _log.info(f"existing {symbol} {side.name} order {client_id} matched")
                     fills.append(order.fill)
                 elif isinstance(order, OrderUpdate.Done):
-                    _log.info(f'existing {symbol} {side.name} order {client_id} filled')
+                    _log.info(f"existing {symbol} {side.name} order {client_id} filled")
                     time = order.time
                     break
                 else:

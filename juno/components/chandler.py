@@ -25,7 +25,7 @@ from .trades import Trades
 _log = logging.getLogger(__name__)
 
 CANDLE_KEY = Candle.__name__.lower()
-FIRST_CANDLE_KEY = f'first_{CANDLE_KEY}'
+FIRST_CANDLE_KEY = f"first_{CANDLE_KEY}"
 
 
 class Chandler(AbstractAsyncContextManager):
@@ -59,10 +59,19 @@ class Chandler(AbstractAsyncContextManager):
         simulate_open_from_interval: Optional[int] = None,
         exchange_timeout: Optional[float] = None,
     ) -> list[Candle]:
-        return await list_async(self.stream_candles(
-            exchange, symbol, interval, start, end, closed, fill_missing_with_last,
-            simulate_open_from_interval, exchange_timeout
-        ))
+        return await list_async(
+            self.stream_candles(
+                exchange,
+                symbol,
+                interval,
+                start,
+                end,
+                closed,
+                fill_missing_with_last,
+                simulate_open_from_interval,
+                exchange_timeout,
+            )
+        )
 
     async def stream_candles(
         self,
@@ -128,9 +137,9 @@ class Chandler(AbstractAsyncContextManager):
             side_current = start
             side_end = start + interval
             side_new = True
-            side_high = Decimal('0.0')
-            side_low = Decimal('inf')
-            side_volume = Decimal('0.0')
+            side_high = Decimal("0.0")
+            side_low = Decimal("inf")
+            side_volume = Decimal("0.0")
             while True:
                 while side_current < side_end - simulate_open_from_interval:
                     try:
@@ -163,9 +172,9 @@ class Chandler(AbstractAsyncContextManager):
                     yield await main_stream.__anext__()
                     side_end += interval
                     side_new = True
-                    side_high = Decimal('0.0')
-                    side_low = Decimal('inf')
-                    side_volume = Decimal('0.0')
+                    side_high = Decimal("0.0")
+                    side_low = Decimal("inf")
+                    side_volume = Decimal("0.0")
                 except StopAsyncIteration:
                     break
 
@@ -186,9 +195,9 @@ class Chandler(AbstractAsyncContextManager):
         start = floor_multiple_offset(start, interval, interval_offset)
         end = floor_multiple_offset(end, interval, interval_offset)
         shard = key(exchange, symbol, interval)
-        candle_msg = f'{exchange} {symbol} {strfinterval(interval)} candle(s)'
+        candle_msg = f"{exchange} {symbol} {strfinterval(interval)} candle(s)"
 
-        _log.info(f'checking for existing {candle_msg} in local storage')
+        _log.info(f"checking for existing {candle_msg} in local storage")
         existing_spans = await list_async(
             self._storage.stream_time_series_spans(
                 shard=shard,
@@ -199,17 +208,16 @@ class Chandler(AbstractAsyncContextManager):
         )
         missing_spans = list(generate_missing_spans(start, end, existing_spans))
 
-        spans = (
-            [(a, b, True) for a, b in existing_spans]
-            + [(a, b, False) for a, b in missing_spans]
-        )
+        spans = [(a, b, True) for a, b in existing_spans] + [
+            (a, b, False) for a, b in missing_spans
+        ]
         spans.sort(key=lambda s: s[0])
 
         last_closed_candle: Optional[Candle] = None
         for span_start, span_end, exist_locally in spans:
-            period_msg = f'{strfspan(span_start, span_end)}'
+            period_msg = f"{strfspan(span_start, span_end)}"
             if exist_locally:
-                _log.info(f'local {candle_msg} exist between {period_msg}')
+                _log.info(f"local {candle_msg} exist between {period_msg}")
                 stream = self._storage.stream_time_series(
                     shard=shard,
                     key=CANDLE_KEY,
@@ -218,7 +226,7 @@ class Chandler(AbstractAsyncContextManager):
                     end=span_end,
                 )
             else:
-                _log.info(f'missing {candle_msg} between {period_msg}')
+                _log.info(f"missing {candle_msg} between {period_msg}")
                 stream = self._stream_and_store_exchange_candles(
                     exchange=exchange,
                     symbol=symbol,
@@ -235,8 +243,8 @@ class Chandler(AbstractAsyncContextManager):
                     and (num_missed := (candle.time - start) // interval) > 0
                 ):
                     _log.warning(
-                        f'missed {num_missed} {candle_msg} from the start '
-                        f'{strftimestamp(start)}; current candle {candle}'
+                        f"missed {num_missed} {candle_msg} from the start "
+                        f"{strftimestamp(start)}; current candle {candle}"
                     )
 
                 if (
@@ -245,11 +253,11 @@ class Chandler(AbstractAsyncContextManager):
                 ):
                     num_missed = time_diff // interval - 1
                     _log.warning(
-                        f'missed {num_missed} {candle_msg}; last closed candle '
-                        f'{last_closed_candle}; current candle {candle}'
+                        f"missed {num_missed} {candle_msg}; last closed candle "
+                        f"{last_closed_candle}; current candle {candle}"
                     )
                     if fill_missing_with_last:
-                        _log.info(f'filling {num_missed} missed {candle_msg} with last values')
+                        _log.info(f"filling {num_missed} missed {candle_msg} with last values")
                         for i in range(1, num_missed + 1):
                             yield Candle(
                                 time=last_closed_candle.time + i * interval,
@@ -262,7 +270,7 @@ class Chandler(AbstractAsyncContextManager):
                                 high=last_closed_candle.close,
                                 low=last_closed_candle.close,
                                 close=last_closed_candle.close,
-                                volume=Decimal('0.0'),
+                                volume=Decimal("0.0"),
                                 closed=True,
                             )
                 if not closed or candle.closed:
@@ -273,11 +281,11 @@ class Chandler(AbstractAsyncContextManager):
         if last_closed_candle and (time_diff := end - last_closed_candle.time) >= interval * 2:
             num_missed = time_diff // interval - 1
             _log.warning(
-                f'missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; '
-                f'current candle {last_closed_candle}'
+                f"missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; "
+                f"current candle {last_closed_candle}"
             )
         elif not last_closed_candle:
-            _log.warning(f'missed all {candle_msg} between {strfspan(start, end)}')
+            _log.warning(f"missed all {candle_msg} between {strfspan(start, end)}")
 
     async def _stream_and_store_exchange_candles(
         self,
@@ -296,7 +304,7 @@ class Chandler(AbstractAsyncContextManager):
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),
-            before_sleep=before_sleep_log(_log, logging.WARNING)
+            before_sleep=before_sleep_log(_log, logging.WARNING),
         ):
             with attempt:
                 # We use a swap batch in order to swap the batch right before storing. With a
@@ -357,8 +365,14 @@ class Chandler(AbstractAsyncContextManager):
                     )
 
     async def _stream_exchange_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int,
-        timeout: Optional[float]
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int,
+        current: int,
+        timeout: Optional[float],
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
         interval_offsets = exchange_instance.map_candle_intervals()
@@ -417,18 +431,18 @@ class Chandler(AbstractAsyncContextManager):
                 if (candle.time - interval_offset) % interval != 0:
                     adjusted_time = floor_multiple_offset(candle.time, interval, interval_offset)
                     _log.warning(
-                        f'candle with bad time {candle} for interval {strfinterval(interval)}; '
-                        f'trying to adjust back in time to {strftimestamp(adjusted_time)} or skip '
-                        'if volume zero'
+                        f"candle with bad time {candle} for interval {strfinterval(interval)}; "
+                        f"trying to adjust back in time to {strftimestamp(adjusted_time)} or skip "
+                        "if volume zero"
                     )
                     if last_candle_time == adjusted_time:
                         if candle.volume > 0:
                             raise RuntimeError(
-                                f'Received {symbol} {strfinterval(interval)} candle {candle} with '
-                                'a time that does not fall into the interval. Cannot adjust back '
-                                'in time because time coincides with last candle time '
-                                f'{strftimestamp(last_candle_time)}. Cannot skip because volume '
-                                'not zero'
+                                f"Received {symbol} {strfinterval(interval)} candle {candle} with "
+                                "a time that does not fall into the interval. Cannot adjust back "
+                                "in time because time coincides with last candle time "
+                                f"{strftimestamp(last_candle_time)}. Cannot skip because volume "
+                                "not zero"
                             )
                         else:
                             continue
@@ -449,17 +463,17 @@ class Chandler(AbstractAsyncContextManager):
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         if not self._trades:
-            raise ValueError('Trades component not configured. Unable to construct candles')
+            raise ValueError("Trades component not configured. Unable to construct candles")
 
-        _log.info(f'constructing {exchange} {symbol} {interval} candles from trades')
+        _log.info(f"constructing {exchange} {symbol} {interval} candles from trades")
 
         current = start
         next_ = current + interval
-        open_ = Decimal('0.0')
-        high = Decimal('0.0')
-        low = Decimal(f'{sys.maxsize}.0')
-        close = Decimal('0.0')
-        volume = Decimal('0.0')
+        open_ = Decimal("0.0")
+        high = Decimal("0.0")
+        low = Decimal(f"{sys.maxsize}.0")
+        close = Decimal("0.0")
+        volume = Decimal("0.0")
         is_first = True
         async for trade in self._trades.stream_trades(exchange, symbol, start, end):
             if trade.time >= next_:
@@ -471,15 +485,15 @@ class Chandler(AbstractAsyncContextManager):
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True
+                    closed=True,
                 )
                 current = next_
                 next_ = current + interval
-                open_ = Decimal('0.0')
-                high = Decimal('0.0')
-                low = Decimal(f'{sys.maxsize}.0')
-                close = Decimal('0.0')
-                volume = Decimal('0.0')
+                open_ = Decimal("0.0")
+                high = Decimal("0.0")
+                low = Decimal(f"{sys.maxsize}.0")
+                close = Decimal("0.0")
+                volume = Decimal("0.0")
                 is_first = True
 
             if is_first:
@@ -498,19 +512,19 @@ class Chandler(AbstractAsyncContextManager):
                 low=low,
                 close=close,
                 volume=volume,
-                closed=True
+                closed=True,
             )
 
     async def _stream_construct_candles_by_volume(
         self, exchange: str, symbol: str, volume: Decimal, start: int, end: int
     ) -> AsyncIterable[Candle]:
         if not self._trades:
-            raise ValueError('Trades component not configured. Unable to construct candles')
+            raise ValueError("Trades component not configured. Unable to construct candles")
 
         base_asset, _ = unpack_assets(symbol)
-        _log.info(f'constructing {exchange} {symbol} {volume}{base_asset} candles from trades')
+        _log.info(f"constructing {exchange} {symbol} {volume}{base_asset} candles from trades")
 
-        current_volume = Decimal('0.0')
+        current_volume = Decimal("0.0")
         is_first = True
         async for trade in self._trades.stream_trades(exchange, symbol, start, end):
             if is_first:
@@ -534,7 +548,7 @@ class Chandler(AbstractAsyncContextManager):
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True
+                    closed=True,
                 )
                 current_volume -= volume
                 time = trade.time
@@ -553,9 +567,11 @@ class Chandler(AbstractAsyncContextManager):
         if not candle:
             exchange_instance = self._exchanges[exchange]
             if exchange_instance.can_stream_historical_earliest_candle:
-                candle = await first_async(exchange_instance.stream_historical_candles(
-                    symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
-                ))
+                candle = await first_async(
+                    exchange_instance.stream_historical_candles(
+                        symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
+                    )
+                )
             else:
                 # TODO: It would be faster to try to search the first candle of highest interval
                 # first. Then slowly move to more granular intervals until we find the requested
@@ -583,7 +599,7 @@ class Chandler(AbstractAsyncContextManager):
         interval_offset: int,
     ) -> Candle:
         _log.info(
-            f'{exchange} does not support streaming earliest candle; finding by binary search'
+            f"{exchange} does not support streaming earliest candle; finding by binary search"
         )
 
         # TODO: Does not handle missing candles, hence, may yield incorrect results!
@@ -597,10 +613,7 @@ class Chandler(AbstractAsyncContextManager):
             candles = await self.list_candles(exchange, symbol, interval, from_, to)
             if len(candles) == 0:
                 start = mid + interval
-            elif (
-                len(candles) == 1
-                and to - from_ > interval  # Must not be last candle.
-            ):
+            elif len(candles) == 1 and to - from_ > interval:  # Must not be last candle.
                 return candles[0]
             else:
                 end = mid
@@ -608,7 +621,7 @@ class Chandler(AbstractAsyncContextManager):
             if start >= end:
                 break
 
-        raise ValueError('First candle not found')
+        raise ValueError("First candle not found")
 
     async def get_last_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
         exchange_instance = self._exchanges[exchange]
@@ -617,9 +630,11 @@ class Chandler(AbstractAsyncContextManager):
         now = self._get_time_ms()
         end = floor_multiple_offset(now, interval, interval_offset)
         start = end - interval
-        return await first_async(exchange_instance.stream_historical_candles(
-            symbol=symbol, interval=interval, start=start, end=end
-        ))
+        return await first_async(
+            exchange_instance.stream_historical_candles(
+                symbol=symbol, interval=interval, start=start, end=end
+            )
+        )
 
     async def map_symbol_interval_candles(
         self, exchange: str, symbols: Iterable[str], intervals: Iterable[int], start: int, end: int
@@ -627,8 +642,10 @@ class Chandler(AbstractAsyncContextManager):
         symbols = set(symbols)
         intervals = set(intervals)
         candles = await asyncio.gather(
-            *(self.list_candles(exchange, s, i, start, end)
-              for s, i in itertools.product(symbols, intervals))
+            *(
+                self.list_candles(exchange, s, i, start, end)
+                for s, i in itertools.product(symbols, intervals)
+            )
         )
         return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}
 

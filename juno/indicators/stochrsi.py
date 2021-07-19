@@ -8,10 +8,10 @@ from .rsi import Rsi
 
 # Stochastic Relative Strength Index
 class StochRsi:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _rsi: Rsi
-    _min: Decimal = Decimal('0.0')
-    _max: Decimal = Decimal('0.0')
+    _min: Decimal = Decimal("0.0")
+    _max: Decimal = Decimal("0.0")
     _rsi_values: deque[Decimal]
     _t: int = 0
     _t1: int
@@ -19,7 +19,7 @@ class StochRsi:
 
     def __init__(self, period: int) -> None:
         if period < 2:
-            raise ValueError(f'Invalid period ({period})')
+            raise ValueError(f"Invalid period ({period})")
 
         self._rsi = Rsi(period)
         self._rsi_values = deque(maxlen=period)
@@ -47,7 +47,7 @@ class StochRsi:
             self._max = max(self._rsi_values)
             diff = self._max - self._min
             if diff == 0:
-                self.value = Decimal('0.0')
+                self.value = Decimal("0.0")
             else:
                 self.value = (self._rsi.value - self._min) / diff
 

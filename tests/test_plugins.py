@@ -19,12 +19,12 @@ async def test_discord(request, config: dict[str, Any], mocker) -> None:
 
     events = Events()
     async with Discord(
-        chandler=mocker.patch('juno.components.chandler.Chandler'),
-        informant=mocker.patch('juno.components.informant.Informant'),
+        chandler=mocker.patch("juno.components.chandler.Chandler"),
+        informant=mocker.patch("juno.components.informant.Informant"),
         events=events,
         config=config,
     ) as discord:
-        await discord.activate('agent', 'test')
+        await discord.activate("agent", "test")
 
         await send_test_events(events)
 
@@ -38,54 +38,60 @@ async def test_slack(request, config: dict[str, Any]) -> None:
 
     events = Events()
     slack = Slack(events=events, config=config)
-    await slack.activate('agent', 'test')
+    await slack.activate("agent", "test")
 
     await send_test_events(events)
 
 
 async def send_test_events(events: Events):
-    trading_summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
+    trading_summary = TradingSummary(start=0, quote=Decimal("1.0"), quote_asset="btc")
 
-    candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
+    candle = Candle(time=0, close=Decimal("1.0"), volume=Decimal("10.0"))
     open_pos = Position.OpenLong(
-        exchange='exchange',
-        symbol='eth-btc',
+        exchange="exchange",
+        symbol="eth-btc",
         time=candle.time,
         fills=[
             Fill(
-                price=Decimal('1.0'), size=Decimal('1.0'), quote=Decimal('1.0'),
-                fee=Decimal('0.0'), fee_asset='btc'
+                price=Decimal("1.0"),
+                size=Decimal("1.0"),
+                quote=Decimal("1.0"),
+                fee=Decimal("0.0"),
+                fee_asset="btc",
             )
         ],
     )
-    await events.emit('agent', 'positions_opened', [open_pos], trading_summary)
-    candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
+    await events.emit("agent", "positions_opened", [open_pos], trading_summary)
+    candle = Candle(time=DAY_MS, close=Decimal("2.0"), volume=Decimal("10.0"))
     pos = open_pos.close(
         time=candle.time,
         fills=[
             Fill(
-                price=Decimal('2.0'), size=Decimal('1.0'), quote=Decimal('2.0'),
-                fee=Decimal('0.0'), fee_asset='eth'
+                price=Decimal("2.0"),
+                size=Decimal("1.0"),
+                quote=Decimal("2.0"),
+                fee=Decimal("0.0"),
+                fee_asset="eth",
             )
         ],
         reason=CloseReason.STRATEGY,
     )
     trading_summary.append_position(pos)
     trading_summary.finish(pos.close_time + DAY_MS)
-    await events.emit('agent', 'positions_closed', [pos], trading_summary)
-    await events.emit('agent', 'finished', trading_summary)
-    await events.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
-    await events.emit('agent', 'message', 'hello')
+    await events.emit("agent", "positions_closed", [pos], trading_summary)
+    await events.emit("agent", "finished", trading_summary)
+    await events.emit("agent", "image", full_path(__file__, "/data/dummy_img.png"))
+    await events.emit("agent", "message", "hello")
     try:
-        raise Exception('Expected error.')
+        raise Exception("Expected error.")
     except Exception as exc:
-        await events.emit('agent', 'errored', exc)
+        await events.emit("agent", "errored", exc)
 
 
 def skip_non_configured(request, config):
-    markers = ['manual', 'plugin']
+    markers = ["manual", "plugin"]
     if request.config.option.markexpr not in markers:
         pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
-    discord_config = config.get('discord', {})
-    if 'token' not in discord_config or 'dummy' not in discord_config.get('channel_id', {}):
-        pytest.skip('Discord params not configured')
+    discord_config = config.get("discord", {})
+    if "token" not in discord_config or "dummy" not in discord_config.get("channel_id", {}):
+        pytest.skip("Discord params not configured")

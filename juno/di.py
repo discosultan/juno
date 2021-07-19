@@ -12,7 +12,7 @@ from typing_inspect import is_optional_type
 from .itertools import recursive_iter
 from .typing import ExcType, ExcValue, Traceback, get_input_type_hints
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 _log = logging.getLogger(__name__)
 
@@ -27,17 +27,17 @@ class Container:
         self._singletons: dict[type[Any], Any] = {}
 
     async def __aenter__(self) -> Container:
-        _log.info(f'created instances: {list(self._singletons.values())}')
+        _log.info(f"created instances: {list(self._singletons.values())}")
         for deps in list_dependencies_in_init_order(map_dependencies(self._singletons)):
-            _log.info(f'entering: {deps}')
-            await asyncio.gather(*(d.__aenter__() for d in deps if getattr(d, '__aenter__', None)))
+            _log.info(f"entering: {deps}")
+            await asyncio.gather(*(d.__aenter__() for d in deps if getattr(d, "__aenter__", None)))
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         for deps in reversed(list_dependencies_in_init_order(map_dependencies(self._singletons))):
-            _log.info(f'exiting: {deps}')
+            _log.info(f"exiting: {deps}")
             await asyncio.gather(
-                *(d.__aexit__(exc_type, exc, tb) for d in deps if getattr(d, '__aexit__', None))
+                *(d.__aexit__(exc_type, exc, tb) for d in deps if getattr(d, "__aexit__", None))
             )
 
     def add_singleton_instance(self, type_: Any, factory: Callable[[], Any]) -> None:
@@ -48,9 +48,7 @@ class Container:
             self.add_singleton_type(type_)
 
     def add_singleton_type(
-        self,
-        type_: Any,
-        factory: Optional[Callable[[], type[Any]]] = None
+        self, type_: Any, factory: Optional[Callable[[], type[Any]]] = None
     ) -> None:
         self._singleton_types[type_] = factory if factory else lambda: type_
 
@@ -78,7 +76,7 @@ class Container:
             try:
                 instance = instance_factory()
             except Exception:
-                _log.info(f'instance factory registered but unable to resolve for {type_}')
+                _log.info(f"instance factory registered but unable to resolve for {type_}")
         if instance is inspect.Parameter.empty:
             # 3. type factory
             type_factory = self._singleton_types.get(type_)
@@ -87,7 +85,7 @@ class Container:
                 try:
                     instance_type = type_factory()
                 except Exception:
-                    _log.info(f'type factory registered but unable to resolve for {type_}')
+                    _log.info(f"type factory registered but unable to resolve for {type_}")
             # 4. construct implicitly
             elif is_root:
                 instance_type = type_
@@ -96,12 +94,13 @@ class Container:
                 # 5. default value
                 if default is not inspect.Parameter.empty:
                     return default
-                raise TypeError(f'Unable to construct {type_}')
+                raise TypeError(f"Unable to construct {type_}")
 
             kwargs: dict[str, Any] = {}
             signature = inspect.signature(instance_type.__init__)
-            for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
-                                                           ).items():
+            for dep_name, dep_type in get_input_type_hints(
+                instance_type.__init__  # type: ignore
+            ).items():
                 resolved = self.resolve(
                     dep_type, is_root=False, default=signature.parameters[dep_name].default
                 )
@@ -110,7 +109,7 @@ class Container:
             try:
                 instance = instance_type(**kwargs)  # type: ignore
             except TypeError:
-                _log.exception(f'unable to construct {instance_type} as {type_}')
+                _log.exception(f"unable to construct {instance_type} as {type_}")
                 raise
             else:
                 self._singletons[instance_type] = instance

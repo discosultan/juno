@@ -10,37 +10,37 @@ from juno.math import lerp
 from .take_profit import TakeProfit
 
 _EASINGS = {
-    'linear': pytweening.linear,
-    'quad_in': pytweening.easeInQuad,
-    'quad_out': pytweening.easeOutQuad,
-    'quad_inout': pytweening.easeInOutQuad,
-    'cubic_in': pytweening.easeInCubic,
-    'cubic_out': pytweening.easeOutCubic,
-    'cubic_inout': pytweening.easeInOutCubic,
-    'quart_in': pytweening.easeInQuart,
-    'quart_out': pytweening.easeOutQuart,
-    'quart_inout': pytweening.easeInOutQuart,
-    'quint_in': pytweening.easeInQuint,
-    'quint_out': pytweening.easeOutQuint,
-    'quint_inout': pytweening.easeInOutQuint,
-    'sine_in': pytweening.easeInSine,
-    'sine_out': pytweening.easeOutSine,
-    'sine_inout': pytweening.easeInOutSine,
-    'circ_in': pytweening.easeInCirc,
-    'circ_out': pytweening.easeOutCirc,
-    'circ_inout': pytweening.easeInOutCirc,
-    'expo_in': pytweening.easeInExpo,
-    'expo_out': pytweening.easeOutExpo,
-    'expo_inout': pytweening.easeInOutExpo,
-    'elastic_in': pytweening.easeInElastic,
-    'elastic_out': pytweening.easeOutElastic,
-    'elastic_inout': pytweening.easeInOutElastic,
-    'back_in': pytweening.easeInBack,
-    'back_out': pytweening.easeOutBack,
-    'back_inout': pytweening.easeInOutBack,
-    'bounce_in': pytweening.easeInBounce,
-    'bounce_out': pytweening.easeOutBounce,
-    'bounce_inout': pytweening.easeInOutBounce,
+    "linear": pytweening.linear,
+    "quad_in": pytweening.easeInQuad,
+    "quad_out": pytweening.easeOutQuad,
+    "quad_inout": pytweening.easeInOutQuad,
+    "cubic_in": pytweening.easeInCubic,
+    "cubic_out": pytweening.easeOutCubic,
+    "cubic_inout": pytweening.easeInOutCubic,
+    "quart_in": pytweening.easeInQuart,
+    "quart_out": pytweening.easeOutQuart,
+    "quart_inout": pytweening.easeInOutQuart,
+    "quint_in": pytweening.easeInQuint,
+    "quint_out": pytweening.easeOutQuint,
+    "quint_inout": pytweening.easeInOutQuint,
+    "sine_in": pytweening.easeInSine,
+    "sine_out": pytweening.easeOutSine,
+    "sine_inout": pytweening.easeInOutSine,
+    "circ_in": pytweening.easeInCirc,
+    "circ_out": pytweening.easeOutCirc,
+    "circ_inout": pytweening.easeInOutCirc,
+    "expo_in": pytweening.easeInExpo,
+    "expo_out": pytweening.easeOutExpo,
+    "expo_inout": pytweening.easeInOutExpo,
+    "elastic_in": pytweening.easeInElastic,
+    "elastic_out": pytweening.easeOutElastic,
+    "elastic_inout": pytweening.easeInOutElastic,
+    "back_in": pytweening.easeInBack,
+    "back_out": pytweening.easeOutBack,
+    "back_inout": pytweening.easeInOutBack,
+    "bounce_in": pytweening.easeInBounce,
+    "bounce_out": pytweening.easeOutBounce,
+    "bounce_inout": pytweening.easeInOutBounce,
 }
 
 
@@ -51,11 +51,11 @@ class Trending(TakeProfit):
     _down_max_threshold: Decimal
     _lock_threshold: bool
     _easing: str
-    _up_threshold_factor: Decimal = Decimal('0.0')
-    _down_threshold_factor: Decimal = Decimal('0.0')
+    _up_threshold_factor: Decimal = Decimal("0.0")
+    _down_threshold_factor: Decimal = Decimal("0.0")
     _adx: Adx
-    _close_at_position: Decimal = Decimal('0.0')
-    _close: Decimal = Decimal('0.0')
+    _close_at_position: Decimal = Decimal("0.0")
+    _close: Decimal = Decimal("0.0")
 
     def __init__(
         self,
@@ -63,7 +63,7 @@ class Trending(TakeProfit):
         down_thresholds: Optional[tuple[Decimal, Decimal]] = None,
         period: int = 14,
         lock_threshold: bool = False,
-        easing: str = 'linear',
+        easing: str = "linear",
     ) -> None:
         if down_thresholds is None:
             down_thresholds = up_thresholds
@@ -110,5 +110,5 @@ class Trending(TakeProfit):
     def _ease(self) -> Callable[[Decimal], Decimal]:
         easing_fn = _EASINGS.get(self._easing)
         if easing_fn is None:
-            raise ValueError(f'Unknown easing function: {self._easing}')
+            raise ValueError(f"Unknown easing function: {self._easing}")
         return easing_fn

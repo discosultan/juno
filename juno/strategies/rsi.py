@@ -14,9 +14,9 @@ class Rsi(Oscillator):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                'period': Int(1, 101),
-                'up_threshold': Uniform(Decimal('50.0'), Decimal('100.0')),
-                'down_threshold': Uniform(Decimal('0.0'), Decimal('50.0')),
+                "period": Int(1, 101),
+                "up_threshold": Uniform(Decimal("50.0"), Decimal("100.0")),
+                "down_threshold": Uniform(Decimal("0.0"), Decimal("50.0")),
             }
         )
 
@@ -27,8 +27,8 @@ class Rsi(Oscillator):
     def __init__(
         self,
         period: int = 14,
-        up_threshold: Decimal = Decimal('70.0'),
-        down_threshold: Decimal = Decimal('30.0'),
+        up_threshold: Decimal = Decimal("70.0"),
+        down_threshold: Decimal = Decimal("30.0"),
     ) -> None:
         assert period > 0
         assert up_threshold >= down_threshold

@@ -13,8 +13,8 @@ from .strategy import Signal, Strategy, ma_choices
 
 @dataclass
 class DoubleMAParams:
-    short_ma: str = 'ema'
-    long_ma: str = 'ema'
+    short_ma: str = "ema"
+    long_ma: str = "ema"
     short_period: int = 5  # Common 5 or 10. Daily.
     long_period: int = 20  # Common 20 or 50.
 
@@ -35,9 +35,9 @@ class DoubleMA(Signal):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                'short_ma': ma_choices,
-                'long_ma': ma_choices,
-                ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
+                "short_ma": ma_choices,
+                "long_ma": ma_choices,
+                ("short_period", "long_period"): Pair(Int(1, 100), operator.lt, Int(2, 101)),
             }
         )
 

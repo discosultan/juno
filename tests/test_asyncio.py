@@ -35,12 +35,12 @@ async def test_chain_async() -> None:
 
 async def test_enumerate_async() -> None:
     async def gen():
-        yield 'a'
-        yield 'b'
+        yield "a"
+        yield "b"
 
     expected_output = [
-        (1, 'a'),
-        (2, 'b'),
+        (1, "a"),
+        (2, "b"),
     ]
 
     target = enumerate_async(gen(), start=1)
@@ -59,13 +59,13 @@ async def test_list_async() -> None:
 
 async def test_dict_async() -> None:
     async def gen():
-        for k, v in zip(['a', 'b', 'c'], [0, 1, 2]):
+        for k, v in zip(["a", "b", "c"], [0, 1, 2]):
             yield k, v
 
     assert await dict_async(gen()) == {
-        'a': 0,
-        'b': 1,
-        'c': 2,
+        "a": 0,
+        "b": 1,
+        "c": 2,
     }
 
 
@@ -182,17 +182,17 @@ async def test_barrier_exceptions() -> None:
 
 
 async def test_slot_barrier() -> None:
-    barrier = SlotBarrier(['a', 'b'])
+    barrier = SlotBarrier(["a", "b"])
     wait_task = asyncio.create_task(barrier.wait())
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release('a')
+    barrier.release("a")
     await asyncio.sleep(0)
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release('b')
+    barrier.release("b")
     await asyncio.sleep(0)
     assert not barrier.locked
     assert wait_task.done()
@@ -202,39 +202,39 @@ async def test_slot_barrier() -> None:
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release('a')
+    barrier.release("a")
     await asyncio.sleep(0)
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release('b')
+    barrier.release("b")
     await asyncio.sleep(0)
     assert not barrier.locked
     assert wait_task.done()
 
 
 async def test_slot_barrier_exceptions() -> None:
-    barrier = SlotBarrier(['a'])
+    barrier = SlotBarrier(["a"])
 
     with pytest.raises(ValueError):
-        barrier.release('b')
+        barrier.release("b")
 
     with pytest.raises(ValueError):
-        barrier.release('a')
-        barrier.release('a')
+        barrier.release("a")
+        barrier.release("a")
 
     assert not barrier.locked
 
 
 async def test_slot_barrier_add_delete() -> None:
-    barrier = SlotBarrier(['a'])
+    barrier = SlotBarrier(["a"])
     assert barrier.locked
 
-    barrier.add('b')
-    barrier.release('a')
+    barrier.add("b")
+    barrier.release("a")
     assert barrier.locked
 
-    barrier.delete('b')
+    barrier.delete("b")
     assert not barrier.locked
 
 
@@ -258,12 +258,12 @@ async def test_event_multiple_receivers() -> None:
     t1 = event.wait()
     t2 = event.wait()
 
-    event.set('value')
+    event.set("value")
 
     r1, r2 = await asyncio.gather(t1, t2)
 
-    assert r1 == 'value'
-    assert r2 == 'value'
+    assert r1 == "value"
+    assert r2 == "value"
     assert event.is_set()
 
 
@@ -272,9 +272,9 @@ async def test_event_autoclear() -> None:
 
     t = event.wait()
 
-    event.set('value')
+    event.set("value")
 
     r = await t
 
-    assert r == 'value'
+    assert r == "value"
     assert not event.is_set()

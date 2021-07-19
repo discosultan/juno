@@ -34,9 +34,7 @@ async def main() -> None:
 
     # Load config.
     # NB: Careful with logging config. It contains sensitive data.
-    config_path = (
-        sys.argv[1] if len(sys.argv) >= 2 else full_path(__file__, 'config/default.json')
-    )
+    config_path = sys.argv[1] if len(sys.argv) >= 2 else full_path(__file__, "config/default.json")
     cfg = merge(
         {},
         config.from_json_file(config_path),
@@ -44,21 +42,21 @@ async def main() -> None:
     )
 
     # Configure logging.
-    log_level = cfg.get('log_level', 'info')
-    log_format = cfg.get('log_format', 'default')
-    log_outputs = cfg.get('log_outputs', ['stdout'])
-    log_directory = cfg.get('log_directory', 'logs')
+    log_level = cfg.get("log_level", "info")
+    log_format = cfg.get("log_format", "default")
+    log_outputs = cfg.get("log_outputs", ["stdout"])
+    log_directory = cfg.get("log_directory", "logs")
     logging.basicConfig(
         handlers=create_handlers(log_format, log_outputs, log_directory),
         level=logging.getLevelName(log_level.upper()),
     )
 
     try:
-        _log.info(f'version: {pkg_resources.get_distribution(juno.__name__)}')
+        _log.info(f"version: {pkg_resources.get_distribution(juno.__name__)}")
     except pkg_resources.DistributionNotFound:
         pass
 
-    _log.info(f'log level: {log_level}; format: {log_format}; outputs: {log_outputs}')
+    _log.info(f"log level: {log_level}; format: {log_format}; outputs: {log_outputs}")
 
     # Configure deps.
     container = Container()
@@ -78,29 +76,32 @@ async def main() -> None:
 
     # Load agents and plugins.
     agent_types: dict[str, type[Agent]] = map_concrete_module_types(agents)
-    plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
-    agent_ctxs: list[tuple[Agent, Any, list[Plugin]]] = [(
-        container.resolve(agent_types[c['type']]),
-        config.config_to_type(c, agent_types[c['type']].Config),
-        [container.resolve(plugin_types[p]) for p in c.get('plugins', [])],
-    ) for c in cfg['agents']]
+    plugin_types = map_plugin_types(config.list_names(cfg, "plugin"))
+    agent_ctxs: list[tuple[Agent, Any, list[Plugin]]] = [
+        (
+            container.resolve(agent_types[c["type"]]),
+            config.config_to_type(c, agent_types[c["type"]].Config),
+            [container.resolve(plugin_types[p]) for p in c.get("plugins", [])],
+        )
+        for c in cfg["agents"]
+    ]
 
     # Enter deps.
     async with container:
         # Run agents.
         await asyncio.gather(*(a.run(c, p) for a, c, p in agent_ctxs))
 
-    _log.info('main finished')
+    _log.info("main finished")
 
 
 try:
     asyncio.run(main())
 except asyncio.CancelledError:
-    _log.info('program cancelled')
+    _log.info("program cancelled")
 except KeyboardInterrupt:
-    _log.info('program interrupted by keyboard')
+    _log.info("program interrupted by keyboard")
 except BaseException:
-    _log.exception('unhandled error in program')
+    _log.exception("unhandled error in program")
     sys.exit(1)
 finally:
-    _log.info('program exiting')
+    _log.info("program exiting")

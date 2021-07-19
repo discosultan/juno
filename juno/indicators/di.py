@@ -5,14 +5,14 @@ from .dm import DM
 
 # Directional Indicator
 class DI:
-    plus_value: Decimal = Decimal('0.0')
-    minus_value: Decimal = Decimal('0.0')
+    plus_value: Decimal = Decimal("0.0")
+    minus_value: Decimal = Decimal("0.0")
 
     _dm: DM
-    _atr: Decimal = Decimal('0.0')
+    _atr: Decimal = Decimal("0.0")
     _per: Decimal
 
-    _prev_close: Decimal = Decimal('0.0')
+    _prev_close: Decimal = Decimal("0.0")
 
     _t: int = 0
     _t1: int = 2

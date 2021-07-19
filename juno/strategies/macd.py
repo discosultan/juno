@@ -13,9 +13,9 @@ class Macd(Signal):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
-                'signal_period': Int(1, 101),
-                'persistence': Int(0, 10),
+                ("short_period", "long_period"): Pair(Int(1, 100), operator.lt, Int(2, 101)),
+                "signal_period": Int(1, 101),
+                "persistence": Int(0, 10),
             }
         )
 

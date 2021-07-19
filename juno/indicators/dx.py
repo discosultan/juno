@@ -5,7 +5,7 @@ from .dm import DM
 
 # Directional Movement Index
 class DX:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _dm: DM
     _t: int = 0
     _t1: int

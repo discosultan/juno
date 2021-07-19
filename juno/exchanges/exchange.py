@@ -78,9 +78,7 @@ class Exchange(AbstractAsyncContextManager, ABC):
         raise NotImplementedError()
 
     @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         raise NotImplementedError()
         yield  # type: ignore
 

@@ -3,8 +3,8 @@ import logging
 
 from juno.exchanges import Exchange
 
-EXCHANGE = 'kraken'
-SYMBOL = 'btc-eur'
+EXCHANGE = "kraken"
+SYMBOL = "btc-eur"
 
 
 async def main() -> None:

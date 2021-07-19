@@ -22,10 +22,10 @@ _log = logging.getLogger(__name__)
 class Slack(Plugin):
     def __init__(self, events: Events, config: dict[str, Any]) -> None:
         slack_config = config.get(type(self).__name__.lower(), {})
-        if not (token := slack_config.get('token')):
-            raise ValueError('Missing token from config')
-        if not (channel_id := slack_config.get('channel_id')):
-            raise ValueError('Missing channel ID from config')
+        if not (token := slack_config.get("token")):
+            raise ValueError("Missing token from config")
+        if not (channel_id := slack_config.get("channel_id")):
+            raise ValueError("Missing channel ID from config")
 
         self._slack_client = AsyncWebClient(token=token)
         self._events = events
@@ -40,57 +40,66 @@ class Slack(Plugin):
 
         await self._slack_client.conversations_join(channel=self._channel_id)
 
-        @self._events.on(agent_name, 'starting')
+        @self._events.on(agent_name, "starting")
         async def on_starting(config: Any, state: Any, trader: Trader) -> None:
             nonlocal agent_state
             agent_state = state
-            await send_message(format_message('starting with config', format_as_config(config)))
+            await send_message(format_message("starting with config", format_as_config(config)))
 
-        @self._events.on(agent_name, 'positions_opened')
+        @self._events.on(agent_name, "positions_opened")
         async def on_positions_opened(positions: list[Position], summary: TradingSummary) -> None:
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
-                        'position',
-                        format_as_config(extract_public(p, exclude=['fills'])),
-                    ),
-                ) for p in positions)
+                *(
+                    send_message(
+                        format_message(
+                            f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
+                            "position",
+                            format_as_config(extract_public(p, exclude=["fills"])),
+                        ),
+                    )
+                    for p in positions
+                )
             )
 
-        @self._events.on(agent_name, 'positions_closed')
+        @self._events.on(agent_name, "positions_closed")
         async def on_positions_closed(positions: list[Position], summary: TradingSummary) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await asyncio.gather(
-                *(send_message(
-                    format_message(
-                        f'closed {"long" if isinstance(p, Position.Long) else "short"} '
-                        'position',
-                        format_as_config(extract_public(p, exclude=['open_fills', 'close_fills'])),
-                    ),
-                ) for p in positions)
+                *(
+                    send_message(
+                        format_message(
+                            f'closed {"long" if isinstance(p, Position.Long) else "short"} '
+                            "position",
+                            format_as_config(
+                                extract_public(p, exclude=["open_fills", "close_fills"])
+                            ),
+                        ),
+                    )
+                    for p in positions
+                )
             )
             await send_message(
-                format_message('summary', format_as_config(extract_public(summary)))
+                format_message("summary", format_as_config(extract_public(summary)))
             )
 
-        @self._events.on(agent_name, 'finished')
+        @self._events.on(agent_name, "finished")
         async def on_finished(summary: TradingSummary) -> None:
             await send_message(
                 format_message(
-                    'finished with summary', format_as_config(extract_public(summary)),
+                    "finished with summary",
+                    format_as_config(extract_public(summary)),
                 ),
             )
 
-        @self._events.on(agent_name, 'errored')
+        @self._events.on(agent_name, "errored")
         async def on_errored(exc: Exception) -> None:
-            await send_message(format_message('errored', exc_traceback(exc)))
+            await send_message(format_message("errored", exc_traceback(exc)))
 
-        @self._events.on(agent_name, 'message')
+        @self._events.on(agent_name, "message")
         async def on_message(message: str) -> None:
-            await send_message(format_message('received message', message))
+            await send_message(format_message("received message", message))
 
-        _log.info(f'activated for {agent_name} ({agent_type})')
+        _log.info(f"activated for {agent_name} ({agent_type})")
 
     async def _send_message(self, channel: str, msg: str) -> None:
         max_length = 40000
@@ -101,4 +110,4 @@ class Slack(Plugin):
             await self._slack_client.chat_postMessage(channel=channel, text=msg_slice)
 
     def _format_message(self, agent_name: str, title: str, content: Any) -> str:
-        return f'Agent {agent_name} {title}:\n```\n{content}\n```\n'
+        return f"Agent {agent_name} {title}:\n```\n{content}\n```\n"

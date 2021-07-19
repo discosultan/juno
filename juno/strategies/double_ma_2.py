@@ -15,11 +15,11 @@ class DoubleMA2(Signal):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
-                'neg_threshold': Uniform(Decimal('-1.000'), Decimal('-0.100')),
-                'pos_threshold': Uniform(Decimal('+0.100'), Decimal('+1.000')),
-                'short_ma': ma_choices,
-                'long_ma': ma_choices,
+                ("short_period", "long_period"): Pair(Int(1, 100), operator.lt, Int(2, 101)),
+                "neg_threshold": Uniform(Decimal("-1.000"), Decimal("-0.100")),
+                "pos_threshold": Uniform(Decimal("+0.100"), Decimal("+1.000")),
+                "short_ma": ma_choices,
+                "long_ma": ma_choices,
             }
         )
 

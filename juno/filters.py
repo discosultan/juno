@@ -10,13 +10,13 @@ from .math import round_half_up
 
 @dataclass
 class Price:
-    min: Decimal = Decimal('0.0')
-    max: Decimal = Decimal('0.0')  # 0 means disabled.
-    step: Decimal = Decimal('0.0')  # 0 means disabled.
+    min: Decimal = Decimal("0.0")
+    max: Decimal = Decimal("0.0")  # 0 means disabled.
+    step: Decimal = Decimal("0.0")  # 0 means disabled.
 
     def round_down(self, price: Decimal) -> Decimal:
         if price < self.min:
-            return Decimal('0.0')
+            return Decimal("0.0")
 
         if self.max > 0:
             price = min(price, self.max)
@@ -35,8 +35,8 @@ class Price:
 
 @dataclass
 class PercentPrice:
-    multiplier_up: Decimal = Decimal('Inf')
-    multiplier_down: Decimal = Decimal('0.0')
+    multiplier_up: Decimal = Decimal("Inf")
+    multiplier_down: Decimal = Decimal("0.0")
     avg_price_period: int = 0  # 0 means the last price is used.
 
     def valid(self, price: Decimal, weighted_average_price: Decimal) -> bool:
@@ -48,9 +48,9 @@ class PercentPrice:
 
 @dataclass
 class Size:
-    min: Decimal = Decimal('0.0')
-    max: Decimal = Decimal('0.0')  # 0 means disabled.
-    step: Decimal = Decimal('0.0')  # 0 means disabled.
+    min: Decimal = Decimal("0.0")
+    max: Decimal = Decimal("0.0")  # 0 means disabled.
+    step: Decimal = Decimal("0.0")  # 0 means disabled.
 
     def round_down(self, size: Decimal) -> Decimal:
         return self._round(size, ROUND_DOWN)
@@ -60,7 +60,7 @@ class Size:
 
     def _round(self, size: Decimal, rounding: str) -> Decimal:
         if size < self.min:
-            return Decimal('0.0')
+            return Decimal("0.0")
 
         if self.max > 0:
             size = min(size, self.max)
@@ -79,13 +79,13 @@ class Size:
     def validate(self, size: Decimal) -> None:
         if not self.valid(size):
             raise BadOrder(
-                f'Size {size} must be between [{self.min}; {self.max}] with a step of {self.step}'
+                f"Size {size} must be between [{self.min}; {self.max}] with a step of {self.step}"
             )
 
 
 @dataclass
 class MinNotional:
-    min_notional: Decimal = Decimal('0.0')
+    min_notional: Decimal = Decimal("0.0")
     apply_to_market: bool = False
     avg_price_period: int = 0  # 0 means the last price is used.
 
@@ -99,8 +99,8 @@ class MinNotional:
     def validate_limit(self, price: Decimal, size: Decimal) -> None:
         if not self.valid(price, size):
             raise BadOrder(
-                f'Price {price} * size {size} ({price * size}) must be between '
-                f'[{self.min_notional}; inf]'
+                f"Price {price} * size {size} ({price * size}) must be between "
+                f"[{self.min_notional}; inf]"
             )
 
     def validate_market(self, avg_price: Decimal, size: Decimal) -> None:
@@ -127,7 +127,4 @@ class Filters:
 
     def min_size(self, price: Decimal) -> Decimal:
         size = self.min_notional.min_size_for_price(price)
-        return (
-            self.size.round_down(size) if size > self.size.min
-            else self.size.round_up(size)
-        )
+        return self.size.round_down(size) if size > self.size.min else self.size.round_up(size)

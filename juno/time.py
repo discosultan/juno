@@ -38,32 +38,32 @@ def datetime_utcfromtimestamp_ms(ms: int) -> datetime:
 
 # Is assumed to be ordered by values descending.
 _INTERVAL_FACTORS = {
-    'y': YEAR_MS,
-    'M': MONTH_MS,
-    'w': WEEK_MS,
-    'd': DAY_MS,
-    'h': HOUR_MS,
-    'm': MIN_MS,
-    's': SEC_MS,
-    'ms': 1,
+    "y": YEAR_MS,
+    "M": MONTH_MS,
+    "w": WEEK_MS,
+    "d": DAY_MS,
+    "h": HOUR_MS,
+    "m": MIN_MS,
+    "s": SEC_MS,
+    "ms": 1,
 }
 
 
 def strfinterval(interval: int) -> str:
-    result = ''
+    result = ""
     remainder = interval
     for letter, factor in _INTERVAL_FACTORS.items():
         quotient, remainder = divmod(remainder, factor)
         if quotient > 0:
-            result += f'{quotient}{letter}'
+            result += f"{quotient}{letter}"
         if remainder == 0:
             break
-    return result if result else '0ms'
+    return result if result else "0ms"
 
 
 def strpinterval(interval: str) -> int:
     result = 0
-    for group in re.findall(r'(\d+[a-zA-Z]+)', interval):
+    for group in re.findall(r"(\d+[a-zA-Z]+)", interval):
         result += _calc_interval_group(group)
     return result
 
@@ -72,11 +72,11 @@ def _calc_interval_group(group: str) -> int:
     for i in range(1, len(group)):
         if group[i].isalpha():
             return int(group[:i]) * _INTERVAL_FACTORS[group[i:]]
-    raise ValueError(f'Invalid interval group: {group}')
+    raise ValueError(f"Invalid interval group: {group}")
 
 
 def strfspan(start: int, end: int) -> str:
-    return f'{datetime_utcfromtimestamp_ms(start)} - {datetime_utcfromtimestamp_ms(end)}'
+    return f"{datetime_utcfromtimestamp_ms(start)} - {datetime_utcfromtimestamp_ms(end)}"
 
 
 def strftimestamp(timestamp: int) -> str:

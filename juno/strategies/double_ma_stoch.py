@@ -44,14 +44,12 @@ class DoubleMAStoch(Signal):
             ma_advice = self._double_ma.advice
 
             # Exit conditions.
-            if (
-                self._advice is Advice.LONG
-                and (ma_advice is Advice.SHORT or self._stoch.overbought)
+            if self._advice is Advice.LONG and (
+                ma_advice is Advice.SHORT or self._stoch.overbought
             ):
                 self._advice = Advice.LIQUIDATE
-            elif (
-                self._advice is Advice.SHORT
-                and (ma_advice is Advice.LONG or self._stoch.oversold)
+            elif self._advice is Advice.SHORT and (
+                ma_advice is Advice.LONG or self._stoch.oversold
             ):
                 self._advice = Advice.LIQUIDATE
 

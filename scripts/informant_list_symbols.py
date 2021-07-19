@@ -7,20 +7,20 @@ from juno.exchanges import Exchange
 from juno.storages import SQLite
 
 parser = argparse.ArgumentParser()
-parser.add_argument('exchange', nargs='?', default='binance')
+parser.add_argument("exchange", nargs="?", default="binance")
 parser.add_argument(
-    '-m',
-    '--margin',
-    action='store_true',
+    "-m",
+    "--margin",
+    action="store_true",
     default=None,
-    help='if set, must support cross margin trading',
+    help="if set, must support cross margin trading",
 )
 parser.add_argument(
-    '-i',
-    '--isolated',
-    action='store_true',
+    "-i",
+    "--isolated",
+    action="store_true",
     default=None,
-    help='if set, must support isolated margin trading',
+    help="if set, must support isolated margin trading",
 )
 args = parser.parse_args()
 

@@ -6,7 +6,7 @@ from decimal import Decimal
 
 # Kaufman's Adaptive Moving Average
 class Kama:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
 
     _short_alpha: Decimal
     _long_alpha: Decimal
@@ -21,10 +21,10 @@ class Kama:
 
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'Invalid period ({period})')
+            raise ValueError(f"Invalid period ({period})")
 
-        self._short_alpha = Decimal('2.0') / (Decimal('2.0') + 1)
-        self._long_alpha = Decimal('2.0') / (Decimal('30.0') + 1)
+        self._short_alpha = Decimal("2.0") / (Decimal("2.0") + 1)
+        self._long_alpha = Decimal("2.0") / (Decimal("30.0") + 1)
 
         self._prices = deque(maxlen=period)
         self._diffs = deque(maxlen=period)
@@ -52,10 +52,10 @@ class Kama:
             # TODO: Can optimize this.
             diff_sum = sum(self._diffs)
             if diff_sum == 0:
-                er = Decimal('1.0')
+                er = Decimal("1.0")
             else:
                 er = abs(price - self._prices[0]) / diff_sum
-            sc = (er * (self._short_alpha - self._long_alpha) + self._long_alpha)**2
+            sc = (er * (self._short_alpha - self._long_alpha) + self._long_alpha) ** 2
 
             self.value += sc * (price - self.value)
 

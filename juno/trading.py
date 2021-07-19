@@ -73,9 +73,8 @@ class Position(ModuleType):
 
         @property
         def base_gain(self) -> Decimal:
-            return (
-                Fill.total_size(self.open_fills)
-                - Fill.total_fee(self.open_fills, unpack_base_asset(self.symbol))
+            return Fill.total_size(self.open_fills) - Fill.total_fee(
+                self.open_fills, unpack_base_asset(self.symbol)
             )
 
         @property
@@ -84,9 +83,8 @@ class Position(ModuleType):
 
         @property
         def gain(self) -> Decimal:
-            return (
-                Fill.total_quote(self.close_fills)
-                - Fill.total_fee(self.close_fills, unpack_quote_asset(self.symbol))
+            return Fill.total_quote(self.close_fills) - Fill.total_fee(
+                self.close_fills, unpack_quote_asset(self.symbol)
             )
 
         @property
@@ -120,9 +118,7 @@ class Position(ModuleType):
         time: Timestamp
         fills: list[Fill]
 
-        def close(
-            self, time: Timestamp, fills: list[Fill], reason: CloseReason
-        ) -> Position.Long:
+        def close(self, time: Timestamp, fills: list[Fill], reason: CloseReason) -> Position.Long:
             return Position.Long(
                 exchange=self.exchange,
                 symbol=self.symbol,
@@ -142,9 +138,8 @@ class Position(ModuleType):
 
         @property
         def base_gain(self) -> Decimal:
-            return (
-                Fill.total_size(self.fills)
-                - Fill.total_fee(self.fills, unpack_base_asset(self.symbol))
+            return Fill.total_size(self.fills) - Fill.total_fee(
+                self.fills, unpack_base_asset(self.symbol)
             )
 
     @dataclass
@@ -192,7 +187,7 @@ class Position(ModuleType):
         def roi(self) -> Decimal:
             # TODO: Because we don't simulate margin call liquidation, ROI can go negative.
             # For now, we simply cap the value to min -1.
-            return max(self.profit / self.cost, Decimal('-1.0'))
+            return max(self.profit / self.cost, Decimal("-1.0"))
 
         @property
         def annualized_roi(self) -> Decimal:
@@ -221,8 +216,7 @@ class Position(ModuleType):
         fills: list[Fill]
 
         def close(
-            self, interest: Decimal, time: Timestamp, fills: list[Fill],
-            reason: CloseReason
+            self, interest: Decimal, time: Timestamp, fills: list[Fill], reason: CloseReason
         ) -> Position.Short:
             return Position.Short(
                 exchange=self.exchange,
@@ -238,9 +232,8 @@ class Position(ModuleType):
             )
 
         def quote_delta(self) -> Decimal:
-            return (
-                Fill.total_quote(self.fills)
-                - Fill.total_fee(self.fills, unpack_quote_asset(self.symbol))
+            return Fill.total_quote(self.fills) - Fill.total_fee(
+                self.fills, unpack_quote_asset(self.symbol)
             )
 
         @property
@@ -276,7 +269,7 @@ class TradingSummary:
 
     @property
     def profit(self) -> Decimal:
-        return sum((p.profit for p in self.positions), Decimal('0.0'))
+        return sum((p.profit for p in self.positions), Decimal("0.0"))
 
     def append_position(self, pos: Position.Closed) -> None:
         self.positions.append(pos)
@@ -312,8 +305,13 @@ class SimulatedPositionMixin(ABC):
         pass
 
     def open_simulated_long_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal,
-        log: bool = True
+        self,
+        exchange: str,
+        symbol: str,
+        time: Timestamp,
+        price: Decimal,
+        quote: Decimal,
+        log: bool = True,
     ) -> Position.OpenLong:
         base_asset, _ = unpack_assets(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -328,17 +326,19 @@ class SimulatedPositionMixin(ABC):
             exchange=exchange,
             symbol=symbol,
             time=time,
-            fills=[Fill(
-                price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
-            )],
+            fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
         )
         if log:
-            _log.info(f'{symbol} simulated long position opened at {strftimestamp(time)}')
+            _log.info(f"{symbol} simulated long position opened at {strftimestamp(time)}")
         return open_position
 
     def close_simulated_long_position(
-        self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason,
-        log: bool = True
+        self,
+        position: Position.OpenLong,
+        time: Timestamp,
+        price: Decimal,
+        reason: CloseReason,
+        log: bool = True,
     ) -> Position.Long:
         _, quote_asset = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -349,21 +349,24 @@ class SimulatedPositionMixin(ABC):
 
         closed_position = position.close(
             time=time,
-            fills=[Fill(
-                price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
-            )],
+            fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset)],
             reason=reason,
         )
         if log:
             _log.info(
-                f'{closed_position.symbol} simulated long position closed at '
-                f'{strftimestamp(time)} due to {reason.name}'
+                f"{closed_position.symbol} simulated long position closed at "
+                f"{strftimestamp(time)} due to {reason.name}"
             )
         return closed_position
 
     def open_simulated_short_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
-        log: bool = True
+        self,
+        exchange: str,
+        symbol: str,
+        time: Timestamp,
+        price: Decimal,
+        collateral: Decimal,
+        log: bool = True,
     ) -> Position.OpenShort:
         base_asset, quote_asset = unpack_assets(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -385,17 +388,19 @@ class SimulatedPositionMixin(ABC):
             collateral=collateral,
             borrowed=borrowed,
             time=time,
-            fills=[Fill(
-                price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset
-            )],
+            fills=[Fill(price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset)],
         )
         if log:
-            _log.info(f'{symbol} simulated short position opened at {strftimestamp(time)}')
+            _log.info(f"{symbol} simulated short position opened at {strftimestamp(time)}")
         return open_position
 
     def close_simulated_short_position(
-        self, position: Position.OpenShort, time: Timestamp, price: Decimal,
-        reason: CloseReason, log: bool = True
+        self,
+        position: Position.OpenShort,
+        time: Timestamp,
+        price: Decimal,
+        reason: CloseReason,
+        log: bool = True,
     ) -> Position.Short:
         base_asset, _ = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -419,15 +424,13 @@ class SimulatedPositionMixin(ABC):
         closed_position = position.close(
             time=time,
             interest=interest,
-            fills=[Fill(
-                price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
-            )],
+            fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
             reason=reason,
         )
         if log:
             _log.info(
-                f'{closed_position.symbol} simulated short position closed at '
-                f'{strftimestamp(time)} due to {reason.name}'
+                f"{closed_position.symbol} simulated short position closed at "
+                f"{strftimestamp(time)} due to {reason.name}"
             )
         return closed_position
 
@@ -457,13 +460,13 @@ class PositionMixin(ABC):
         self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
     ) -> Position.OpenLong:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'opening position {symbol} {mode.name} long with {quote} quote')
+        _log.info(f"opening position {symbol} {mode.name} long with {quote} quote")
 
         res = await self.broker.buy(
             exchange=exchange,
             symbol=symbol,
             quote=quote,
-            account='spot',
+            account="spot",
             test=mode is TradingMode.PAPER,
         )
 
@@ -473,7 +476,7 @@ class PositionMixin(ABC):
             time=res.time,
             fills=res.fills,
         )
-        _log.info(f'opened position {open_position.symbol} {mode.name} long')
+        _log.info(f"opened position {open_position.symbol} {mode.name} long")
         _log.debug(extract_public(open_position))
         return open_position
 
@@ -481,13 +484,13 @@ class PositionMixin(ABC):
         self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Long:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'closing position {position.symbol} {mode.name} long')
+        _log.info(f"closing position {position.symbol} {mode.name} long")
 
         res = await self.broker.sell(
             exchange=position.exchange,
             symbol=position.symbol,
             size=position.base_gain,
-            account='spot',
+            account="spot",
             test=mode is TradingMode.PAPER,
         )
 
@@ -496,7 +499,7 @@ class PositionMixin(ABC):
             fills=res.fills,
             reason=reason,
         )
-        _log.info(f'closed position {closed_position.symbol} {mode.name} long')
+        _log.info(f"closed position {closed_position.symbol} {mode.name} long")
         _log.debug(extract_public(closed_position))
         return closed_position
 
@@ -504,7 +507,7 @@ class PositionMixin(ABC):
         self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
     ) -> Position.OpenShort:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'opening position {symbol} {mode.name} short with {collateral} collateral')
+        _log.info(f"opening position {symbol} {mode.name} short with {collateral} collateral")
 
         base_asset, quote_asset = unpack_assets(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -521,12 +524,12 @@ class PositionMixin(ABC):
             ).limit
             borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
         else:
-            _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
+            _log.info(f"transferring {collateral} {quote_asset} from spot to {symbol} account")
             await self.user.transfer(
                 exchange=exchange,
                 asset=quote_asset,
                 size=collateral,
-                from_account='spot',
+                from_account="spot",
                 to_account=symbol,
             )
 
@@ -540,8 +543,8 @@ class PositionMixin(ABC):
                 )
             except RetryError:
                 _log.warning(
-                    'borrowable 0 even after retries; trying once more by first getting quote '
-                    'asset max borrowable; hopefully this solves any caching issue on the exchange'
+                    "borrowable 0 even after retries; trying once more by first getting quote "
+                    "asset max borrowable; hopefully this solves any caching issue on the exchange"
                 )
                 await self.user.get_max_borrowable(
                     exchange=exchange, account=symbol, asset=quote_asset
@@ -553,7 +556,7 @@ class PositionMixin(ABC):
             borrowed = _calculate_borrowed(
                 filters, margin_multiplier, borrowable, collateral, price
             )
-            _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
+            _log.info(f"borrowing {borrowed} {base_asset} from {exchange}")
             await self.user.borrow(
                 exchange=exchange,
                 asset=base_asset,
@@ -565,7 +568,7 @@ class PositionMixin(ABC):
             exchange=exchange,
             symbol=symbol,
             size=borrowed,
-            account=symbol if mode is TradingMode.LIVE else 'spot',
+            account=symbol if mode is TradingMode.LIVE else "spot",
             test=mode is TradingMode.PAPER,
         )
 
@@ -577,7 +580,7 @@ class PositionMixin(ABC):
             time=res.time,
             fills=res.fills,
         )
-        _log.info(f'opened position {open_position.symbol} {mode.name} short')
+        _log.info(f"opened position {open_position.symbol} {mode.name} short")
         _log.debug(extract_public(open_position))
         return open_position
 
@@ -597,7 +600,7 @@ class PositionMixin(ABC):
         )
         if borrowable == 0:
             raise _UnexpectedExchangeResult(
-                f'Borrowable amount 0 for account {account} asset {asset}'
+                f"Borrowable amount 0 for account {account} asset {asset}"
             )
         return borrowable
 
@@ -605,7 +608,7 @@ class PositionMixin(ABC):
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Short:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'closing position {position.symbol} {mode.name} short')
+        _log.info(f"closing position {position.symbol} {mode.name} short")
 
         base_asset, quote_asset = unpack_assets(position.symbol)
         asset_info = self.informant.get_asset_info(exchange=position.exchange, asset=base_asset)
@@ -623,11 +626,13 @@ class PositionMixin(ABC):
                 precision=asset_info.precision,
             )
         else:
-            interest = (await self.user.get_balance(
-                exchange=position.exchange,
-                account=position.symbol,
-                asset=base_asset,
-            )).interest
+            interest = (
+                await self.user.get_balance(
+                    exchange=position.exchange,
+                    account=position.symbol,
+                    asset=base_asset,
+                )
+            ).interest
 
         # Add an extra interest tick in case it is about to get ticked.
         interest_per_tick = borrow_info.hourly_interest_rate * position.borrowed
@@ -638,7 +643,7 @@ class PositionMixin(ABC):
             exchange=position.exchange,
             symbol=position.symbol,
             size=size,
-            account=position.symbol if mode is TradingMode.LIVE else 'spot',
+            account=position.symbol if mode is TradingMode.LIVE else "spot",
             test=mode is TradingMode.PAPER,
             ensure_size=True,
         )
@@ -650,7 +655,7 @@ class PositionMixin(ABC):
         )
         if mode is TradingMode.LIVE:
             _log.info(
-                f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
+                f"repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}"
             )
             await self.user.repay(
                 exchange=position.exchange,
@@ -671,19 +676,19 @@ class PositionMixin(ABC):
             )
             if new_balance.repay > 0:
                 _log.warning(
-                    f'did not repay enough; still {new_balance.repay} {base_asset} to be repaid'
+                    f"did not repay enough; still {new_balance.repay} {base_asset} to be repaid"
                 )
                 if new_balance.available >= new_balance.repay:
                     _log.info(
-                        f'can repay {new_balance.repay} {base_asset} without requiring more funds'
+                        f"can repay {new_balance.repay} {base_asset} without requiring more funds"
                     )
                 else:
                     # TODO: Implement
                     _log.error(
-                        f'need to buy more {base_asset} to repay {new_balance.repay} but not '
-                        'implemented'
+                        f"need to buy more {base_asset} to repay {new_balance.repay} but not "
+                        "implemented"
                     )
-                    raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
+                    raise Exception(f"Did not repay enough {base_asset}; balance {new_balance}")
                 await self.user.repay(
                     exchange=position.exchange,
                     asset=base_asset,
@@ -699,7 +704,7 @@ class PositionMixin(ABC):
 
             transfer = closed_position.collateral + closed_position.profit
             _log.info(
-                f'transferring {transfer} {quote_asset} from {position.symbol} to spot account'
+                f"transferring {transfer} {quote_asset} from {position.symbol} to spot account"
             )
             transfer_tasks = [
                 self.user.transfer(
@@ -707,24 +712,26 @@ class PositionMixin(ABC):
                     asset=quote_asset,
                     size=transfer,
                     from_account=position.symbol,
-                    to_account='spot',
+                    to_account="spot",
                 ),
             ]
             if new_balance.available > 0:
                 _log.info(
-                    f'transferring {new_balance.available} {base_asset} from {position.symbol} to '
-                    'spot account'
+                    f"transferring {new_balance.available} {base_asset} from {position.symbol} to "
+                    "spot account"
                 )
-                transfer_tasks.append(self.user.transfer(
-                    exchange=position.exchange,
-                    asset=base_asset,
-                    size=new_balance.available,
-                    from_account=position.symbol,
-                    to_account='spot',
-                ))
+                transfer_tasks.append(
+                    self.user.transfer(
+                        exchange=position.exchange,
+                        asset=base_asset,
+                        size=new_balance.available,
+                        from_account=position.symbol,
+                        to_account="spot",
+                    )
+                )
             await asyncio.gather(*transfer_tasks)
 
-        _log.info(f'closed position {closed_position.symbol} {mode.name} short')
+        _log.info(f"closed position {closed_position.symbol} {mode.name} short")
         _log.debug(extract_public(closed_position))
         return closed_position
 
@@ -746,7 +753,7 @@ class PositionMixin(ABC):
         )
         if balance.borrowed == original_borrowed:
             raise _UnexpectedExchangeResult(
-                f'Borrowed amount still {original_borrowed} for account {account} asset {asset}'
+                f"Borrowed amount still {original_borrowed} for account {account} asset {asset}"
             )
         return balance
 
@@ -756,10 +763,10 @@ def _calculate_borrowed(
 ) -> Decimal:
     collateral_size = filters.size.round_down(collateral / price)
     if collateral_size == 0:
-        raise BadOrder('Collateral base size 0')
+        raise BadOrder("Collateral base size 0")
     borrowed = collateral_size * (margin_multiplier - 1)
     if borrowed == 0:
-        raise BadOrder('Borrowed 0; incorrect margin multiplier?')
+        raise BadOrder("Borrowed 0; incorrect margin multiplier?")
     return min(borrowed, limit)
 
 
@@ -777,19 +784,18 @@ class StartMixin(ABC):
         pass
 
     async def request_candle_start(
-        self, start: Optional[Timestamp], exchange: str, symbols: Sequence[str],
-        interval: int
+        self, start: Optional[Timestamp], exchange: str, symbols: Sequence[str], interval: int
     ) -> int:
         """Figures out an appropriate candle start time based on the requested start.
-           If no specific start is requested, finds the earliest start of the interval where all
-           candle intervals are available.
-           If start is specified, floors the time to interval if interval is <= DAY_MS, otherwise
-           floors to DAY_MS.
+        If no specific start is requested, finds the earliest start of the interval where all
+        candle intervals are available.
+        If start is specified, floors the time to interval if interval is <= DAY_MS, otherwise
+        floors to DAY_MS.
         """
         if len(symbols) == 0:
-            raise ValueError('Must have at least one symbol for requesting start')
+            raise ValueError("Must have at least one symbol for requesting start")
         if start is not None and start < 0:
-            raise ValueError('Start cannot be negative')
+            raise ValueError("Start cannot be negative")
 
         if start is None:
             symbol_first_candles = await gather_dict(
@@ -824,11 +830,11 @@ class StartMixin(ABC):
             result = floor_multiple_offset(start, interval, interval_offset)
 
         if start is None:
-            _log.info(f'start not specified; start set to {strftimestamp(result)}')
+            _log.info(f"start not specified; start set to {strftimestamp(result)}")
         elif result != start:
             _log.info(
-                f'start specified as {strftimestamp(start)}; adjusted to {strftimestamp(result)}'
+                f"start specified as {strftimestamp(start)}; adjusted to {strftimestamp(result)}"
             )
         else:
-            _log.info(f'start specified as {strftimestamp(start)}; no adjustment needed')
+            _log.info(f"start specified as {strftimestamp(start)}; no adjustment needed")
         return result

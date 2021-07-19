@@ -5,7 +5,7 @@ from .sma import Sma
 
 # Smoothed Moving Average
 class Smma:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _sma: Sma
     _weight: int
     _t: int = 0

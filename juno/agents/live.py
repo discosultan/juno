@@ -76,11 +76,13 @@ class Live(Agent):
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
             stop_loss=(
-                None if config.stop_loss is None
+                None
+                if config.stop_loss is None
                 else get_module_type_constructor(stop_loss, config.stop_loss)
             ),
             take_profit=(
-                None if config.take_profit is None
+                None
+                if config.take_profit is None
                 else get_module_type_constructor(take_profit, config.take_profit)
             ),
             mode=TradingMode.LIVE,
@@ -89,15 +91,15 @@ class Live(Agent):
         if not state.result:
             state.result = await trader.initialize(trader_config)
 
-        _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
-        await self._events.emit(state.name, 'starting', config, state, trader)
+        _log.info(f"{self.get_name(state)}: running with config {format_as_config(config)}")
+        await self._events.emit(state.name, "starting", config, state, trader)
 
         await trader.run(state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:
         assert state.result
         _log.info(
-            f'{self.get_name(state)}: finished with result '
-            f'{format_as_config(extract_public(state.result.summary))}'
+            f"{self.get_name(state)}: finished with result "
+            f"{format_as_config(extract_public(state.result.summary))}"
         )
-        await self._events.emit(state.name, 'finished', state.result.summary)
+        await self._events.emit(state.name, "finished", state.result.summary)

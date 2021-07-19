@@ -15,8 +15,8 @@ class Stoch(Oscillator):
         k_period: int,
         k_sma_period: int,
         d_sma_period: int,
-        up_threshold: Decimal = Decimal('80.0'),
-        down_threshold: Decimal = Decimal('20.0'),
+        up_threshold: Decimal = Decimal("80.0"),
+        down_threshold: Decimal = Decimal("20.0"),
     ) -> None:
         assert k_period > 0 and k_sma_period > 0 and d_sma_period > 0
         assert up_threshold >= down_threshold

@@ -7,8 +7,8 @@ from juno.components import Informant
 from juno.exchanges import Exchange
 from juno.storages import SQLite
 
-EXCHANGE = 'binance'
-SYMBOL = 'eth-btc'
+EXCHANGE = "binance"
+SYMBOL = "eth-btc"
 
 DUMP_AS_JSON = False
 
@@ -23,7 +23,7 @@ async def main() -> None:
         logging.info(filters)
 
     if DUMP_AS_JSON:
-        with open(f'{EXCHANGE}_{SYMBOL}_fees_filters.json', 'w') as f:
+        with open(f"{EXCHANGE}_{SYMBOL}_fees_filters.json", "w") as f:
             json.dump((asdict(fees), asdict(filters)), f, indent=4)
 
 

@@ -6,10 +6,10 @@ from .stop_loss import StopLoss
 from .trailing import Trailing
 
 __all__ = [
-    'Basic',
-    'BasicPlusTrailing',
-    'Legacy',
-    'Noop',
-    'StopLoss',
-    'Trailing',
+    "Basic",
+    "BasicPlusTrailing",
+    "Legacy",
+    "Noop",
+    "StopLoss",
+    "Trailing",
 ]

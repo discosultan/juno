@@ -9,9 +9,9 @@ from .stop_loss import StopLoss
 class Trailing(StopLoss):
     _up_threshold_factor: Decimal
     _down_threshold_factor: Decimal
-    _highest_close_since_position = Decimal('0.0')
-    _lowest_close_since_position = Decimal('Inf')
-    _close: Decimal = Decimal('0.0')
+    _highest_close_since_position = Decimal("0.0")
+    _lowest_close_since_position = Decimal("Inf")
+    _close: Decimal = Decimal("0.0")
 
     def __init__(self, up_threshold: Decimal, down_threshold: Optional[Decimal] = None) -> None:
         if down_threshold is None:

@@ -30,7 +30,7 @@ from juno.utils import unpack_assets
 
 _log = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
@@ -52,9 +52,9 @@ class Informant:
         self._get_time_ms = get_time_ms
         self._cache_time = cache_time
 
-        self._synced_data: dict[str, dict[type[_Timestamped[Any]], _Timestamped[Any]]] = (
-            defaultdict(dict)
-        )
+        self._synced_data: dict[
+            str, dict[type[_Timestamped[Any]], _Timestamped[Any]]
+        ] = defaultdict(dict)
 
     async def __aenter__(self) -> Informant:
         exchange_info_synced_evt = asyncio.Event()
@@ -62,7 +62,7 @@ class Informant:
 
         self._exchange_info_sync_task = create_task_sigint_on_exception(
             self._periodic_sync_for_exchanges(
-                'exchange_info',
+                "exchange_info",
                 _Timestamped[ExchangeInfo],
                 exchange_info_synced_evt,
                 lambda e: e.get_exchange_info(),
@@ -74,7 +74,7 @@ class Informant:
         #       and then get tickers by symbols.
         self._tickers_sync_task = create_task_sigint_on_exception(
             self._periodic_sync_for_exchanges(
-                'tickers',
+                "tickers",
                 _Timestamped[dict[str, Ticker]],
                 tickers_synced_evt,
                 lambda e: e.map_tickers(),
@@ -86,7 +86,7 @@ class Informant:
             exchange_info_synced_evt.wait(),
             tickers_synced_evt.wait(),
         )
-        _log.info('ready')
+        _log.info("ready")
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
@@ -94,30 +94,30 @@ class Informant:
 
     def get_asset_info(self, exchange: str, asset: str) -> AssetInfo:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        return exchange_info.assets.get('__all__') or exchange_info.assets[asset]
+        return exchange_info.assets.get("__all__") or exchange_info.assets[asset]
 
     def get_fees_filters(self, exchange: str, symbol: str) -> tuple[Fees, Filters]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        fees = exchange_info.fees.get('__all__') or exchange_info.fees[symbol]
-        filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]
+        fees = exchange_info.fees.get("__all__") or exchange_info.fees[symbol]
+        filters = exchange_info.filters.get("__all__") or exchange_info.filters[symbol]
         return fees, filters
 
     def get_borrow_info(self, exchange: str, asset: str, account: str) -> BorrowInfo:
-        assert account != 'spot'
+        assert account != "spot"
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         borrow_info = (
-            exchange_info.borrow_info.get('__all__') or exchange_info.borrow_info[account]
+            exchange_info.borrow_info.get("__all__") or exchange_info.borrow_info[account]
         )
-        return borrow_info.get('__all__') or borrow_info[asset]
+        return borrow_info.get("__all__") or borrow_info[asset]
 
     # TODO: Do we need this? And the borrow param?
     def list_assets(
         self, exchange: str, patterns: Optional[list[str]] = None, borrow: bool = False
     ) -> list[str]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_assets = {a: None for a in itertools.chain(
-            *(map(unpack_assets, exchange_info.filters.keys()))
-        )}
+        all_assets = {
+            a: None for a in itertools.chain(*(map(unpack_assets, exchange_info.filters.keys())))
+        }
 
         result = (a for a in all_assets.keys())
 
@@ -147,18 +147,15 @@ class Informant:
             matching_symbols = {s for p in patterns for s in fnmatch.filter(all_symbols, p)}
             result = (s for s in result if s in matching_symbols)
         if spot is not None:
-            result = (
-                t for t in result
-                if exchange_info.filters[t.symbol].spot == spot
-            )
+            result = (t for t in result if exchange_info.filters[t.symbol].spot == spot)
         if cross_margin is not None:
             result = (
-                t for t in result
-                if exchange_info.filters[t.symbol].cross_margin == cross_margin
+                t for t in result if exchange_info.filters[t.symbol].cross_margin == cross_margin
             )
         if isolated_margin is not None:
             result = (
-                t for t in result
+                t
+                for t in result
                 if exchange_info.filters[t.symbol].isolated_margin == isolated_margin
             )
 
@@ -185,22 +182,20 @@ class Informant:
             )
         if exclude_symbol_patterns:
             result = (
-                (s, t) for s, t in result
+                (s, t)
+                for s, t in result
                 if not any(fnmatch.fnmatch(s, p) for p in exclude_symbol_patterns)
             )
         if spot is not None:
-            result = (
-                (s, t) for s, t in result
-                if exchange_info.filters[s].spot == spot
-            )
+            result = ((s, t) for s, t in result if exchange_info.filters[s].spot == spot)
         if cross_margin is not None:
             result = (
-                (s, t) for s, t in result
-                if exchange_info.filters[s].cross_margin == cross_margin
+                (s, t) for s, t in result if exchange_info.filters[s].cross_margin == cross_margin
             )
         if isolated_margin is not None:
             result = (
-                (s, t) for s, t in result
+                (s, t)
+                for s, t in result
                 if exchange_info.filters[s].isolated_margin == isolated_margin
             )
 
@@ -216,13 +211,17 @@ class Informant:
         return list(result)
 
     async def _periodic_sync_for_exchanges(
-        self, key: str, type_: type[_Timestamped[T]], initial_sync_event: asyncio.Event,
-        fetch: Callable[[Exchange], Awaitable[T]], exchanges: list[str]
+        self,
+        key: str,
+        type_: type[_Timestamped[T]],
+        initial_sync_event: asyncio.Event,
+        fetch: Callable[[Exchange], Awaitable[T]],
+        exchanges: list[str],
     ) -> None:
         period = self._cache_time
         _log.info(
             f'starting periodic sync of {key} for {", ".join(exchanges)} every '
-            f'{strfinterval(period)}'
+            f"{strfinterval(period)}"
         )
         while True:
             await asyncio.gather(
@@ -239,28 +238,27 @@ class Informant:
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _sync_for_exchange(
-        self, exchange: str, key: str, type_: type[_Timestamped[T]],
-        fetch: Callable[[Exchange], Awaitable[T]]
+        self,
+        exchange: str,
+        key: str,
+        type_: type[_Timestamped[T]],
+        fetch: Callable[[Exchange], Awaitable[T]],
     ) -> None:
         now = self._get_time_ms()
-        item = await self._storage.get(
-            shard=exchange,
-            key=key,
-            type_=type_
-        )
+        item = await self._storage.get(shard=exchange, key=key, type_=type_)
         if not item:
             _log.info(
-                f'local {exchange} {get_name(type_)} missing; updating by fetching from exchange'
+                f"local {exchange} {get_name(type_)} missing; updating by fetching from exchange"
             )
             item = await self._fetch_from_exchange_and_cache(exchange, key, fetch, now)
         elif now >= item.time + self._cache_time:
             _log.info(
-                f'local {exchange} {get_name(type_)} out-of-date; updating by fetching from '
-                'exchange'
+                f"local {exchange} {get_name(type_)} out-of-date; updating by fetching from "
+                "exchange"
             )
             item = await self._fetch_from_exchange_and_cache(exchange, key, fetch, now)
         else:
-            _log.info(f'updating {exchange} {get_name(type_)} by fetching from storage')
+            _log.info(f"updating {exchange} {get_name(type_)} by fetching from storage")
         self._synced_data[exchange][type_] = item
 
     async def _fetch_from_exchange_and_cache(

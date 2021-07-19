@@ -10,13 +10,13 @@ from juno.time import strftimestamp, strptimestamp
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    '--end',
+    "--end",
     type=strptimestamp,
     default=None,
 )
 parser.add_argument(
-    '--dump',
-    action='store_true',
+    "--dump",
+    action="store_true",
     default=False,
 )
 args = parser.parse_args()
@@ -28,50 +28,54 @@ async def main() -> None:
             exchange.list_deposit_history(end=args.end),
             exchange.list_withdraw_history(end=args.end),
         )
-    raw_deposits.sort(key=lambda x: x['insertTime'])
-    raw_withdrawals.sort(key=lambda x: x['applyTime'])
+    raw_deposits.sort(key=lambda x: x["insertTime"])
+    raw_withdrawals.sort(key=lambda x: x["applyTime"])
 
     deposits = []
     for deposit in raw_deposits:
-        status = deposit_status(deposit['status'])
-        deposits.append({
-            'Date(UTC)': timestamp(deposit['insertTime']),
-            'Amount': deposit['amount'],
-            'Coin': deposit['coin'],
-            'Status': status,
-            'Transaction ID': deposit['txId'],
-        })
+        status = deposit_status(deposit["status"])
+        deposits.append(
+            {
+                "Date(UTC)": timestamp(deposit["insertTime"]),
+                "Amount": deposit["amount"],
+                "Coin": deposit["coin"],
+                "Status": status,
+                "Transaction ID": deposit["txId"],
+            }
+        )
 
     withdrawals = []
     for withdrawal in raw_withdrawals:
-        status = withdraw_status(withdrawal['status'])
-        withdrawals.append({
-            'Date(UTC)': withdrawal['applyTime'],
-            'Amount': withdrawal['amount'],
-            'Coin': withdrawal['coin'],
-            'Status': status,
-            'Fee': withdrawal['transactionFee'],
-            'Transaction ID': withdrawal['txId'],
-        })
+        status = withdraw_status(withdrawal["status"])
+        withdrawals.append(
+            {
+                "Date(UTC)": withdrawal["applyTime"],
+                "Amount": withdrawal["amount"],
+                "Coin": withdrawal["coin"],
+                "Status": status,
+                "Fee": withdrawal["transactionFee"],
+                "Transaction ID": withdrawal["txId"],
+            }
+        )
 
-    logging.info('DEPOSITS')
+    logging.info("DEPOSITS")
     logging.info(json.dumps(deposits, 4))
-    logging.info('WITHDRAWALS')
+    logging.info("WITHDRAWALS")
     logging.info(json.dumps(withdrawals, 4))
 
     if args.dump:
-        with open('crypto_deposits.csv', 'w', newline='') as csvfile:
+        with open("crypto_deposits.csv", "w", newline="") as csvfile:
             writer = csv.DictWriter(
                 csvfile,
-                ['Date(UTC)', 'Amount', 'Coin', 'Status', 'Transaction ID'],
+                ["Date(UTC)", "Amount", "Coin", "Status", "Transaction ID"],
             )
             writer.writeheader()
             writer.writerows(deposits)
 
-        with open('crypto_withdrawals.csv', 'w', newline='') as csvfile:
+        with open("crypto_withdrawals.csv", "w", newline="") as csvfile:
             writer = csv.DictWriter(
                 csvfile,
-                ['Date(UTC)', 'Amount', 'Coin', 'Status', 'Fee', 'Transaction ID'],
+                ["Date(UTC)", "Amount", "Coin", "Status", "Fee", "Transaction ID"],
             )
             writer.writeheader()
             writer.writerows(withdrawals)
@@ -83,37 +87,37 @@ def timestamp(value: int) -> str:
 
 def deposit_status(value: int) -> str:
     if value == 0:
-        return 'pending'
+        return "pending"
     if value == 6:
-        return 'credited but cannot withdraw'
+        return "credited but cannot withdraw"
     if value == 1:
-        return 'success'
+        return "success"
     raise NotImplementedError()
 
 
 def withdraw_status(value: int) -> str:
     if value == 0:
-        return 'email sent'
+        return "email sent"
     if value == 1:
-        return 'cancelled'
+        return "cancelled"
     if value == 2:
-        return 'awaiting approval'
+        return "awaiting approval"
     if value == 3:
-        return 'rejected'
+        return "rejected"
     if value == 4:
-        return 'processing'
+        return "processing"
     if value == 5:
-        return 'failure'
+        return "failure"
     if value == 6:
-        return 'completed'
+        return "completed"
     raise NotImplementedError()
 
 
 def transfer_type(value: int) -> str:
     if value == 0:
-        return 'external'
+        return "external"
     if value == 1:
-        return 'internal'
+        return "internal"
     raise NotImplementedError()
 
 

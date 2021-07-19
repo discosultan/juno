@@ -11,8 +11,8 @@ class Momersion(Strategy):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                'period': Int(100, 500),
-                'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
+                "period": Int(100, 500),
+                "threshold": Uniform(Decimal("0.01"), Decimal("99.99")),
             }
         )
 
@@ -22,7 +22,7 @@ class Momersion(Strategy):
     def __init__(
         self,
         period: int = 250,
-        threshold: Decimal = Decimal('0.50'),
+        threshold: Decimal = Decimal("0.50"),
     ) -> None:
         self._momersion = indicators.Momersion(period)
         self._threshold = threshold

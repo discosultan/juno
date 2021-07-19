@@ -5,9 +5,9 @@ from .gateio import GateIO
 from .kraken import Kraken
 
 __all__ = [
-    'Binance',
-    'Coinbase',
-    'Exchange',
-    'GateIO',
-    'Kraken',
+    "Binance",
+    "Coinbase",
+    "Exchange",
+    "GateIO",
+    "Kraken",
 ]

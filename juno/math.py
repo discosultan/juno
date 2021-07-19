@@ -3,7 +3,7 @@ import statistics
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal, Overflow
 from typing import Iterable, TypeVar
 
-TNum = TypeVar('TNum', int, Decimal)
+TNum = TypeVar("TNum", int, Decimal)
 
 _YEAR_MS = 31_556_952_000
 
@@ -37,8 +37,8 @@ def lerp(a: Decimal, b: Decimal, t: Decimal) -> Decimal:
 
 
 def minmax(values: Iterable[Decimal]) -> tuple[Decimal, Decimal]:
-    min_ = Decimal('Inf')
-    max_ = Decimal('-Inf')
+    min_ = Decimal("Inf")
+    max_ = Decimal("-Inf")
     for value in values:
         min_ = min(min_, value)
         max_ = max(max_, value)
@@ -74,16 +74,16 @@ def annualized(duration: int, value: Decimal) -> Decimal:
     assert value >= -1
     n = Decimal(duration) / _YEAR_MS
     if n == 0:
-        return Decimal('0.0')
+        return Decimal("0.0")
     try:
-        return (1 + value)**(1 / n) - 1
+        return (1 + value) ** (1 / n) - 1
     except Overflow:
-        return Decimal('Inf')
+        return Decimal("Inf")
 
 
 def precision_to_decimal(precision: int) -> Decimal:
     if precision < 0:
-        raise ValueError(f'Precision must be positive but got {precision}')
+        raise ValueError(f"Precision must be positive but got {precision}")
     if precision == 0:
-        return Decimal('1.0')
-    return Decimal('0.' + (precision - 1) * '0' + '1')
+        return Decimal("1.0")
+    return Decimal("0." + (precision - 1) * "0" + "1")

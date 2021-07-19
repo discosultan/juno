@@ -12,13 +12,13 @@ from juno.storages import SQLite
 from juno.utils import get_module_type, unpack_assets
 
 parser = argparse.ArgumentParser()
-parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()])
-parser.add_argument('symbol', nargs='?')
-parser.add_argument('size', nargs='?', type=Decimal)
-parser.add_argument('chunk_size', nargs='?', type=Decimal)
-parser.add_argument('-e', '--exchange', default='binance')
-parser.add_argument('-a', '--account', default='spot')
-parser.add_argument('-b', '--broker', default='limit')
+parser.add_argument("side", nargs="?", type=lambda s: Side[s.upper()])
+parser.add_argument("symbol", nargs="?")
+parser.add_argument("size", nargs="?", type=Decimal)
+parser.add_argument("chunk_size", nargs="?", type=Decimal)
+parser.add_argument("-e", "--exchange", default="binance")
+parser.add_argument("-a", "--account", default="spot")
+parser.add_argument("-b", "--broker", default="limit")
 args = parser.parse_args()
 
 
@@ -56,12 +56,12 @@ async def transact_symbol(
     # transaction.
     async with orderbook_sync as book, user_stream_orders:
         if args.side is Side.BUY:
-            logging.info(f'buying {size} {base_asset} with limit broker in chunks of {chunk_size}')
+            logging.info(f"buying {size} {base_asset} with limit broker in chunks of {chunk_size}")
             find_market_fills_fn = book.find_order_asks
             broker_fn = broker.buy
         else:
             logging.info(
-                f'selling {size} {base_asset} with limit broker in chunks of {chunk_size}'
+                f"selling {size} {base_asset} with limit broker in chunks of {chunk_size}"
             )
             find_market_fills_fn = book.find_order_bids
             broker_fn = broker.sell
@@ -76,7 +76,7 @@ async def transact_symbol(
         num_chunks = 0
 
         while size > 0:
-            logging.info(f'transacting {symbol} chunk number {num_chunks + 1}')
+            logging.info(f"transacting {symbol} chunk number {num_chunks + 1}")
             transact_size = min(size, chunk_size)
             try:
                 res = await broker_fn(
@@ -87,20 +87,20 @@ async def transact_symbol(
                     test=False,
                 )
             except BadOrder as e:
-                logging.warning(f'unable to transact last chunk: {e}')
+                logging.warning(f"unable to transact last chunk: {e}")
                 break
             size -= Fill.total_size(res.fills)
             fills.extend(res.fills)
             num_chunks += 1
 
-    logging.info(f'{args.account} {args.side.name} {symbol}')
-    logging.info(f'{num_chunks} chunks executed')
-    logging.info(f'total size: {Fill.total_size(fills)}')
-    logging.info(f'total quote: {Fill.total_quote(fills)}')
-    logging.info(f'total fee(s): {Fill.all_fees(fills)}')
-    logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')
-    logging.info(f'in case of market order total quote: {Fill.total_quote(market_fills)}')
-    logging.info(f'in case of market order total fee(s): {Fill.all_fees(market_fills)}')
+    logging.info(f"{args.account} {args.side.name} {symbol}")
+    logging.info(f"{num_chunks} chunks executed")
+    logging.info(f"total size: {Fill.total_size(fills)}")
+    logging.info(f"total quote: {Fill.total_quote(fills)}")
+    logging.info(f"total fee(s): {Fill.all_fees(fills)}")
+    logging.info(f"in case of market order total size: {Fill.total_size(market_fills)}")
+    logging.info(f"in case of market order total quote: {Fill.total_quote(market_fills)}")
+    logging.info(f"in case of market order total fee(s): {Fill.all_fees(market_fills)}")
 
 
 asyncio.run(main())

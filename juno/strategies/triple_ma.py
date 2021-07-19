@@ -13,9 +13,9 @@ from .strategy import Signal, Strategy, ma_choices
 
 @dataclass
 class TripleMAParams:
-    short_ma: str = 'ema'
-    medium_ma: str = 'ema'
-    long_ma: str = 'ema'
+    short_ma: str = "ema"
+    medium_ma: str = "ema"
+    long_ma: str = "ema"
     short_period: int = 4  # Common 4 or 5. Daily.
     medium_period: int = 9  # Common 9 or 10.
     long_period: int = 18  # Common 18 or 20.
@@ -39,10 +39,10 @@ class TripleMA(Signal):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                'short_ma': ma_choices,
-                'medium_ma': ma_choices,
-                'long_ma': ma_choices,
-                ('short_period', 'medium_period', 'long_period'): Triple(
+                "short_ma": ma_choices,
+                "medium_ma": ma_choices,
+                "long_ma": ma_choices,
+                ("short_period", "medium_period", "long_period"): Triple(
                     Int(1, 99),
                     operator.lt,
                     Int(2, 100),

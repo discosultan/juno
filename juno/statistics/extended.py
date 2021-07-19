@@ -34,7 +34,7 @@ class ExtendedStatistics(NamedTuple):
         summary: TradingSummary,
         asset_prices: dict[str, list[Decimal]],
         interval: Interval = DAY_MS,
-        benchmark_asset: str = 'btc',
+        benchmark_asset: str = "btc",
     ) -> ExtendedStatistics:
         assert summary.end is not None
 
@@ -47,7 +47,7 @@ class ExtendedStatistics(NamedTuple):
         for asset, prices in asset_prices.items():
             if len(prices) < num_ticks:
                 raise ValueError(
-                    f'Expected at least {num_ticks} price points for {asset} but got {len(prices)}'
+                    f"Expected at least {num_ticks} price points for {asset} but got {len(prices)}"
                 )
 
         trades = _get_trades_from_summary(summary, interval)
@@ -89,7 +89,7 @@ def _get_asset_performance(
     trades: dict[int, list[tuple[str, Decimal]]],
     interval: int,
 ) -> list[dict[str, Decimal]]:
-    asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
+    asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
     asset_holdings[summary.quote_asset] = summary.quote
 
     asset_performances: list[dict[str, Decimal]] = []
@@ -117,7 +117,7 @@ def _get_asset_performance(
 def _get_asset_performances_from_holdings(
     asset_holdings: dict[str, Decimal], asset_prices: dict[str, list[Decimal]], price_i: int
 ) -> dict[str, Decimal]:
-    asset_performance = {k: Decimal('0.0') for k in asset_prices.keys()}
+    asset_performance = {k: Decimal("0.0") for k in asset_prices.keys()}
     for asset, prices in asset_prices.items():
         asset_performance[asset] = asset_holdings[asset] * prices[price_i]
     return asset_performance
@@ -142,22 +142,18 @@ def _calculate_statistics(
     annualized_downside_risk = _SQRT_365 * neg_g_returns.std(ddof=0)
 
     sharpe_ratio = (
-        annualized_return / annualized_volatility if annualized_volatility else Decimal('0.0')
+        annualized_return / annualized_volatility if annualized_volatility else Decimal("0.0")
     )
     sortino_ratio = (
-        annualized_return / annualized_downside_risk if annualized_downside_risk
-        else Decimal('0.0')
+        annualized_return / annualized_downside_risk
+        if annualized_downside_risk
+        else Decimal("0.0")
     )
-    cagr = (
-        (performance.iloc[-1] / performance.iloc[0])
-        ** (1 / (performance.size / 365))
-    ) - 1
+    cagr = ((performance.iloc[-1] / performance.iloc[0]) ** (1 / (performance.size / 365))) - 1
 
     # If benchmark provided, calculate alpha and beta.
     alpha, beta = 0.0, 0.0
-    covariance_matrix = pd.concat(
-        [g_returns, benchmark_g_returns], axis=1
-    ).dropna().cov(ddof=0)
+    covariance_matrix = pd.concat([g_returns, benchmark_g_returns], axis=1).dropna().cov(ddof=0)
     y = covariance_matrix.iloc[1].iloc[1]
     if y != 0:
         x = covariance_matrix.iloc[0].iloc[1]
@@ -173,5 +169,5 @@ def _calculate_statistics(
         sortino_ratio=sortino_ratio,
         cagr=cagr,
         alpha=alpha,
-        beta=beta
+        beta=beta,
     )

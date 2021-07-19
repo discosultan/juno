@@ -5,22 +5,22 @@ from .ema import Ema
 
 # Klinger Volume Oscillator
 class Kvo:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _short_ema: Ema
     _long_ema: Ema
-    _prev_hlc: Decimal = Decimal('0.0')
-    _prev_dm: Decimal = Decimal('0.0')
-    _cm: Decimal = Decimal('0.0')
+    _prev_hlc: Decimal = Decimal("0.0")
+    _prev_dm: Decimal = Decimal("0.0")
+    _cm: Decimal = Decimal("0.0")
     _trend: int = 0
     _t: int = 0
     _t1: int = 2
 
     def __init__(self, short_period: int, long_period: int) -> None:
         if short_period < 1:
-            raise ValueError(f'Invalid short period ({short_period})')
+            raise ValueError(f"Invalid short period ({short_period})")
         if long_period < short_period:
             raise ValueError(
-                f'Long period ({long_period}) cannot be shorter than short period ({short_period})'
+                f"Long period ({long_period}) cannot be shorter than short period ({short_period})"
             )
 
         self._short_ema = Ema(short_period)

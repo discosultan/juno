@@ -12,15 +12,16 @@ from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
 from juno.typing import TypeConstructor, get_input_type_hints, isenum, isnamedtuple
 from juno.utils import get_module_type, map_concrete_module_types
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def from_env(
-    env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
+    env: Mapping[str, str] = os.environ, prefix: str = "JUNO", separator: str = "__"
 ) -> dict[str, Any]:
     result: dict[str, Any] = {}
-    entries = ((k.split(separator)[1:], v) for k, v in env.items()
-               if k.startswith(prefix + separator))
+    entries = (
+        (k.split(separator)[1:], v) for k, v in env.items() if k.startswith(prefix + separator)
+    )
     for keys, value in entries:
         typed_keys = [int(k) if str.isdigit(k) else k.lower() for k in keys]
         target: dict[Any, Any] = result
@@ -39,13 +40,13 @@ def from_env(
 
 
 def from_json_file(file: str) -> dict[str, Any]:
-    with open(file, 'r') as f:
+    with open(file, "r") as f:
         return json.load(f)
 
 
 def list_names(config: dict[str, Any], name: str) -> set[str]:
     result = set()
-    name_plural = name + 's'
+    name_plural = name + "s"
     for keys, v in recursive_iter(config):
         # Check for key value: `exchange: "binance"`.
         last_key = keys[-1]
@@ -54,16 +55,15 @@ def list_names(config: dict[str, Any], name: str) -> set[str]:
         # Check for key list: `exchanges: ["binance", "coinbase"]`
         elif len(keys) >= 2:
             second_to_last_key = keys[-2]
-            if (
-                isinstance(second_to_last_key, str)
-                and _matches_name(second_to_last_key, name_plural)
+            if isinstance(second_to_last_key, str) and _matches_name(
+                second_to_last_key, name_plural
             ):
                 result.add(v)
     return result
 
 
 def _matches_name(key: str, name: str) -> bool:
-    return key.split('_')[-1] == name
+    return key.split("_")[-1] == name
 
 
 def _ensure_list(existing: Optional[list[Any]], length: int) -> list[Any]:
@@ -111,7 +111,7 @@ def try_init_all_instances(type_: type, config: dict[str, Any]) -> list[Any]:
 
 
 def init_module_instance(module: ModuleType, config: dict[str, Any]) -> Any:
-    type_name = config.get('type')
+    type_name = config.get("type")
     if not type_name:
         raise ValueError('Unable to init module instance. Property "type" missing in config')
     type_ = get_module_type(module, type_name)
@@ -126,16 +126,16 @@ def get_module_type_constructor(
 
 
 def get_type_name_and_kwargs(config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    type_name = config.get('type')
+    type_name = config.get("type")
     if not type_name:
         raise ValueError('Unable to get type name. Property "type" missing in config')
-    return type_name, {k: v for k, v in config.items() if k != 'type'}
+    return type_name, {k: v for k, v in config.items() if k != "type"}
 
 
 def get_module_type_and_kwargs(
     module: ModuleType, config: dict[str, Any]
 ) -> tuple[type, dict[str, Any]]:
-    type_name = config.get('type')
+    type_name = config.get("type")
     if not type_name:
         raise ValueError('Unable to get module type. Property "type" missing in config')
     type_ = get_module_type(module, type_name)
@@ -161,7 +161,7 @@ def init_instance(type_: type[Any], config: dict[str, Any]) -> Any:
 def kwargs_for(signature: Any, config: dict[str, Any]) -> dict[str, Any]:
     parsed_config = {}
     for k, t in get_input_type_hints(signature).items():
-        if (config_val := config.get(k, '__missing__')) != '__missing__':
+        if (config_val := config.get(k, "__missing__")) != "__missing__":
             parsed_config[k] = config_to_type(config_val, t)
     return parsed_config
 
@@ -183,7 +183,7 @@ def config_to_type(value: Any, type_: Any) -> Any:
         if origin is type:  # typing.type[T]
             raise NotImplementedError()
         if origin is list:  # typing.list[T]
-            st, = get_args(type_)
+            (st,) = get_args(type_)
             return [config_to_type(sv, st) for sv in value]
         if origin is dict:  # typing.dict[T, Y]
             skt, svt = get_args(type_)
@@ -217,7 +217,7 @@ def type_to_config(value: Any, type_: Any) -> Any:
         if origin is type:  # typing.type[T]
             return value.__name__.lower()
         if origin is list:  # typing.list[T]
-            st, = get_args(type_)
+            (st,) = get_args(type_)
             return [type_to_config(sv, st) for sv in value]
         if origin is dict:  # typing.dict[T, Y]
             skt, svt = get_args(type_)
@@ -236,20 +236,20 @@ def resolve_concrete(
     type_: type[Any], config: dict[str, Any], default: Any = inspect.Parameter.empty
 ) -> type[Any]:
     if not inspect.isabstract(type_):
-        raise ValueError(f'Unable to resolve concrete type for a non-abstract type {type_}')
+        raise ValueError(f"Unable to resolve concrete type for a non-abstract type {type_}")
 
     abstract_name = type_.__name__.lower()
     concrete_name = config.get(abstract_name)
     if not concrete_name:
         if default is inspect.Parameter.empty:
-            raise ValueError(f'Concrete name not found for {abstract_name} in config')
+            raise ValueError(f"Concrete name not found for {abstract_name} in config")
         return default
 
     module_type_map = _map_type_parent_module_types(type_)
     concrete_type = module_type_map.get(concrete_name)
     if not concrete_type:
         if default is inspect.Parameter.empty:
-            raise ValueError(f'Concrete type {concrete_name} not found')
+            raise ValueError(f"Concrete type {concrete_name} not found")
         return default
 
     return concrete_type
@@ -257,7 +257,7 @@ def resolve_concrete(
 
 def _map_type_parent_module_types(type_: type[Any]) -> dict[str, type[Any]]:
     module_name = type_.__module__
-    parent_module_name = module_name[0:module_name.rfind('.')]
+    parent_module_name = module_name[0 : module_name.rfind(".")]
     return map_concrete_module_types(sys.modules[parent_module_name])
 
 

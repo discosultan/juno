@@ -9,7 +9,7 @@ from more_itertools import pairwise
 
 # Market Meanness Index
 class Mmi:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
 
     _prices: deque[Decimal]
 
@@ -19,7 +19,7 @@ class Mmi:
     # Common periods are between 200 - 500.
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'Invalid period ({period})')
+            raise ValueError(f"Invalid period ({period})")
 
         self._prices = deque(maxlen=period)
 
@@ -47,6 +47,6 @@ class Mmi:
                     nl += 1
                 if next_price < med and next_price < prev_price:
                     nh += 1
-            self.value = Decimal('100.0') * (nl + nh) / (self._t1 - 1)
+            self.value = Decimal("100.0") * (nl + nh) / (self._t1 - 1)
 
         return self.value

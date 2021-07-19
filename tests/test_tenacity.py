@@ -28,7 +28,7 @@ def test_stop_after_attempt_with_reset_failure_before_reset() -> None:
     with pytest.raises(RetryError):
         target()
 
-    assert target.retry.statistics['attempt_number'] == 3  # type: ignore
+    assert target.retry.statistics["attempt_number"] == 3  # type: ignore
 
 
 def test_stop_after_attempt_with_reset_success() -> None:
@@ -58,7 +58,7 @@ def test_stop_after_attempt_with_reset_success() -> None:
 
     target()
 
-    assert target.retry.statistics['attempt_number'] == 5  # type: ignore
+    assert target.retry.statistics["attempt_number"] == 5  # type: ignore
 
 
 def test_stop_after_attempt_with_reset_failure_after_reset() -> None:
@@ -90,4 +90,4 @@ def test_stop_after_attempt_with_reset_failure_after_reset() -> None:
     with pytest.raises(RetryError):
         target()
 
-    assert target.retry.statistics['attempt_number'] == 5  # type: ignore
+    assert target.retry.statistics["attempt_number"] == 5  # type: ignore

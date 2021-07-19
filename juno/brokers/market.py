@@ -24,10 +24,10 @@ class Market(Broker):
         self._user = user
         self._get_time_ms = get_time_ms
 
-        if not user.can_place_market_order_quote('__all__'):
+        if not user.can_place_market_order_quote("__all__"):
             _log.warning(
-                'not all exchanges support placing market orders by quote size; for them, '
-                'calculating size by quote from orderbook instead'
+                "not all exchanges support placing market orders by quote size; for them, "
+                "calculating size by quote from orderbook instead"
             )
 
     async def buy(
@@ -70,13 +70,15 @@ class Market(Broker):
                 )
             elif self._user.can_place_market_order_quote(exchange):
                 res = await self._fill(
-                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
-                    quote=quote
+                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY, quote=quote
                 )
             else:
                 res = await self._fill(
-                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
-                    size=Fill.total_size(await self._get_buy_fills(exchange, symbol, quote=quote))
+                    exchange=exchange,
+                    account=account,
+                    symbol=symbol,
+                    side=Side.BUY,
+                    size=Fill.total_size(await self._get_buy_fills(exchange, symbol, quote=quote)),
                 )
         else:
             raise NotImplementedError()
@@ -105,7 +107,7 @@ class Market(Broker):
             res = OrderResult(
                 time=self._get_time_ms(),
                 status=OrderStatus.FILLED,
-                fills=await self._get_sell_fills(exchange, symbol, size=size)
+                fills=await self._get_sell_fills(exchange, symbol, size=size),
             )
         else:
             res = await self._fill(
@@ -137,9 +139,7 @@ class Market(Broker):
     ) -> list[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         async with self._orderbook.sync(exchange, symbol) as orderbook:
-            fills = orderbook.find_order_bids(
-                size=size, fee_rate=fees.taker, filters=filters
-            )
+            fills = orderbook.find_order_bids(size=size, fee_rate=fees.taker, filters=filters)
         self._validate_fills(exchange, symbol, fills)
         return fills
 
@@ -162,9 +162,9 @@ class Market(Broker):
     ) -> OrderResult:
         # TODO: If we tracked Binance fills with websocket, we could also get filled quote sizes.
         # Now we need to calculate ourselves.
-        order_log = f'market {side.name} order'
-        fill_log = f'{size} size' if size is not None else f'{quote} quote'
-        _log.info(f'placing {symbol} {order_log} to fill {fill_log}')
+        order_log = f"market {side.name} order"
+        fill_log = f"{size} size" if size is not None else f"{quote} quote"
+        _log.info(f"placing {symbol} {order_log} to fill {fill_log}")
         res = await self._user.place_order(
             exchange=exchange,
             symbol=symbol,

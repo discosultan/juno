@@ -61,7 +61,7 @@ class Limit(Broker):
         orderbook: Orderbook,
         user: User,
         cancel_order_on_error: bool = True,
-        order_placement_strategy: str = 'matching',  # leading or matching
+        order_placement_strategy: str = "matching",  # leading or matching
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
@@ -69,12 +69,12 @@ class Limit(Broker):
         self._cancel_order_on_error = cancel_order_on_error
 
         self._order_placement_strategy = order_placement_strategy
-        if order_placement_strategy == 'leading':
+        if order_placement_strategy == "leading":
             self._find_order_placement_price = _leading_no_pullback
-        elif order_placement_strategy == 'matching':
+        elif order_placement_strategy == "matching":
             self._find_order_placement_price = _match_highest
         else:
-            raise ValueError(f'unknown order placement strategy {order_placement_strategy}')
+            raise ValueError(f"unknown order placement strategy {order_placement_strategy}")
 
     async def buy(
         self,
@@ -94,15 +94,15 @@ class Limit(Broker):
 
         if size is not None:
             _log.info(
-                f'buying {size} (ensure size: {ensure_size}) {base_asset} with limit orders at '
-                f'spread ({account} account) following {self._order_placement_strategy} strategy'
+                f"buying {size} (ensure size: {ensure_size}) {base_asset} with limit orders at "
+                f"spread ({account} account) following {self._order_placement_strategy} strategy"
             )
             if ensure_size:
                 size = filters.with_fee(size, fees.maker)
         elif quote is not None:
             _log.info(
-                f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread '
-                f'({account} account) following {self._order_placement_strategy} strategy'
+                f"buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread "
+                f"({account} account) following {self._order_placement_strategy} strategy"
             )
         else:
             raise NotImplementedError()
@@ -118,11 +118,11 @@ class Limit(Broker):
         if fee != expected_fee:
             # TODO: Always warns when a different fee asset (such as BNB) is involved.
             _log.warning(
-                f'total_fee={fee} != {expected_fee=} (total_size={Fill.total_size(res.fills)}, '
-                f'{fees.maker=}, {filters.base_precision=})'
+                f"total_fee={fee} != {expected_fee=} (total_size={Fill.total_size(res.fills)}, "
+                f"{fees.maker=}, {filters.base_precision=})"
             )
         if Fill.total_quote(res.fills) != expected_quote:
-            _log.warning(f'total_quote={Fill.total_quote(res.fills)} != {expected_quote=}')
+            _log.warning(f"total_quote={Fill.total_quote(res.fills)} != {expected_quote=}")
 
         return res
 
@@ -141,8 +141,8 @@ class Limit(Broker):
 
         base_asset, quote_asset = unpack_assets(symbol)
         _log.info(
-            f'selling {size} {base_asset} with limit orders at spread ({account} account) '
-            f'following {self._order_placement_strategy} strategy'
+            f"selling {size} {base_asset} with limit orders at spread ({account} account) "
+            f"following {self._order_placement_strategy} strategy"
         )
         res = await self._fill(exchange, account, symbol, Side.SELL, False, size=size)
 
@@ -154,29 +154,35 @@ class Limit(Broker):
         if fee != expected_fee:
             # TODO: Always warns when a different fee asset (such as BNB) is involved.
             _log.warning(
-                f'total_fee={fee} != {expected_fee=} (total_quote={Fill.total_quote(res.fills)}, '
-                f'{fees.maker=}, {filters.quote_precision=})'
+                f"total_fee={fee} != {expected_fee=} (total_quote={Fill.total_quote(res.fills)}, "
+                f"{fees.maker=}, {filters.quote_precision=})"
             )
         if Fill.total_quote(res.fills) != expected_quote:
-            _log.warning(f'total_quote={Fill.total_quote(res.fills)} != {expected_quote=}')
+            _log.warning(f"total_quote={Fill.total_quote(res.fills)} != {expected_quote=}")
 
         return res
 
     async def _fill(
-        self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
-        size: Optional[Decimal] = None, quote: Optional[Decimal] = None
+        self,
+        exchange: str,
+        account: str,
+        symbol: str,
+        side: Side,
+        ensure_size: bool,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
     ) -> OrderResult:
         client_id = self._user.generate_client_id(exchange)
         if size is not None:
             if size == 0:
-                raise ValueError('Size specified but 0')
+                raise ValueError("Size specified but 0")
             ctx = _Context(available=size, use_quote=False, client_id=client_id)
         elif quote is not None:
             if quote == 0:
-                raise ValueError('Quote specified but 0')
+                raise ValueError("Quote specified but 0")
             ctx = _Context(available=quote, use_quote=True, client_id=client_id)
         else:
-            raise ValueError('Neither size nor quote specified')
+            raise ValueError("Neither size nor quote specified")
 
         async with self._user.connect_stream_orders(
             exchange=exchange, account=account, symbol=symbol
@@ -222,8 +228,8 @@ class Limit(Broker):
                 if self._cancel_order_on_error and ctx.active_order:
                     # Cancel active order.
                     _log.info(
-                        f'cancelling active {symbol} {side.name} order {ctx.client_id} at price '
-                        f'{ctx.active_order.price}'
+                        f"cancelling active {symbol} {side.name} order {ctx.client_id} at price "
+                        f"{ctx.active_order.price}"
                     )
                     await self._cancel_order(
                         exchange=exchange, account=account, symbol=symbol, client_id=ctx.client_id
@@ -233,8 +239,13 @@ class Limit(Broker):
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
 
     async def _keep_limit_order_best(
-        self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
-        ctx: _Context
+        self,
+        exchange: str,
+        account: str,
+        symbol: str,
+        side: Side,
+        ensure_size: bool,
+        ctx: _Context,
     ) -> None:
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         is_first = True
@@ -259,19 +270,18 @@ class Limit(Broker):
                 if ctx.active_order:
                     # Cancel prev order.
                     _log.info(
-                        f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
-                        f'{ctx.active_order.price}'
+                        f"cancelling previous {symbol} {side.name} order {ctx.client_id} at price "
+                        f"{ctx.active_order.price}"
                     )
                     if not await self._cancel_order(
                         exchange=exchange, account=account, symbol=symbol, client_id=ctx.client_id
                     ):
                         break
                     _log.info(
-                        f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
+                        f"waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled"
                     )
                     fills_since_last_order = await asyncio.wait_for(
-                        ctx.cancelled_event.wait(),
-                        _CANCELLED_EVENT_WAIT_TIMEOUT
+                        ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT
                     )
                     filled_size_since_last_order = Fill.total_size(fills_since_last_order)
                     add_back_size = ctx.active_order.size - filled_size_since_last_order
@@ -279,8 +289,8 @@ class Limit(Broker):
                         add_back_size * ctx.active_order.price if ctx.use_quote else add_back_size
                     )
                     _log.info(
-                        f'last {symbol} {side.name} order size {ctx.active_order.size} but filled '
-                        f'{filled_size_since_last_order}; {add_back_size} still to be filled'
+                        f"last {symbol} {side.name} order size {ctx.active_order.size} but filled "
+                        f"{filled_size_since_last_order}; {add_back_size} still to be filled"
                     )
                     ctx.available += add_back
                     # Use a new client ID for new order.
@@ -291,7 +301,7 @@ class Limit(Broker):
                 size = ctx.available / price if ctx.use_quote else ctx.available
                 size = filters.size.round_down(size)
 
-                _log.info(f'validating {symbol} {side.name} order price and size')
+                _log.info(f"validating {symbol} {side.name} order price and size")
                 if len(ctx.fills) == 0:
                     # We only want to raise an exception if the filters fail while we haven't had
                     # any fills yet.
@@ -302,14 +312,14 @@ class Limit(Broker):
                         filters.size.validate(size)
                         filters.min_notional.validate_limit(price=price, size=size)
                     except BadOrder as e:
-                        _log.info(f'{symbol} {side.name} price / size no longer valid: {e}')
+                        _log.info(f"{symbol} {side.name} price / size no longer valid: {e}")
                         if ensure_size and Fill.total_size(ctx.fills) < ctx.original:
                             size = filters.min_size(price)
-                            _log.info(f'increased size to {size}')
+                            _log.info(f"increased size to {size}")
                         else:
                             raise _FilledFromKeepAtBest()
 
-                _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
+                _log.info(f"placing {symbol} {side.name} order at price {price} for size {size}")
                 try:
                     await self._user.place_order(
                         exchange=exchange,
@@ -337,25 +347,25 @@ class Limit(Broker):
         async for order in stream:
             if order.client_id != ctx.client_id:
                 _log.debug(
-                    f'skipping {symbol} {side.name} order tracking; {order.client_id=} != '
-                    f'{ctx.client_id=}'
+                    f"skipping {symbol} {side.name} order tracking; {order.client_id=} != "
+                    f"{ctx.client_id=}"
                 )
                 continue
 
             if isinstance(order, OrderUpdate.New):
-                _log.info(f'new {symbol} {side.name} order {ctx.client_id} confirmed')
+                _log.info(f"new {symbol} {side.name} order {ctx.client_id} confirmed")
                 fills_since_last_order.clear()
                 ctx.new_event.set()
             elif isinstance(order, OrderUpdate.Match):
-                _log.info(f'existing {symbol} {side.name} order {ctx.client_id} matched')
+                _log.info(f"existing {symbol} {side.name} order {ctx.client_id} matched")
                 fills_since_last_order.append(order.fill)
             elif isinstance(order, OrderUpdate.Cancelled):
-                _log.info(f'existing {symbol} {side.name} order {ctx.client_id} cancelled')
+                _log.info(f"existing {symbol} {side.name} order {ctx.client_id} cancelled")
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time
                 ctx.cancelled_event.set(fills_since_last_order)
             elif isinstance(order, OrderUpdate.Done):
-                _log.info(f'existing {symbol} {side.name} order {ctx.client_id} filled')
+                _log.info(f"existing {symbol} {side.name} order {ctx.client_id} filled")
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time
                 ctx.active_order = None
@@ -376,7 +386,7 @@ class Limit(Broker):
             return True
         except OrderMissing as exc:
             _log.warning(
-                f'failed to cancel {symbol} order {client_id}; probably got filled; {exc}'
+                f"failed to cancel {symbol} order {client_id}; probably got filled; {exc}"
             )
             return False
 
@@ -445,5 +455,5 @@ def _validate_side_not_empty(side: Side, ob_side: list[tuple[Decimal, Decimal]])
     if len(ob_side) == 0:
         raise NotImplementedError(
             f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! cannot find '
-            'optimal price'
+            "optimal price"
         )

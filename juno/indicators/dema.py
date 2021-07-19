@@ -5,7 +5,7 @@ from .ema import Ema
 
 # Double Exponential Moving Average
 class Dema:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _ema1: Ema
     _ema2: Ema
     _t: int = 0
@@ -37,6 +37,6 @@ class Dema:
         if self._t >= self._t1:
             self._ema2.update(self._ema1.value)
             if self._t >= self._t2:
-                self.value = self._ema1.value * Decimal('2.0') - self._ema2.value
+                self.value = self._ema1.value * Decimal("2.0") - self._ema2.value
 
         return self.value

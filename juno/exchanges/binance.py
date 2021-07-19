@@ -66,8 +66,8 @@ from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
-_BASE_REST_URL = 'https://api.binance.com'
-_BASE_WS_URL = 'wss://stream.binance.com:9443'
+_BASE_REST_URL = "https://api.binance.com"
+_BASE_WS_URL = "wss://stream.binance.com:9443"
 
 _SEC_NONE = 0  # Endpoint can be accessed freely.
 _SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
@@ -86,7 +86,7 @@ _ERR_TOO_MANY_REQUESTS = -1003
 _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST = -11001
 _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS = -11004
 
-_BINANCE_START = strptimestamp('2017-07-01')
+_BINANCE_START = strptimestamp("2017-07-01")
 
 _log = logging.getLogger(__name__)
 
@@ -105,10 +105,10 @@ class Binance(Exchange):
 
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
         if not high_precision:
-            _log.warning('high precision updates disabled')
+            _log.warning("high precision updates disabled")
 
         self._api_key = api_key
-        self._secret_key_bytes = secret_key.encode('utf-8')
+        self._secret_key_bytes = secret_key.encode("utf-8")
         self._high_precision = high_precision
 
         self._session = ClientSession(
@@ -170,23 +170,24 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
         fees_res, filters_res, isolated_pairs, margin_res, isolated_res = await asyncio.gather(
-            self._api_request_json('GET', '/sapi/v1/asset/tradeFee', security=_SEC_USER_DATA),
-            self._api_request_json('GET', '/api/v3/exchangeInfo', weight=10),
+            self._api_request_json("GET", "/sapi/v1/asset/tradeFee", security=_SEC_USER_DATA),
+            self._api_request_json("GET", "/api/v3/exchangeInfo", weight=10),
             self._list_symbols(isolated=True),
             self._request_json(
-                method='GET',
-                url='https://www.binance.com/gateway-api/v1/friendly/margin/vip/spec/list-all',
+                method="GET",
+                url="https://www.binance.com/gateway-api/v1/friendly/margin/vip/spec/list-all",
             ),
             self._request_json(
-                method='GET',
-                url='https://www.binance.com/gateway-api/v1/public/isolated-margin/pair/vip-level',
+                method="GET",
+                url="https://www.binance.com/gateway-api/v1/public/isolated-margin/pair/vip-level",
             ),
         )
 
         # Process fees.
         fees = {
-            _from_symbol(fee['symbol']):
-            Fees(maker=Decimal(fee['makerCommission']), taker=Decimal(fee['takerCommission']))
+            _from_symbol(fee["symbol"]): Fees(
+                maker=Decimal(fee["makerCommission"]), taker=Decimal(fee["takerCommission"])
+            )
             for fee in fees_res
         }
 
@@ -194,95 +195,96 @@ class Binance(Exchange):
         # The data below is not available through official Binance API. We can get borrow limit but
         # there is no way to get interest rate.
         borrow_info = {
-            'margin': {
-                a['assetName'].lower(): BorrowInfo(
-                    daily_interest_rate=Decimal(s['dailyInterestRate']),
-                    limit=Decimal(s['borrowLimit']),
-                ) for a, s in ((a, a['specs'][0]) for a in margin_res['data'])
+            "margin": {
+                a["assetName"].lower(): BorrowInfo(
+                    daily_interest_rate=Decimal(s["dailyInterestRate"]),
+                    limit=Decimal(s["borrowLimit"]),
+                )
+                for a, s in ((a, a["specs"][0]) for a in margin_res["data"])
             },
         }
-        for p in isolated_res['data']:
-            base = p['base']
-            base_asset = base['assetName'].lower()
-            quote = p['quote']
-            quote_asset = quote['assetName'].lower()
+        for p in isolated_res["data"]:
+            base = p["base"]
+            base_asset = base["assetName"].lower()
+            quote = p["quote"]
+            quote_asset = quote["assetName"].lower()
 
-            base_levels = base['levelDetails']
+            base_levels = base["levelDetails"]
             if len(base_levels) == 0:
                 _log.info(
-                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
-                    f'{base_asset} asset'
+                    f"no isolated margin borrow info for {base_asset}-{quote_asset} "
+                    f"{base_asset} asset"
                 )
                 continue
             base_details = base_levels[0]
 
-            quote_levels = quote['levelDetails']
+            quote_levels = quote["levelDetails"]
             if len(quote_levels) == 0:
                 _log.info(
-                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
-                    f'{quote_asset} asset'
+                    f"no isolated margin borrow info for {base_asset}-{quote_asset} "
+                    f"{quote_asset} asset"
                 )
                 continue
             quote_details = quote_levels[0]
 
-            borrow_info[f'{base_asset}-{quote_asset}'] = {
+            borrow_info[f"{base_asset}-{quote_asset}"] = {
                 base_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(base_details['interestRate']),
-                    limit=Decimal(base_details['maxBorrowable']),
+                    daily_interest_rate=Decimal(base_details["interestRate"]),
+                    limit=Decimal(base_details["maxBorrowable"]),
                 ),
                 quote_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(quote_details['interestRate']),
-                    limit=Decimal(quote_details['maxBorrowable']),
+                    daily_interest_rate=Decimal(quote_details["interestRate"]),
+                    limit=Decimal(quote_details["maxBorrowable"]),
                 ),
             }
 
         # Process symbol info.
         isolated_pairs_set = set(isolated_pairs)
         filters = {}
-        for symbol_info in filters_res['symbols']:
-            for f in symbol_info['filters']:
-                t = f['filterType']
-                if t == 'PRICE_FILTER':
+        for symbol_info in filters_res["symbols"]:
+            for f in symbol_info["filters"]:
+                t = f["filterType"]
+                if t == "PRICE_FILTER":
                     price = f
-                elif t == 'PERCENT_PRICE':
+                elif t == "PERCENT_PRICE":
                     percent_price = f
-                elif t == 'LOT_SIZE':
+                elif t == "LOT_SIZE":
                     lot_size = f
-                elif t == 'MIN_NOTIONAL':
+                elif t == "MIN_NOTIONAL":
                     min_notional = f
             assert all((price, percent_price, lot_size, min_notional))
 
             symbol = f"{symbol_info['baseAsset'].lower()}-{symbol_info['quoteAsset'].lower()}"
             filters[symbol] = Filters(
                 price=Price(
-                    min=Decimal(price['minPrice']),
-                    max=Decimal(price['maxPrice']),
-                    step=Decimal(price['tickSize'])
+                    min=Decimal(price["minPrice"]),
+                    max=Decimal(price["maxPrice"]),
+                    step=Decimal(price["tickSize"]),
                 ),
                 percent_price=PercentPrice(
-                    multiplier_up=Decimal(percent_price['multiplierUp']),
-                    multiplier_down=Decimal(percent_price['multiplierDown']),
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
+                    multiplier_up=Decimal(percent_price["multiplierUp"]),
+                    multiplier_down=Decimal(percent_price["multiplierDown"]),
+                    avg_price_period=percent_price["avgPriceMins"] * MIN_MS,
                 ),
                 size=Size(
-                    min=Decimal(lot_size['minQty']),
-                    max=Decimal(lot_size['maxQty']),
-                    step=Decimal(lot_size['stepSize'])
+                    min=Decimal(lot_size["minQty"]),
+                    max=Decimal(lot_size["maxQty"]),
+                    step=Decimal(lot_size["stepSize"]),
                 ),
                 min_notional=MinNotional(
-                    min_notional=Decimal(min_notional['minNotional']),
-                    apply_to_market=min_notional['applyToMarket'],
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
+                    min_notional=Decimal(min_notional["minNotional"]),
+                    apply_to_market=min_notional["applyToMarket"],
+                    avg_price_period=percent_price["avgPriceMins"] * MIN_MS,
                 ),
-                base_precision=symbol_info['baseAssetPrecision'],
-                quote_precision=symbol_info['quoteAssetPrecision'],
-                spot='SPOT' in symbol_info['permissions'],
-                cross_margin='MARGIN' in symbol_info['permissions'],
+                base_precision=symbol_info["baseAssetPrecision"],
+                quote_precision=symbol_info["quoteAssetPrecision"],
+                spot="SPOT" in symbol_info["permissions"],
+                cross_margin="MARGIN" in symbol_info["permissions"],
                 isolated_margin=(symbol in isolated_pairs_set) and (symbol in borrow_info),
             )
 
         return ExchangeInfo(
-            assets={'__all__': AssetInfo(precision=8)},
+            assets={"__all__": AssetInfo(precision=8)},
             fees=fees,
             filters=filters,
             borrow_info=borrow_info,
@@ -292,69 +294,70 @@ class Binance(Exchange):
         if len(symbols) > 1:
             raise NotImplementedError()
 
-        data = {'symbol': _to_http_symbol(symbols[0])} if symbols else None
+        data = {"symbol": _to_http_symbol(symbols[0])} if symbols else None
         weight = 1 if symbols else 40
         content = await self._api_request_json(
-            'GET', '/api/v3/ticker/24hr', data=data, weight=weight
+            "GET", "/api/v3/ticker/24hr", data=data, weight=weight
         )
         response_data = [content] if symbols else content
         return {
-            _from_symbol(t['symbol']): Ticker(
-                volume=Decimal(t['volume']),
-                quote_volume=Decimal(t['quoteVolume']),
-                price=Decimal(t['lastPrice']),
-            ) for t in response_data
+            _from_symbol(t["symbol"]): Ticker(
+                volume=Decimal(t["volume"]),
+                quote_volume=Decimal(t["quoteVolume"]),
+                price=Decimal(t["lastPrice"]),
+            )
+            for t in response_data
         }
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
-        if account == 'spot':
+        if account == "spot":
             content = await self._api_request_json(
-                'GET', '/api/v3/account', weight=10, security=_SEC_USER_DATA
+                "GET", "/api/v3/account", weight=10, security=_SEC_USER_DATA
             )
-            result['spot'] = {
-                b['asset'].lower(): Balance(
-                    available=Decimal(b['free']),
-                    hold=Decimal(b['locked']),
+            result["spot"] = {
+                b["asset"].lower(): Balance(
+                    available=Decimal(b["free"]),
+                    hold=Decimal(b["locked"]),
                 )
-                for b in content['balances']
+                for b in content["balances"]
             }
-        elif account == 'margin':
+        elif account == "margin":
             content = await self._api_request_json(
-                'GET', '/sapi/v1/margin/account', weight=1, security=_SEC_USER_DATA
+                "GET", "/sapi/v1/margin/account", weight=1, security=_SEC_USER_DATA
             )
-            result['margin'] = {
-                b['asset'].lower(): Balance(
-                    available=Decimal(b['free']),
-                    hold=Decimal(b['locked']),
-                    borrowed=Decimal(b['borrowed']),
-                    interest=Decimal(b['interest']),
+            result["margin"] = {
+                b["asset"].lower(): Balance(
+                    available=Decimal(b["free"]),
+                    hold=Decimal(b["locked"]),
+                    borrowed=Decimal(b["borrowed"]),
+                    interest=Decimal(b["interest"]),
                 )
-                for b in content['userAssets']
+                for b in content["userAssets"]
             }
-        elif account == 'isolated':
+        elif account == "isolated":
             # TODO: Binance also accepts a symbols param here to return only up to 5 account info.
             # The weight is the same though, so not much benefit to using that.
             # https://binance-docs.github.io/apidocs/spot/en/#query-isolated-margin-account-info-user_data
             content = await self._api_request_json(
-                'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
+                "GET", "/sapi/v1/margin/isolated/account", weight=1, security=_SEC_USER_DATA
             )
-            for balances in content['assets']:
-                base_asset, quote_asset = unpack_assets(_from_symbol(balances['symbol']))
-                base_balance = balances['baseAsset']
-                quote_balance = balances['quoteAsset']
-                result[f'{base_asset}-{quote_asset}'] = {
+            for balances in content["assets"]:
+                base_asset, quote_asset = unpack_assets(_from_symbol(balances["symbol"]))
+                base_balance = balances["baseAsset"]
+                quote_balance = balances["quoteAsset"]
+                result[f"{base_asset}-{quote_asset}"] = {
                     base_asset: Balance(
-                        available=Decimal(base_balance['free']),
-                        hold=Decimal(base_balance['locked']),
-                        borrowed=Decimal(base_balance['borrowed']),
-                        interest=Decimal(base_balance['interest']),
+                        available=Decimal(base_balance["free"]),
+                        hold=Decimal(base_balance["locked"]),
+                        borrowed=Decimal(base_balance["borrowed"]),
+                        interest=Decimal(base_balance["interest"]),
                     ),
                     quote_asset: Balance(
-                        available=Decimal(quote_balance['free']),
-                        hold=Decimal(quote_balance['locked']),
-                        borrowed=Decimal(quote_balance['borrowed']),
-                        interest=Decimal(quote_balance['interest']),
+                        available=Decimal(quote_balance["free"]),
+                        hold=Decimal(quote_balance["locked"]),
+                        borrowed=Decimal(quote_balance["borrowed"]),
+                        interest=Decimal(quote_balance["interest"]),
                     ),
                 }
         else:
@@ -370,15 +373,15 @@ class Binance(Exchange):
         ) -> AsyncIterable[dict[str, Balance]]:
             async for data in stream:
                 result = {}
-                for balance in data['B']:
-                    result[
-                        balance['a'].lower()
-                    ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
+                for balance in data["B"]:
+                    result[balance["a"].lower()] = Balance(
+                        available=Decimal(balance["f"]), hold=Decimal(balance["l"])
+                    )
                 yield result
 
         # Yields only assets that are possibly changed.
         user_data_stream = await self._get_user_data_stream(account)
-        async with user_data_stream.subscribe('outboundAccountPosition') as stream:
+        async with user_data_stream.subscribe("outboundAccountPosition") as stream:
             yield inner(stream)
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
@@ -396,18 +399,15 @@ class Binance(Exchange):
         }
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
         content = await self._api_request_json(
-            'GET',
-            '/api/v3/depth',
+            "GET",
+            "/api/v3/depth",
             weight=LIMIT_TO_WEIGHT[LIMIT],
-            data={
-                'limit': LIMIT,
-                'symbol': _to_http_symbol(symbol)
-            }
+            data={"limit": LIMIT, "symbol": _to_http_symbol(symbol)},
         )
         return Depth.Snapshot(
-            bids=[(Decimal(x[0]), Decimal(x[1])) for x in content['bids']],
-            asks=[(Decimal(x[0]), Decimal(x[1])) for x in content['asks']],
-            last_id=content['lastUpdateId'],
+            bids=[(Decimal(x[0]), Decimal(x[1])) for x in content["bids"]],
+            asks=[(Decimal(x[0]), Decimal(x[1])) for x in content["asks"]],
+            last_id=content["lastUpdateId"],
         )
 
     @asynccontextmanager
@@ -415,46 +415,46 @@ class Binance(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
             async for data in ws:
                 yield Depth.Update(
-                    bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
-                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']],
-                    first_id=data['U'],
-                    last_id=data['u']
+                    bids=[(Decimal(m[0]), Decimal(m[1])) for m in data["b"]],
+                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data["a"]],
+                    first_id=data["U"],
+                    last_id=data["u"],
                 )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        url = f'/ws/{_to_ws_symbol(symbol)}@depth'
+        url = f"/ws/{_to_ws_symbol(symbol)}@depth"
         if self._high_precision:  # Low precision is every 1000ms.
-            url += '@100ms'
+            url += "@100ms"
         async with self._connect_refreshing_stream(
-            url=url, interval=12 * HOUR_SEC, name='depth', raise_on_disconnect=True
+            url=url, interval=12 * HOUR_SEC, name="depth", raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
 
     async def list_orders(self, account: str, symbol: Optional[str] = None) -> list[Order]:
-        if account not in ['spot', 'margin']:
+        if account not in ["spot", "margin"]:
             if symbol is None:
                 symbol = account
             elif symbol != account:
-                raise ValueError(f'Invalid isolated margin symbol {symbol} for account {account}')
+                raise ValueError(f"Invalid isolated margin symbol {symbol} for account {account}")
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#current-open-orders-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/margin-api.md#query-margin-accounts-open-order-user_data
         # https://binance-docs.github.io/apidocs/spot/en/#query-margin-account-39-s-order-user_data
-        url = '/api/v3/openOrders' if account == 'spot' else '/sapi/v1/margin/openOrders'
+        url = "/api/v3/openOrders" if account == "spot" else "/sapi/v1/margin/openOrders"
         # For margin:
         # > When all symbols are returned, the number of requests counted against the rate limiter
         # > is equal to the number of symbols currently trading on the exchange.
         # TODO: For margin accounts, if symbol specified, the weight in GitHub docs states 10 but
         # in binance-docs 1. Clarify!
         # TODO: Make the margin no-symbol weight calc dynamic.
-        weight = (3 if symbol else 40) if account == 'spot' else (10 if symbol else 40)
+        weight = (3 if symbol else 40) if account == "spot" else (10 if symbol else 40)
         data = {}
         if symbol is not None:
-            data['symbol'] = _to_http_symbol(symbol)
-        if account not in ['spot', 'margin']:
-            data['isIsolated'] = 'TRUE'
+            data["symbol"] = _to_http_symbol(symbol)
+        if account not in ["spot", "margin"]:
+            data["isIsolated"] = "TRUE"
         content = await self._api_request_json(
-            'GET',
+            "GET",
             url,
             data=data,
             security=_SEC_USER_DATA,
@@ -462,11 +462,12 @@ class Binance(Exchange):
         )
         return [
             Order(
-                client_id=o['clientOrderId'],
-                symbol=_from_symbol(o['symbol']),
-                price=Decimal(o['price']),
-                size=Decimal(o['origQty']),
-            ) for o in content
+                client_id=o["clientOrderId"],
+                symbol=_from_symbol(o["symbol"]),
+                price=Decimal(o["price"]),
+                size=Decimal(o["origQty"]),
+            )
+            for o in content
         ]
 
     @asynccontextmanager
@@ -475,53 +476,53 @@ class Binance(Exchange):
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async def inner(stream: AsyncIterable[dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
-                res_symbol = _from_symbol(data['s'])
+                res_symbol = _from_symbol(data["s"])
                 if res_symbol != symbol:
                     continue
-                status = _from_order_status(data['X'])
+                status = _from_order_status(data["X"])
                 if status is OrderStatus.NEW:
                     yield OrderUpdate.New(
-                        client_id=data['c'],
+                        client_id=data["c"],
                     )
                 elif status is OrderStatus.PARTIALLY_FILLED:
                     yield OrderUpdate.Match(
-                        client_id=data['c'],
+                        client_id=data["c"],
                         fill=Fill(
-                            price=Decimal(data['L']),
-                            size=Decimal(data['l']),
-                            quote=Decimal(data['Y']),
-                            fee=Decimal(data['n']),
-                            fee_asset=data['N'].lower(),
+                            price=Decimal(data["L"]),
+                            size=Decimal(data["l"]),
+                            quote=Decimal(data["Y"]),
+                            fee=Decimal(data["n"]),
+                            fee_asset=data["N"].lower(),
                         ),
                     )
                 elif status is OrderStatus.FILLED:
                     yield OrderUpdate.Match(
-                        client_id=data['c'],
+                        client_id=data["c"],
                         fill=Fill(
-                            price=Decimal(data['L']),
-                            size=Decimal(data['l']),
-                            quote=Decimal(data['Y']),
-                            fee=Decimal(data['n']),
-                            fee_asset=data['N'].lower(),
+                            price=Decimal(data["L"]),
+                            size=Decimal(data["l"]),
+                            quote=Decimal(data["Y"]),
+                            fee=Decimal(data["n"]),
+                            fee_asset=data["N"].lower(),
                         ),
                     )
                     yield OrderUpdate.Done(
-                        time=data['T'],  # Transaction time.
-                        client_id=data['c'],
+                        time=data["T"],  # Transaction time.
+                        client_id=data["c"],
                     )
                 elif status is OrderStatus.CANCELLED:
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
                     yield OrderUpdate.Cancelled(
-                        time=data['T'],
-                        client_id=data['C'],
+                        time=data["T"],
+                        client_id=data["C"],
                     )
                 else:
                     raise NotImplementedError(data)
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
         user_data_stream = await self._get_user_data_stream(account)
-        async with user_data_stream.subscribe('executionReport') as stream:
+        async with user_data_stream.subscribe("executionReport") as stream:
             yield inner(stream)
 
     async def place_order(
@@ -537,52 +538,54 @@ class Binance(Exchange):
         client_id: Optional[str] = None,
     ) -> OrderResult:
         data: dict[str, Any] = {
-            'symbol': _to_http_symbol(symbol),
-            'side': _to_side(side),
-            'type': _to_order_type(type_),
+            "symbol": _to_http_symbol(symbol),
+            "side": _to_side(side),
+            "type": _to_order_type(type_),
         }
         if size is not None:
-            data['quantity'] = _to_decimal(size)
+            data["quantity"] = _to_decimal(size)
         if quote is not None:
-            data['quoteOrderQty'] = _to_decimal(quote)
+            data["quoteOrderQty"] = _to_decimal(quote)
         if price is not None:
-            data['price'] = _to_decimal(price)
+            data["price"] = _to_decimal(price)
         if time_in_force is not None:
-            data['timeInForce'] = _to_time_in_force(time_in_force)
+            data["timeInForce"] = _to_time_in_force(time_in_force)
         if client_id is not None:
-            data['newClientOrderId'] = client_id
-        if account not in ['spot', 'margin']:
-            data['isIsolated'] = 'TRUE'
-        if account == 'spot':
-            url = '/api/v3/order'
+            data["newClientOrderId"] = client_id
+        if account not in ["spot", "margin"]:
+            data["isIsolated"] = "TRUE"
+        if account == "spot":
+            url = "/api/v3/order"
             weight = 2
         else:
-            url = '/sapi/v1/margin/order'
+            url = "/sapi/v1/margin/order"
             weight = 1
         content = await self._api_request_json(
-            'POST', url, data=data, security=_SEC_TRADE, weight=weight
+            "POST", url, data=data, security=_SEC_TRADE, weight=weight
         )
 
         # In case of LIMIT_MARKET order, the following are not present in the response:
         # - status
         # - cummulativeQuoteQty
         # - fills
-        total_quote = Decimal(q) if (q := content.get('cummulativeQuoteQty')) else Decimal('0.0')
+        total_quote = Decimal(q) if (q := content.get("cummulativeQuoteQty")) else Decimal("0.0")
         return OrderResult(
-            time=content['transactTime'],
+            time=content["transactTime"],
             status=(
-                _from_order_status(status) if (status := content.get('status'))
+                _from_order_status(status)
+                if (status := content.get("status"))
                 else OrderStatus.NEW
             ),
             fills=[
                 Fill(
-                    price=(p := Decimal(f['price'])),
-                    size=(s := Decimal(f['qty'])),
+                    price=(p := Decimal(f["price"])),
+                    size=(s := Decimal(f["qty"])),
                     quote=(p * s).quantize(total_quote),
-                    fee=Decimal(f['commission']),
-                    fee_asset=f['commissionAsset'].lower()
-                ) for f in content.get('fills', [])
-            ]
+                    fee=Decimal(f["commission"]),
+                    fee_asset=f["commissionAsset"].lower(),
+                )
+                for f in content.get("fills", [])
+            ],
         )
 
     async def cancel_order(
@@ -591,14 +594,14 @@ class Binance(Exchange):
         symbol: str,
         client_id: str,
     ) -> None:
-        url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
+        url = "/api/v3/order" if account == "spot" else "/sapi/v1/margin/order"
         data = {
-            'symbol': _to_http_symbol(symbol),
-            'origClientOrderId': client_id,
+            "symbol": _to_http_symbol(symbol),
+            "origClientOrderId": client_id,
         }
-        if account not in ['spot', 'margin']:
-            data['isIsolated'] = 'TRUE'
-        await self._api_request_json('DELETE', url, data=data, security=_SEC_TRADE)
+        if account not in ["spot", "margin"]:
+            data["isIsolated"] = "TRUE"
+        await self._api_request_json("DELETE", url, data=data, security=_SEC_TRADE)
 
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
@@ -612,23 +615,28 @@ class Binance(Exchange):
             pagination_interval = end - start
         for page_start, page_end in page_limit(start, end, pagination_interval, limit):
             content = await self._api_request_json(
-                'GET',
-                '/api/v3/klines',
+                "GET",
+                "/api/v3/klines",
                 data={
-                    'symbol': binance_symbol,
-                    'interval': binance_interval,
-                    'startTime': page_start,
-                    'endTime': page_end - 1,
-                    'limit': limit
-                }
+                    "symbol": binance_symbol,
+                    "interval": binance_interval,
+                    "startTime": page_start,
+                    "endTime": page_end - 1,
+                    "limit": limit,
+                },
             )
             for c in content:
                 # Binance can return bad candles where the time does not fall within the requested
                 # interval. For example, the second candle of the following query has bad time:
                 # https://api.binance.com/api/v3/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
                 yield Candle(
-                    c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
-                    Decimal(c[5]), True
+                    c[0],
+                    Decimal(c[1]),
+                    Decimal(c[2]),
+                    Decimal(c[3]),
+                    Decimal(c[4]),
+                    Decimal(c[5]),
+                    True,
                 )
 
     @asynccontextmanager
@@ -642,17 +650,22 @@ class Binance(Exchange):
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for data in ws:
-                c = data['k']
+                c = data["k"]
                 yield Candle(
-                    c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']), Decimal(c['c']),
-                    Decimal(c['v']), c['x']
+                    c["t"],
+                    Decimal(c["o"]),
+                    Decimal(c["h"]),
+                    Decimal(c["l"]),
+                    Decimal(c["c"]),
+                    Decimal(c["v"]),
+                    c["x"],
                 )
 
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
+            url=f"/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}",
             interval=12 * HOUR_SEC,
-            name='candles',
-            raise_on_disconnect=True
+            name="candles",
+            raise_on_disconnect=True,
         ) as ws:
             yield inner(ws)
 
@@ -663,24 +676,24 @@ class Binance(Exchange):
         # the same order will be aggregated by summing their size.
         batch_start = start
         payload: dict[str, Any] = {
-            'symbol': _to_http_symbol(symbol),
+            "symbol": _to_http_symbol(symbol),
         }
         while True:
             batch_end = batch_start + HOUR_MS
-            payload['startTime'] = batch_start
-            payload['endTime'] = min(batch_end, end) - 1  # Inclusive.
+            payload["startTime"] = batch_start
+            payload["endTime"] = min(batch_end, end) - 1  # Inclusive.
 
             time = None
 
-            content = await self._api_request_json('GET', '/api/v3/aggTrades', data=payload)
+            content = await self._api_request_json("GET", "/api/v3/aggTrades", data=payload)
             for t in content:
-                time = t['T']
+                time = t["T"]
                 assert time < end
                 yield Trade(
-                    id=t['a'],
+                    id=t["a"],
                     time=time,
-                    price=Decimal(t['p']),
-                    size=Decimal(t['q']),
+                    price=Decimal(t["p"]),
+                    size=Decimal(t["q"]),
                 )
             batch_start = time + 1 if time is not None else batch_end
             if batch_start >= end:
@@ -691,144 +704,146 @@ class Binance(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for data in ws:
                 yield Trade(
-                    id=data['a'],
-                    time=data['T'],
-                    price=Decimal(data['p']),
-                    size=Decimal(data['q']),
+                    id=data["a"],
+                    time=data["T"],
+                    price=Decimal(data["p"]),
+                    size=Decimal(data["q"]),
                 )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
-            raise_on_disconnect=True
+            url=f"/ws/{_to_ws_symbol(symbol)}@trade",
+            interval=12 * HOUR_SEC,
+            name="trade",
+            raise_on_disconnect=True,
         ) as ws:
             yield inner(ws)
 
     async def transfer(
         self, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
-        if from_account in ['spot', 'margin'] and to_account in ['spot', 'margin']:
+        if from_account in ["spot", "margin"] and to_account in ["spot", "margin"]:
             assert from_account != to_account
             await self._api_request_json(
-                'POST',
-                '/sapi/v1/margin/transfer',
+                "POST",
+                "/sapi/v1/margin/transfer",
                 data={
-                    'asset': _to_asset(asset),
-                    'amount': _to_decimal(size),
-                    'type': 1 if to_account == 'margin' else 2,
+                    "asset": _to_asset(asset),
+                    "amount": _to_decimal(size),
+                    "type": 1 if to_account == "margin" else 2,
                 },
                 security=_SEC_MARGIN,
             )
         else:
-            assert from_account != 'margin' and to_account != 'margin'
-            assert from_account == 'spot' or to_account == 'spot'
-            to_spot = to_account == 'spot'
+            assert from_account != "margin" and to_account != "margin"
+            assert from_account == "spot" or to_account == "spot"
+            to_spot = to_account == "spot"
             await self._api_request_json(
-                'POST',
-                '/sapi/v1/margin/isolated/transfer',
+                "POST",
+                "/sapi/v1/margin/isolated/transfer",
                 data={
-                    'asset': _to_asset(asset),
-                    'symbol': _to_http_symbol(from_account if to_spot else to_account),
-                    'transFrom': 'ISOLATED_MARGIN' if to_spot else 'SPOT',
-                    'transTo': 'SPOT' if to_spot else 'ISOLATED_MARGIN',
-                    'amount': _to_decimal(size),
+                    "asset": _to_asset(asset),
+                    "symbol": _to_http_symbol(from_account if to_spot else to_account),
+                    "transFrom": "ISOLATED_MARGIN" if to_spot else "SPOT",
+                    "transTo": "SPOT" if to_spot else "ISOLATED_MARGIN",
+                    "amount": _to_decimal(size),
                 },
                 security=_SEC_MARGIN,
             )
 
     async def borrow(self, asset: str, size: Decimal, account) -> None:
-        assert account != 'spot'
+        assert account != "spot"
         data = {
-            'asset': _to_asset(asset),
-            'amount': _to_decimal(size),
+            "asset": _to_asset(asset),
+            "amount": _to_decimal(size),
         }
-        if account != 'margin':
-            data['isIsolated'] = 'TRUE'
-            data['symbol'] = _to_http_symbol(account)
+        if account != "margin":
+            data["isIsolated"] = "TRUE"
+            data["symbol"] = _to_http_symbol(account)
         await self._api_request_json(
-            'POST',
-            '/sapi/v1/margin/loan',
+            "POST",
+            "/sapi/v1/margin/loan",
             data=data,
             security=_SEC_MARGIN,
         )
 
     async def repay(self, asset: str, size: Decimal, account: str) -> None:
-        assert account != 'spot'
+        assert account != "spot"
         data = {
-            'asset': _to_asset(asset),
-            'amount': _to_decimal(size),
+            "asset": _to_asset(asset),
+            "amount": _to_decimal(size),
         }
-        if account != 'margin':
-            data['isIsolated'] = 'TRUE'
-            data['symbol'] = _to_http_symbol(account)
+        if account != "margin":
+            data["isIsolated"] = "TRUE"
+            data["symbol"] = _to_http_symbol(account)
         await self._api_request_json(
-            'POST',
-            '/sapi/v1/margin/repay',
+            "POST",
+            "/sapi/v1/margin/repay",
             data=data,
             security=_SEC_MARGIN,
         )
 
     async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
-        assert account != 'spot'
-        data = {'asset': _to_asset(asset)}
-        if account != 'margin':
-            data['isolatedSymbol'] = _to_http_symbol(account)
+        assert account != "spot"
+        data = {"asset": _to_asset(asset)}
+        if account != "margin":
+            data["isolatedSymbol"] = _to_http_symbol(account)
         content = await self._api_request_json(
-            'GET',
-            '/sapi/v1/margin/maxBorrowable',
+            "GET",
+            "/sapi/v1/margin/maxBorrowable",
             data=data,
             security=_SEC_USER_DATA,
             weight=5,
         )
-        return Decimal(content['amount'])
+        return Decimal(content["amount"])
 
     async def get_max_transferable(self, asset: str, account: str) -> Decimal:
-        assert account != 'spot'
-        data = {'asset': _to_asset(asset)}
-        if account != 'margin':
-            data['isolatedSymbol'] = _to_http_symbol(account)
+        assert account != "spot"
+        data = {"asset": _to_asset(asset)}
+        if account != "margin":
+            data["isolatedSymbol"] = _to_http_symbol(account)
         content = await self._api_request_json(
-            'GET',
-            '/sapi/v1/margin/maxTransferable',
+            "GET",
+            "/sapi/v1/margin/maxTransferable",
             data=data,
             security=_SEC_USER_DATA,
             weight=5,
         )
-        return Decimal(content['amount'])
+        return Decimal(content["amount"])
 
     async def convert_dust(self, assets: list[str]) -> None:
         await self._api_request_json(
-            'POST',
-            '/sapi/v1/asset/dust',
-            data=MultiDict([('asset', _to_asset(a)) for a in assets]),
+            "POST",
+            "/sapi/v1/asset/dust",
+            data=MultiDict([("asset", _to_asset(a)) for a in assets]),
             security=_SEC_USER_DATA,
         )
 
     async def _list_symbols(self, isolated: bool = False) -> list[str]:
         content = await self._api_request_json(
-            'GET',
+            "GET",
             f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
             security=_SEC_USER_DATA,
         )
-        return [_from_symbol(s['symbol']) for s in content]
+        return [_from_symbol(s["symbol"]) for s in content]
 
     async def get_deposit_address(self, asset: str) -> str:
         content = await self._api_request_json(
-            'GET',
-            '/sapi/v1/capital/deposit/address',
-            data={'coin': _to_asset(asset)},
+            "GET",
+            "/sapi/v1/capital/deposit/address",
+            data={"coin": _to_asset(asset)},
             security=_SEC_USER_DATA,
         )
-        return content['address']
+        return content["address"]
 
     async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
         await self._api_request_json(
-            'POST',
-            '/sapi/v1/capital/withdraw/apply',
+            "POST",
+            "/sapi/v1/capital/withdraw/apply",
             data={
-                'coin': _to_asset(asset),
-                'address': address,
-                'amount': _to_decimal(amount),
+                "coin": _to_asset(asset),
+                "address": address,
+                "amount": _to_decimal(amount),
             },
             security=_SEC_USER_DATA,
         )
@@ -838,15 +853,17 @@ class Binance(Exchange):
         end = time_ms() if end is None else end
         tasks = []
         for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
-            tasks.append(self._api_request_json(
-                'GET',
-                '/sapi/v1/capital/deposit/hisrec',
-                data={
-                    'startTime': page_start,
-                    'endTime': page_end - 1,
-                },
-                security=_SEC_USER_DATA,
-            ))
+            tasks.append(
+                self._api_request_json(
+                    "GET",
+                    "/sapi/v1/capital/deposit/hisrec",
+                    data={
+                        "startTime": page_start,
+                        "endTime": page_end - 1,
+                    },
+                    security=_SEC_USER_DATA,
+                )
+            )
         results = await asyncio.gather(*tasks)
         return [record for content in results for record in content]
 
@@ -855,15 +872,17 @@ class Binance(Exchange):
         end = time_ms() if end is None else end
         tasks = []
         for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
-            tasks.append(self._api_request_json(
-                'GET',
-                '/sapi/v1/capital/withdraw/history',
-                data={
-                    'startTime': page_start,
-                    'endTime': page_end - 1,
-                },
-                security=_SEC_USER_DATA,
-            ))
+            tasks.append(
+                self._api_request_json(
+                    "GET",
+                    "/sapi/v1/capital/withdraw/history",
+                    data={
+                        "startTime": page_start,
+                        "endTime": page_end - 1,
+                    },
+                    security=_SEC_USER_DATA,
+                )
+            )
         results = await asyncio.gather(*tasks)
         return [record for content in results for record in content]
 
@@ -885,20 +904,22 @@ class Binance(Exchange):
             self._raw_reqs_limiter.acquire(),
             self._reqs_per_min_limiter.acquire(weight),
         ]
-        if url in {'/api/v3/order', '/sapi/v1/margin/order'}:
-            limiters.extend((
-                self._orders_per_day_limiter.acquire(),
-                self._orders_per_sec_limiter.acquire(),
-            ))
+        if url in {"/api/v3/order", "/sapi/v1/margin/order"}:
+            limiters.extend(
+                (
+                    self._orders_per_day_limiter.acquire(),
+                    self._orders_per_sec_limiter.acquire(),
+                )
+            )
         elif url in {
             # The following are documented to be rate limited.
-            '/sapi/v1/margin/transfer',
-            '/sapi/v1/margin/loan',
-            '/sapi/v1/margin/repay',
+            "/sapi/v1/margin/transfer",
+            "/sapi/v1/margin/loan",
+            "/sapi/v1/margin/repay",
             # The following are NOT documented but seem to be rate limited as well.
-            '/sapi/v1/userDataStream',
-            '/sapi/v1/userDataStream/isolated',
-            '/sapi/v1/margin/isolated/transfer',
+            "/sapi/v1/userDataStream",
+            "/sapi/v1/userDataStream/isolated",
+            "/sapi/v1/margin/isolated/transfer",
         }:
             limiters.append(self._margin_limiter.acquire())
 
@@ -907,34 +928,38 @@ class Binance(Exchange):
         kwargs: dict[str, Any] = {}
 
         if security in [
-            _SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN, _SEC_USER_STREAM, _SEC_MARKET_DATA
+            _SEC_TRADE,
+            _SEC_USER_DATA,
+            _SEC_MARGIN,
+            _SEC_USER_STREAM,
+            _SEC_MARKET_DATA,
         ]:
-            kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
+            kwargs["headers"] = {"X-MBX-APIKEY": self._api_key}
 
         if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN]:
             await self._clock.wait()
 
             data = data or {}
-            data['timestamp'] = time_ms() + self._clock.time_diff
-            query_str_bytes = urllib.parse.urlencode(data).encode('utf-8')
+            data["timestamp"] = time_ms() + self._clock.time_diff
+            query_str_bytes = urllib.parse.urlencode(data).encode("utf-8")
             signature = hmac.new(self._secret_key_bytes, query_str_bytes, hashlib.sha256)
-            data['signature'] = signature.hexdigest()
+            data["signature"] = signature.hexdigest()
 
         if data:
-            kwargs['params' if method == 'GET' else 'data'] = data
+            kwargs["params" if method == "GET" else "data"] = data
 
         # Request.
         response = await self._request(method=method, url=_BASE_REST_URL + url, **kwargs)
         content = await response.json()
 
         # Error handling.
-        if isinstance(content, dict) and (error_code := content.get('code')) is not None:
-            error_msg = content.get('msg')
+        if isinstance(content, dict) and (error_code := content.get("code")) is not None:
+            error_msg = content.get("msg")
             _log.warning(
-                f'received http status {response.status}; code {error_code}; msg {error_msg}'
+                f"received http status {response.status}; code {error_code}; msg {error_msg}"
             )
             if error_code == _ERR_INVALID_TIMESTAMP:
-                _log.warning('received invalid timestamp; syncing clock before exc')
+                _log.warning("received invalid timestamp; syncing clock before exc")
                 self._clock.clear()
                 raise ExchangeException(error_msg)
             elif error_code == _ERR_INVALID_LISTEN_KEY:
@@ -942,7 +967,7 @@ class Binance(Exchange):
             elif error_code == _ERR_CANCEL_REJECTED:
                 raise OrderMissing(error_msg)
             elif error_code in {_ERR_NEW_ORDER_REJECTED, _ERR_MARGIN_NEW_ORDER_REJECTED}:
-                if error_msg == 'Order would immediately match and take.':
+                if error_msg == "Order would immediately match and take.":
                     raise OrderWouldBeTaker(error_msg)
                 else:
                     # For example: 'Account has insufficient balance for requested action.'
@@ -957,14 +982,14 @@ class Binance(Exchange):
             elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
                 raise BadOrder(error_msg)
             elif error_code == _ERR_TOO_MANY_REQUESTS:
-                if (retry_after := response.headers.get('Retry-After')):
-                    _log.info(f'server provided retry-after {retry_after}; sleeping')
+                if retry_after := response.headers.get("Retry-After"):
+                    _log.info(f"server provided retry-after {retry_after}; sleeping")
                     await asyncio.sleep(float(retry_after))
                 raise ExchangeException(error_msg)
             elif error_code == _ERR_UNKNOWN:
                 raise ExchangeException(error_msg)
             else:
-                raise NotImplementedError(f'No handling for binance error: {content}')
+                raise NotImplementedError(f"No handling for binance error: {content}")
 
         response.raise_for_status()
         return content
@@ -986,7 +1011,7 @@ class Binance(Exchange):
             # TODO: If status 50X (502 for example during exchange maintenance), we may
             # want to wait for a some kind of a successful health check before retrying.
             if response.status >= 500:
-                raise ExchangeException(f'Server error {response.status}')
+                raise ExchangeException(f"Server error {response.status}")
             return response
 
     @asynccontextmanager
@@ -999,13 +1024,13 @@ class Binance(Exchange):
                 url=_BASE_WS_URL + url,
                 interval=interval,
                 loads=json.loads,
-                take_until=lambda old, new: old['E'] < new['E'],
+                take_until=lambda old, new: old["E"] < new["E"],
                 name=name,
-                raise_on_disconnect=raise_on_disconnect
+                raise_on_disconnect=raise_on_disconnect,
             ) as stream:
                 yield stream
         except (aiohttp.WSServerHandshakeError, aiohttp.WebSocketError) as e:
-            _log.warning(f'{name} web socket exc: {e}')
+            _log.warning(f"{name} web socket exc: {e}")
             raise ExchangeException(str(e))
 
     async def _get_user_data_stream(self, account: str) -> UserDataStream:
@@ -1048,7 +1073,7 @@ class Clock:
             try:
                 await asyncio.wait(
                     [sleep_task, self._reset_periodic_sync.wait()],
-                    return_when=asyncio.FIRST_COMPLETED
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
             finally:
                 if not sleep_task.done():
@@ -1064,17 +1089,17 @@ class Clock:
     )
     async def _sync_clock(self) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
-        _log.info('syncing clock with Binance')
+        _log.info("syncing clock with Binance")
         before = time_ms()
-        content = await self._binance._api_request_json('GET', '/api/v3/time')
-        server_time = content['serverTime']
+        content = await self._binance._api_request_json("GET", "/api/v3/time")
+        server_time = content["serverTime"]
         after = time_ms()
         # Assume response time is same as request time.
         delay = (after - before) // 2
         local_time = before + delay
         # Adjustment required converting from local time to server time.
         self.time_diff = server_time - local_time
-        _log.info(f'found {self.time_diff}ms time difference')
+        _log.info(f"found {self.time_diff}ms time difference")
         self._synced.set()
 
 
@@ -1083,12 +1108,12 @@ class CreateListenKeyResult(TypedDict):
 
 
 class UserDataStream:
-    def __init__(self, binance: Binance, account: str = 'spot') -> None:
+    def __init__(self, binance: Binance, account: str = "spot") -> None:
         self._binance = binance
         self._base_url = {
-            'spot': '/api/v3/userDataStream',
-            'margin': '/sapi/v1/userDataStream'
-        }.get(account, '/sapi/v1/userDataStream/isolated')
+            "spot": "/api/v3/userDataStream",
+            "margin": "/sapi/v1/userDataStream",
+        }.get(account, "/sapi/v1/userDataStream/isolated")
         self._account = account
         self._listen_key_lock = asyncio.Lock()
         self._stream_connected = asyncio.Event()
@@ -1097,8 +1122,8 @@ class UserDataStream:
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
 
-        self._queues: dict[str, dict[str, asyncio.Queue]] = (
-            defaultdict(lambda: defaultdict(asyncio.Queue))
+        self._queues: dict[str, dict[str, asyncio.Queue]] = defaultdict(
+            lambda: defaultdict(asyncio.Queue)
         )
 
     async def __aenter__(self) -> UserDataStream:
@@ -1142,7 +1167,7 @@ class UserDataStream:
         async with self._listen_key_lock:
             if not self._listen_key:
                 content = await self._create_listen_key()
-                self._listen_key = content['listenKey']
+                self._listen_key = content["listenKey"]
 
     async def _ensure_connection(self) -> None:
         await self._ensure_listen_key()
@@ -1153,9 +1178,7 @@ class UserDataStream:
             )
 
         if not self._stream_user_data_task:
-            self._stream_user_data_task = create_task_sigint_on_exception(
-                self._stream_user_data()
-            )
+            self._stream_user_data_task = create_task_sigint_on_exception(self._stream_user_data())
 
         await self._stream_connected.wait()
 
@@ -1166,23 +1189,27 @@ class UserDataStream:
                 try:
                     await self._update_listen_key(self._listen_key)
                 except ExchangeException:
-                    _log.warning(f'tried to update a listen key {self._listen_key} which did not '
-                                 'exist; resetting')
+                    _log.warning(
+                        f"tried to update a listen key {self._listen_key} which did not "
+                        "exist; resetting"
+                    )
                     self._listen_key = None
                     await self._ensure_listen_key()
             else:
-                _log.warning('want to refresh listen key but missing locally')
+                _log.warning("want to refresh listen key but missing locally")
 
     async def _stream_user_data(self) -> None:
         while True:
             try:
                 async with self._binance._connect_refreshing_stream(
-                    url=f'/ws/{self._listen_key}', interval=12 * HOUR_SEC, name='user',
-                    raise_on_disconnect=True
+                    url=f"/ws/{self._listen_key}",
+                    interval=12 * HOUR_SEC,
+                    name="user",
+                    raise_on_disconnect=True,
                 ) as stream:
                     self._stream_connected.set()
                     async for data in stream:
-                        event_queues = self._queues[data['e']]
+                        event_queues = self._queues[data["e"]]
                         for queue in event_queues.values():
                             queue.put_nowait(data)
                 break
@@ -1203,13 +1230,10 @@ class UserDataStream:
     async def _create_listen_key(self) -> CreateListenKeyResult:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         data = {}
-        if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
+        if self._account not in ["spot", "margin"]:
+            data["symbol"] = _to_http_symbol(self._account)
         return await self._binance._api_request_json(
-            'POST',
-            self._base_url,
-            data=data,
-            security=_SEC_USER_STREAM
+            "POST", self._base_url, data=data, security=_SEC_USER_STREAM
         )
 
     @retry(
@@ -1222,11 +1246,11 @@ class UserDataStream:
     )
     async def _update_listen_key(self, listen_key: str) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
-        data = {'listenKey': listen_key}
-        if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
+        data = {"listenKey": listen_key}
+        if self._account not in ["spot", "margin"]:
+            data["symbol"] = _to_http_symbol(self._account)
         await self._binance._api_request_json(
-            'PUT',
+            "PUT",
             self._base_url,
             data=data,
             security=_SEC_USER_STREAM,
@@ -1242,14 +1266,11 @@ class UserDataStream:
     )
     async def _delete_listen_key(self, listen_key: str) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
-        data = {'listenKey': listen_key}
-        if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
+        data = {"listenKey": listen_key}
+        if self._account not in ["spot", "margin"]:
+            data["symbol"] = _to_http_symbol(self._account)
         await self._binance._api_request_json(
-            'DELETE',
-            self._base_url,
-            data=data,
-            security=_SEC_USER_STREAM
+            "DELETE", self._base_url, data=data, security=_SEC_USER_STREAM
         )
 
 
@@ -1258,77 +1279,101 @@ def _to_asset(asset: str) -> str:
 
 
 def _to_http_symbol(symbol: str) -> str:
-    return symbol.replace('-', '').upper()
+    return symbol.replace("-", "").upper()
 
 
 def _to_ws_symbol(symbol: str) -> str:
-    return symbol.replace('-', '')
+    return symbol.replace("-", "")
 
 
 def _from_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
     # since there is no separator used. We simply map based on known quote assets.
     known_quote_assets = [
-        'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI', 'BRL',
-        'BVND', 'VAI', 'GYEN'
+        "BNB",
+        "BTC",
+        "ETH",
+        "XRP",
+        "USDT",
+        "PAX",
+        "TUSD",
+        "USDC",
+        "USDS",
+        "TRX",
+        "BUSD",
+        "NGN",
+        "RUB",
+        "TRY",
+        "EUR",
+        "ZAR",
+        "BKRW",
+        "IDRT",
+        "GBP",
+        "UAH",
+        "BIDR",
+        "AUD",
+        "DAI",
+        "BRL",
+        "BVND",
+        "VAI",
+        "GYEN",
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):
-            base = symbol[:-len(asset)]
+            base = symbol[: -len(asset)]
             quote = asset
             break
     else:
-        _log.warning(f'unknown quote asset found in symbol: {symbol}')
+        _log.warning(f"unknown quote asset found in symbol: {symbol}")
         # We round up because usually base asset is the longer one (i.e IOTABTC).
         split_index = math.ceil(len(symbol) / 2)
         base = symbol[:split_index]
         quote = symbol[split_index:]
-    return f'{base.lower()}-{quote.lower()}'
+    return f"{base.lower()}-{quote.lower()}"
 
 
 def _to_side(side: Side) -> str:
     return {
-        Side.BUY: 'BUY',
-        Side.SELL: 'SELL',
+        Side.BUY: "BUY",
+        Side.SELL: "SELL",
     }[side]
 
 
 def _to_order_type(type_: OrderType) -> str:
     return {
-        OrderType.MARKET: 'MARKET',
-        OrderType.LIMIT: 'LIMIT',
+        OrderType.MARKET: "MARKET",
+        OrderType.LIMIT: "LIMIT",
         # OrderType.STOP_LOSS: 'STOP_LOSS',
         # OrderType.STOP_LOSS_LIMIT: 'STOP_LOSS_LIMIT',
         # OrderType.TAKE_PROFIT: 'TAKE_PROFIT',
         # OrderType.TAKE_PROFIT_LIMIT: 'TAKE_PROFIT_LIMIT',
-        OrderType.LIMIT_MAKER: 'LIMIT_MAKER',
+        OrderType.LIMIT_MAKER: "LIMIT_MAKER",
     }[type_]
 
 
 def _to_time_in_force(time_in_force: TimeInForce) -> str:
     return {
-        TimeInForce.GTC: 'GTC',
-        TimeInForce.IOC: 'IOC',
-        TimeInForce.FOK: 'FOK',
+        TimeInForce.GTC: "GTC",
+        TimeInForce.IOC: "IOC",
+        TimeInForce.FOK: "FOK",
         # TimeInForce.GTT: 'GTT',
     }[time_in_force]
 
 
 def _from_order_status(status: str) -> OrderStatus:
     status_map = {
-        'NEW': OrderStatus.NEW,
-        'PARTIALLY_FILLED': OrderStatus.PARTIALLY_FILLED,
-        'FILLED': OrderStatus.FILLED,
-        'CANCELED': OrderStatus.CANCELLED
+        "NEW": OrderStatus.NEW,
+        "PARTIALLY_FILLED": OrderStatus.PARTIALLY_FILLED,
+        "FILLED": OrderStatus.FILLED,
+        "CANCELED": OrderStatus.CANCELLED,
     }
     mapped_status = status_map.get(status)
     if not mapped_status:
-        raise NotImplementedError(f'Handling of status {status} not implemented')
+        raise NotImplementedError(f"Handling of status {status} not implemented")
     return mapped_status
 
 
 def _to_decimal(value: Decimal) -> str:
     # Converts from scientific notation.
     # 6.4E-7 -> 0.0000_0064
-    return f'{value:f}'
+    return f"{value:f}"

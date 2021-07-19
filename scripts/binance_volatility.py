@@ -16,21 +16,21 @@ from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
 
 async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end):
     candles = await chandler.list_candles(exchange, symbol, interval, start, end)
-    df = pd.DataFrame([float(c.close) for c in candles], columns=['price'])
+    df = pd.DataFrame([float(c.close) for c in candles], columns=["price"])
     # Find returns.
-    df['pct_chg'] = df['price'].pct_change()
+    df["pct_chg"] = df["price"].pct_change()
     # Find log returns.
-    df['log_ret'] = np.log(1 + df['pct_chg'])
+    df["log_ret"] = np.log(1 + df["pct_chg"])
     # df['log_ret'] = np.log(df['price']) - np.log(df['price'].shift(1))
     # Find volatility.
-    volatility = df['log_ret'].std(ddof=0)
-    annualized_volatility = volatility * ((YEAR_MS / interval)**0.5)
+    volatility = df["log_ret"].std(ddof=0)
+    annualized_volatility = volatility * ((YEAR_MS / interval) ** 0.5)
     return symbol, strfinterval(interval), annualized_volatility
 
 
 async def main() -> None:
     binance = init_instance(Binance, from_env())
-    exchange = 'binance'
+    exchange = "binance"
     sqlite = SQLite()
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])

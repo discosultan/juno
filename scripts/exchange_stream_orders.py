@@ -3,8 +3,8 @@ import logging
 
 from juno.exchanges import Exchange
 
-EXCHANGE = 'binance'
-SYMBOL = 'iota-btc'
+EXCHANGE = "binance"
+SYMBOL = "iota-btc"
 
 
 async def main() -> None:

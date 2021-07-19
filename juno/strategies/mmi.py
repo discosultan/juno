@@ -11,8 +11,8 @@ class Mmi(Strategy):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                'period': Int(200, 500),
-                'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
+                "period": Int(200, 500),
+                "threshold": Uniform(Decimal("0.01"), Decimal("99.99")),
             }
         )
 
@@ -22,7 +22,7 @@ class Mmi(Strategy):
     def __init__(
         self,
         period: int = 200,
-        threshold: Decimal = Decimal('0.75'),
+        threshold: Decimal = Decimal("0.75"),
     ) -> None:
         self._mmi = indicators.Mmi(period)
         self._threshold = threshold

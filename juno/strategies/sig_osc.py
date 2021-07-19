@@ -25,11 +25,11 @@ class SigOsc(Signal):
         self,
         sig: dict[str, Any],
         osc: dict[str, Any],
-        osc_filter: str = 'enforce',
+        osc_filter: str = "enforce",
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
     ) -> None:
-        assert osc_filter in ['enforce', 'prevent']
+        assert osc_filter in ["enforce", "prevent"]
 
         self._sig = init_module_instance(strategies, sig)
         self._osc = init_module_instance(strategies, osc)
@@ -63,7 +63,7 @@ class SigOsc(Signal):
         if self._sig.mature and self._osc.mature:
             advice = self._sig.advice
 
-            if self._osc_filter == 'enforce':
+            if self._osc_filter == "enforce":
                 advice = self._osc_enforce(advice)
             else:
                 advice = self._osc_prevent(advice)
@@ -74,13 +74,25 @@ class SigOsc(Signal):
             )
 
     def _osc_enforce(self, advice: Advice) -> Advice:
-        return Advice.LIQUIDATE if (
-            advice is Advice.LONG and not self._osc.oversold
-            or advice is Advice.SHORT and not self._osc.overbought
-        ) else advice
+        return (
+            Advice.LIQUIDATE
+            if (
+                advice is Advice.LONG
+                and not self._osc.oversold
+                or advice is Advice.SHORT
+                and not self._osc.overbought
+            )
+            else advice
+        )
 
     def _osc_prevent(self, advice: Advice) -> Advice:
-        return Advice.LIQUIDATE if (
-            advice is Advice.LONG and self._osc.overbought
-            or advice is Advice.SHORT and self._osc.oversold
-        ) else advice
+        return (
+            Advice.LIQUIDATE
+            if (
+                advice is Advice.LONG
+                and self._osc.overbought
+                or advice is Advice.SHORT
+                and self._osc.oversold
+            )
+            else advice
+        )

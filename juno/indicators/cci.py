@@ -6,7 +6,7 @@ from .sma import Sma
 
 # Commodity Channel Index
 class Cci:
-    value: Decimal = Decimal('0.0')
+    value: Decimal = Decimal("0.0")
     _sma: Sma
     _scale: Decimal
     _typical_prices: deque[Decimal]
@@ -15,7 +15,7 @@ class Cci:
 
     def __init__(self, period: int) -> None:
         self._sma = Sma(period)
-        self._scale = Decimal('1.0') / period
+        self._scale = Decimal("1.0") / period
         self._typical_prices = deque(maxlen=period)
         self._t1 = period * 2 - 1
 
@@ -36,6 +36,6 @@ class Cci:
 
         if self._t == self._t1:
             acc = sum(abs(self._sma.value - tp) for tp in self._typical_prices)
-            self.value = (typical_price - self._sma.value) / (acc * self._scale * Decimal('0.015'))
+            self.value = (typical_price - self._sma.value) / (acc * self._scale * Decimal("0.015"))
 
         return self.value

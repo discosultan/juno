@@ -16,7 +16,7 @@ from .strategy import Signal, Strategy, ma_choices
 @dataclass
 class FourWeekRuleParams:
     period: int = 28
-    ma: str = 'ema'
+    ma: str = "ema"
     ma_period: int = 14  # Normally half the period.
 
     def construct(self) -> FourWeekRule:
@@ -36,9 +36,9 @@ class FourWeekRule(Signal):
     def meta() -> Strategy.Meta:
         return Strategy.Meta(
             constraints={
-                'period': Int(2, 100),
-                'ma': ma_choices,
-                'ma_period': Int(2, 100),
+                "period": Int(2, 100),
+                "ma": ma_choices,
+                "ma_period": Int(2, 100),
             }
         )
 
@@ -51,7 +51,7 @@ class FourWeekRule(Signal):
     def __init__(
         self,
         period: int = 28,
-        ma: str = 'ema',
+        ma: str = "ema",
         ma_period: int = 14,  # Normally half the period.
     ) -> None:
         self._prices = deque(maxlen=period)
@@ -81,9 +81,8 @@ class FourWeekRule(Signal):
                 self._advice = Advice.LONG
             elif candle.close <= lowest:
                 self._advice = Advice.SHORT
-            elif (
-                (self._advice is Advice.LONG and candle.close <= self._ma.value)
-                or (self._advice is Advice.SHORT and candle.close >= self._ma.value)
+            elif (self._advice is Advice.LONG and candle.close <= self._ma.value) or (
+                self._advice is Advice.SHORT and candle.close >= self._ma.value
             ):
                 self._advice = Advice.LIQUIDATE
 
