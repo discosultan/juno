@@ -1,4 +1,4 @@
-[
+WORDS = [
     "aa",
     "aah",
     "aahed",
@@ -172818,5 +172818,5 @@
     "zymurgies",
     "zymurgy",
     "zyzzyva",
-    "zyzzyvas"
+    "zyzzyvas",
 ]

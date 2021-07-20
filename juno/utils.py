@@ -45,20 +45,14 @@ def key(*items: Any) -> str:
     return "_".join(map(str, items))
 
 
-_words = None
-
-
 def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
-    global _words
-
     if length is not None and (length < 2 or 14 < length):
         raise ValueError("Length must be between 2 and 14")
 
-    if not _words:
-        _words = load_json_file(__file__, "./data/words.json")
-        _words = itertools.cycle(sorted(iter(_words), key=lambda _: random.random()))
+    from juno.data.words import WORDS
 
-    return filter(lambda w: len(w) == length, _words) if length else _words
+    words = itertools.cycle(sorted(iter(WORDS), key=lambda _: random.random()))
+    return filter(lambda w: len(w) == length, words) if length else words
 
 
 def unpack_assets(symbol: str) -> tuple[str, str]:

@@ -4,7 +4,6 @@ setup(
     name="juno",
     version="0.5.0",
     packages=find_packages(),
-    include_package_data=True,
     python_requires=">= 3.9",
     install_requires=[
         "aiohttp",
