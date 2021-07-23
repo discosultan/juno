@@ -886,6 +886,38 @@ class Binance(Exchange):
         results = await asyncio.gather(*tasks)
         return [record for content in results for record in content]
 
+    # Savings.
+
+    async def list_flexible_products(self) -> list[Any]:
+        return await self._api_request_json(
+            "GET", "/sapi/v1/lending/daily/product/list", security=_SEC_USER_DATA
+        )
+
+    async def purchase_flexible_product(self, asset: str, size: Decimal) -> None:
+        await self._api_request_json(
+            "GET",
+            "/sapi/v1/lending/daily/purchase",
+            data={
+                "productId": _to_asset(asset),
+                "amount": _to_decimal(size),
+            },
+            security=_SEC_USER_DATA,
+        )
+
+    async def redeem_flexible_product(self, asset: str, size: Decimal) -> None:
+        await self._api_request_json(
+            "GET",
+            "/sapi/v1/lending/daily/redeem",
+            data={
+                "productId": _to_asset(asset),
+                "amount": _to_decimal(size),
+                "type": "FAST",  # "FAST" | "NORMAL"
+            },
+            security=_SEC_USER_DATA,
+        )
+
+    # Common.
+
     @retry(
         stop=stop_after_attempt(2),
         retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
