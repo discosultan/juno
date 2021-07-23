@@ -1,9 +1,29 @@
 from __future__ import annotations
 
 from types import TracebackType
-from typing import Any, Optional
+from typing import Any, Literal, Optional, TypedDict
 
 from juno.http import ClientResponse, ClientSession
+
+
+class SyncProgress(TypedDict):
+    status: Literal["ready"]
+    # ...
+
+
+class Epoch(TypedDict):
+    epoch_number: int
+    epoch_start_time: str
+
+
+class NetworkInformation(TypedDict):
+    sync_progress: SyncProgress
+    next_epoch: Epoch
+
+
+class CreateTransactionResult(TypedDict):
+    status: Literal["pending"]
+    # ...
 
 
 class Cardano:
@@ -26,7 +46,7 @@ class Cardano:
     ) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_network_information(self) -> Any:
+    async def get_network_information(self) -> NetworkInformation:
         return await self._request_json("GET", "/v2/network/information")
 
     async def list_wallets(self) -> list[Any]:
@@ -36,30 +56,46 @@ class Cardano:
         if len(mnemonic24) != 24:
             raise ValueError("Mnemonic must be 24 words.")
 
-        mnemonic_sentence = mnemonic24[:15]
-        mnemonic_second_factor = mnemonic24[15:]
-
         return await self._request_json(
             "POST",
             "/v2/wallets",
             {
-                name: name,
-                mnemonic_sentence: mnemonic_sentence,
-                mnemonic_second_factor: mnemonic_second_factor,
-                passphrase: passphrase,
+                "name": name,
+                "mnemonic_sentence": mnemonic24,
+                "mnemonic_second_factor": None,
+                "passphrase": passphrase,
             },
         )
 
-    async def get_wallet(self, id_: str) -> Any:
-        return await self._request_json("GET", f"/v2/wallets/{id_}")
+    async def get_wallet(self, wallet_id: str) -> Any:
+        return await self._request_json("GET", f"/v2/wallets/{wallet_id}")
 
-    async def delete_wallet(self, id_: str) -> None:
-        await self._request("DELETE", f"/v2/wallets/{id_}")
+    async def delete_wallet(self, wallet_id: str) -> None:
+        await self._request("DELETE", f"/v2/wallets/{wallet_id}")
 
-    async def list_wallet_addresses(self, id_: str) -> list[Any]:
-        return await self._request_json("GET", f"/v2/wallets/{id_}/addresses")
+    async def list_wallet_addresses(self, wallet_id: str) -> list[Any]:
+        return await self._request_json("GET", f"/v2/wallets/{wallet_id}/addresses")
 
-    # TODO: Add send transaction.
+    async def create_transaction(
+        self, wallet_id: str, passphrase: str, address: str, lovelaces: int
+    ) -> CreateTransactionResult:
+        return await self._request_json(
+            "POST",
+            f"/v2/wallets/{wallet_id}/transactions",
+            {
+                "passphrase": passphrase,
+                "payments": [
+                    {
+                        "address": address,
+                        "amount": {"quantity": lovelaces, "unit": "lovelace"},
+                        "assets": [],
+                    }
+                ],
+                "withdrawal": "self",
+                "metadata": None,
+                "time_to_live": {"quantity": 200, "unit": "second"},
+            },
+        )
 
     async def _request_json(self, method: str, url: str, json: Any = None) -> Any:
         response = await self._request(method, url, json)

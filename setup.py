@@ -25,6 +25,7 @@ setup(
     ],
     extras_require={
         "dev": [
+            "black",
             "flake8",
             "flake8-broken-line",
             "flake8-bugbear",
