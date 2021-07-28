@@ -1,5 +1,6 @@
 import logging
-from typing import Any, NamedTuple, Optional
+from dataclasses import dataclass
+from typing import Any, Optional
 
 from juno import Advice, Interval, strategies
 from juno.components import Chandler, Events
@@ -16,7 +17,8 @@ _log = logging.getLogger(__name__)
 
 
 class Signal(Agent):
-    class Config(NamedTuple):
+    @dataclass(frozen=True)
+    class Config:
         exchange: str
         symbol: str
         interval: Interval

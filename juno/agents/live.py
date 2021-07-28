@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, NamedTuple, Optional
+from typing import Any, Callable, Optional
 
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Events, Informant
@@ -23,7 +23,8 @@ _log = logging.getLogger(__name__)
 
 
 class Live(Agent):
-    class Config(NamedTuple):
+    @dataclass(frozen=True)
+    class Config:
         exchange: str
         interval: Interval
         trader: dict[str, Any]

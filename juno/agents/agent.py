@@ -29,6 +29,7 @@ class Agent:
     _events: Events
     _storage: Storage
 
+    @dataclass(frozen=True)
     class Config:
         pass
 

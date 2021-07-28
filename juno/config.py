@@ -191,7 +191,7 @@ def config_to_type(value: Any, type_: Any) -> Any:
 
     if isenum(type_):
         return type_[value.upper()]
-    if isnamedtuple(type_):
+    if isnamedtuple(type_) or is_dataclass(type_):
         type_hints = get_type_hints(type_)
         return type_(
             **{sn: config_to_type(value[sn], st) for sn, st in type_hints.items() if sn in value}
