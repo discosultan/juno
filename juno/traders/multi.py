@@ -45,8 +45,6 @@ _log = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-SYMBOL_PATTERN = "*-btc"
-
 
 @dataclass(frozen=True)
 class MultiConfig:
@@ -284,9 +282,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return state.summary
 
     async def _find_top_symbols(self, config: MultiConfig) -> list[str]:
+        symbol_pattern = f"*-{config.quote_asset}"
         tickers = self._informant.map_tickers(
             config.exchange,
-            symbol_patterns=[SYMBOL_PATTERN],
+            symbol_patterns=[symbol_pattern],
             exclude_symbol_patterns=config.track_exclude,
             spot=True,
             isolated_margin=True,
@@ -312,7 +311,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 else f" with required start at {strftimestamp(config.track_required_start)}"
             )
             raise ValueError(
-                f"Exchange only supports {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} "
+                f"Exchange only supports {len(tickers)} symbols matching pattern {symbol_pattern} "
                 f"while {config.track_count} requested{required_start_msg}"
             )
         # Compose.
