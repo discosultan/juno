@@ -22,23 +22,32 @@ _log = logging.getLogger(__name__)
 class Slack(Plugin):
     def __init__(self, events: Events, config: dict[str, Any]) -> None:
         slack_config = config.get(type(self).__name__.lower(), {})
+
         if not (token := slack_config.get("token")):
             raise ValueError("Missing token from config")
-        if not (channel_id := slack_config.get("channel_id")):
-            raise ValueError("Missing channel ID from config")
+        if not isinstance(token, str):
+            raise ValueError("Token should be a string")
+
+        channel_ids = slack_config.get("channel_id", {})
+        if not isinstance(channel_ids, dict):
+            raise ValueError("Channel IDs should be a map")
 
         self._slack_client = AsyncWebClient(token=token)
         self._events = events
         self._token = token
-        self._channel_id = channel_id
+        self._channel_ids = channel_ids
 
     async def activate(self, agent_name: str, agent_type: str) -> None:
+        channel_name = agent_type
+        if not (channel_id := self._channel_ids.get(channel_name)):
+            raise ValueError(f"Missing {channel_name} channel ID from config")
+
         agent_state = None
 
-        send_message = partial(self._send_message, self._channel_id)
+        send_message = partial(self._send_message, channel_id)
         format_message = partial(self._format_message, agent_name)
 
-        await self._slack_client.conversations_join(channel=self._channel_id)
+        await self._slack_client.conversations_join(channel=channel_id)
 
         @self._events.on(agent_name, "starting")
         async def on_starting(config: Any, state: Any, trader: Trader) -> None:

@@ -43,14 +43,21 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         super().__init__(command_prefix=".")
 
         discord_config = config.get(type(self).__name__.lower(), {})
+
         if not (token := discord_config.get("token")):
             raise ValueError("Missing token from config")
+        if not isinstance(token, str):
+            raise ValueError("Token should be a string")
+
+        channel_ids = discord_config.get("channel_id", {})
+        if not isinstance(channel_ids, dict):
+            raise ValueError("Channel IDs should be a map")
 
         self._chandler = chandler
         self._informant = informant
         self._events = events
         self._token = token
-        self._channel_ids = discord_config.get("channel_id", {})
+        self._channel_ids = channel_ids
 
     async def __aenter__(self) -> Discord:
         self._start_task = create_task_sigint_on_exception(self.start(self._token))
