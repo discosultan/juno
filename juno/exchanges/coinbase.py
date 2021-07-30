@@ -12,7 +12,9 @@ from decimal import Decimal
 from time import time
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
+import aiohttp
 from dateutil.tz import UTC
+from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
 from juno import (
     AssetInfo,
@@ -107,7 +109,7 @@ class Coinbase(Exchange):
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
         fees = {"__all__": Fees(maker=Decimal("0.005"), taker=Decimal("0.005"))}
 
-        _, content = await self._public_request("GET", "/products")
+        content = await self._public_request_json("GET", "/products")
         filters = {}
         for product in content:
             price_step = Decimal(product["quote_increment"])
@@ -156,7 +158,7 @@ class Coinbase(Exchange):
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == "spot":
-            _, content = await self._private_request("GET", "/accounts")
+            content = await self._private_request_json("GET", "/accounts")
             result["spot"] = {
                 b["currency"].lower(): Balance(
                     available=Decimal(b["available"]), hold=Decimal(b["hold"])
@@ -173,7 +175,7 @@ class Coinbase(Exchange):
         MAX_CANDLES_PER_REQUEST = 300
         url = f"/products/{_to_product(symbol)}/candles"
         for page_start, page_end in page_limit(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            _, content = await self._public_request(
+            content = await self._public_request_json(
                 "GET",
                 url,
                 {
@@ -240,7 +242,9 @@ class Coinbase(Exchange):
                     order_id = data["order_id"]
                     client_id = self._order_id_to_client_id[order_id]
                     # TODO: Should be paginated.
-                    _, content = await self._private_request("GET", f"/fills?order_id={order_id}")
+                    content = await self._private_request_json(
+                        "GET", f"/fills?order_id={order_id}"
+                    )
                     for fill in content:
                         # TODO: Coinbase fee is always returned in quote asset.
                         # TODO: Coinbase does not return quote, so we need to calculate it;
@@ -323,11 +327,13 @@ class Coinbase(Exchange):
         if type_ is OrderType.LIMIT_MAKER:
             data["post_only"] = True
 
-        response, content = await self._private_request("POST", "/orders", data=data)
+        response = await self._private_request("POST", "/orders", data=data)
+        content = await response.json()
 
         if response.status == 400:
             raise BadOrder(content["message"])
 
+        response.raise_for_status()
         # Does not support returning fills straight away. Need to listen through WS.
         return OrderResult(status=OrderStatus.NEW, time=_from_datetime(content["created_at"]))
 
@@ -339,21 +345,24 @@ class Coinbase(Exchange):
     ) -> None:
         if account != "spot":
             raise NotImplementedError()
-        response, content = await self._private_request(
+
+        response = await self._private_request(
             "DELETE",
             f"/orders/client:{client_id}",
             {
                 "product_id": _to_product(symbol),
             },
         )
+        content = await response.json()
         if response.status == 404:
             raise OrderMissing(content["message"])
+        response.raise_for_status()
 
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
         trades_desc = []
-        async for _, content in self._paginated_public_request(
+        async for content in self._paginated_public_request_json(
             "GET", f"/products/{_to_product(symbol)}/trades"
         ):
             done = False
@@ -390,7 +399,7 @@ class Coinbase(Exchange):
         async with self._ws.subscribe("matches", ["last_match", "match"], [symbol]) as ws:
             yield inner(ws)
 
-    async def _paginated_public_request(
+    async def _paginated_public_request_json(
         self, method: str, url: str, data: dict[str, Any] = {}
     ) -> AsyncIterable[tuple[ClientResponse, Any]]:
         page_after = None
@@ -398,21 +407,46 @@ class Coinbase(Exchange):
             await self._pub_limiter.acquire()
             if page_after is not None:
                 data["after"] = page_after
-            response, content = await self._request(method=method, url=url, params=data)
-            yield response, content
+            response = await self._public_request(method=method, url=url, data=data)
+            response.raise_for_status()
+            yield await response.json()
             page_after = response.headers.get("CB-AFTER")
             if page_after is None:
                 break
 
+    async def _public_request_json(self, method: str, url: str, data: dict[str, Any] = {}) -> Any:
+        response = await self._public_request(method, url, data)
+        response.raise_for_status()
+        return await response.json()
+
+    @retry(
+        stop=stop_after_attempt(2),
+        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def _public_request(
         self, method: str, url: str, data: dict[str, Any] = {}
-    ) -> tuple[ClientResponse, Any]:
+    ) -> ClientResponse:
         await self._pub_limiter.acquire()
-        return await self._request(method=method, url=url, params=data)
+        response = await self._request(method=method, url=url, params=data)
+        if response.status == 429:
+            content = await response.json()
+            raise ExchangeException(content["message"])
+        return response
 
+    async def _private_request_json(self, method: str, url: str, data: dict[str, Any] = {}) -> Any:
+        response = await self._private_request(method, url, data)
+        response.raise_for_status()
+        return await response.json()
+
+    @retry(
+        stop=stop_after_attempt(2),
+        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def _private_request(
         self, method: str, url: str, data: dict[str, Any] = {}
-    ) -> tuple[ClientResponse, Any]:
+    ) -> ClientResponse:
         await self._priv_limiter.acquire()
         timestamp = _auth_timestamp()
         body = json.dumps(data, separators=(",", ":")) if data else ""
@@ -426,14 +460,11 @@ class Coinbase(Exchange):
         }
         return await self._request(method, url, headers=headers, data=body)
 
-    async def _request(self, method: str, url: str, **kwargs: Any) -> tuple[ClientResponse, Any]:
+    async def _request(self, method: str, url: str, **kwargs: Any) -> ClientResponse:
         async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as response:
-            content = await response.json()
-
-        if response.status == 429:
-            raise ExchangeException(content["message"])
-
-        return response, content
+            if response.status >= 500:
+                raise ExchangeException(f"Server error {response.status}")
+            return response
 
 
 class CoinbaseFeed:
