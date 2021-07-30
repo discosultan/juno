@@ -74,6 +74,7 @@ class MultiConfig:
     position_count: int = 2
     exchange_candle_timeout: Optional[Interval] = None
     allowed_age_drift: int = 0
+    quote_asset: str = "btc"
 
 
 @dataclass
@@ -187,7 +188,9 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         )
         real_start = self._get_time_ms()
 
-        quote = await self.request_quote(config.quote, config.exchange, "btc", config.mode)
+        quote = await self.request_quote(
+            config.quote, config.exchange, config.quote_asset, config.mode
+        )
         position_quote = quote / config.position_count
         for symbol in symbols:
             _, filters = self._informant.get_fees_filters(config.exchange, symbol)
@@ -199,17 +202,19 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             real_start=real_start,
             start=start,
             next_=start,
-            quotes=self._split_quote(quote, config.position_count, config.exchange),
+            quotes=self._split_quote(
+                config.quote_asset, quote, config.position_count, config.exchange
+            ),
             summary=TradingSummary(
                 start=start if config.mode is TradingMode.BACKTEST else real_start,
                 quote=quote,
-                quote_asset="btc",  # TODO: support others
+                quote_asset=config.quote_asset,
             ),
             symbol_states={s: self._create_symbol_state(s, start, config) for s in symbols},
         )
 
-    def _split_quote(self, quote: Decimal, parts: int, exchange: str) -> list[Decimal]:
-        asset_info = self._informant.get_asset_info(exchange, "btc")
+    def _split_quote(self, asset: str, quote: Decimal, parts: int, exchange: str) -> list[Decimal]:
+        asset_info = self._informant.get_asset_info(exchange, asset)
         return split(quote, parts, asset_info.precision)
 
     def _create_symbol_state(self, symbol: str, start: int, config: MultiConfig) -> _SymbolState:
@@ -376,7 +381,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             if len(state.quotes) > 1 and rpstdev(state.quotes) > 0.05:
                 old_quotes = state.quotes
                 state.quotes = self._split_quote(
-                    sum(old_quotes, Decimal("0.0")), len(old_quotes), config.exchange
+                    config.quote_asset,
+                    sum(old_quotes, Decimal("0.0")),
+                    len(old_quotes),
+                    config.exchange,
                 )
                 msg = f"rebalanced existing available quotes {old_quotes} as {state.quotes}"
                 _log.info(msg)
