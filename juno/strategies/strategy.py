@@ -24,25 +24,27 @@ mid_trend_policy_choices = Choice(
     ]
 )
 
-# class Maturity:
-#     """Ignore advice if strategy not mature."""
-#     _maturity: int
-#     _age: int = 0
 
-#     def __init__(self, maturity: int) -> None:
-#         self._maturity = maturity
+class Maturity:
+    """Ignore advice if strategy not mature."""
 
-#     @property
-#     def maturity(self) -> int:
-#         return self._maturity
+    _maturity: int
+    _age: int = 0
 
-#     def update(self, value: Advice) -> Advice:
-#         result = Advice.NONE
-#         if self._age >= self._maturity:
-#             result = value
+    def __init__(self, maturity: int) -> None:
+        self._maturity = maturity
 
-#         self._age = min(self._age + 1, self._maturity)
-#         return result
+    @property
+    def maturity(self) -> int:
+        return self._maturity
+
+    def update(self, value: Advice) -> Advice:
+        result = Advice.NONE
+        if self._age >= self._maturity:
+            result = value
+
+        self._age = min(self._age + 1, self._maturity)
+        return result
 
 
 class MidTrend:

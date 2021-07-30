@@ -12,7 +12,16 @@ from .sig import Sig
 from .sig_osc import SigOsc
 from .single_ma import SingleMA, SingleMAParams
 from .stoch import Stoch
-from .strategy import Changed, MidTrend, MidTrendPolicy, Oscillator, Persistence, Signal, Strategy
+from .strategy import (
+    Changed,
+    Maturity,
+    MidTrend,
+    MidTrendPolicy,
+    Oscillator,
+    Persistence,
+    Signal,
+    Strategy,
+)
 from .triple_ma import TripleMA, TripleMAParams
 
 __all__ = [
@@ -26,6 +35,7 @@ __all__ = [
     "FourWeekRule",
     "FourWeekRuleParams",
     "Macd",
+    "Maturity",
     "MidTrend",
     "MidTrendPolicy",
     "Mmi",
