@@ -1,9 +1,22 @@
+from __future__ import annotations
+
 import operator
+from dataclasses import dataclass
 
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Pair
 
 from .strategy import Signal, Strategy
+
+
+@dataclass
+class MacdParams:
+    short_period: int = 12
+    long_period: int = 26
+    signal_period: int = 9
+
+    def construct(self) -> Macd:
+        return Macd(self)
 
 
 # Simple MACD based strategy which signals buy when MACD value above the signal line and sell if
@@ -22,13 +35,8 @@ class Macd(Signal):
     _macd: indicators.Macd
     _advice: Advice = Advice.NONE
 
-    def __init__(
-        self,
-        short_period: int = 12,
-        long_period: int = 26,
-        signal_period: int = 9,
-    ) -> None:
-        self._macd = indicators.Macd(short_period, long_period, signal_period)
+    def __init__(self, params: MacdParams) -> None:
+        self._macd = indicators.Macd(params.short_period, params.long_period, params.signal_period)
 
     @property
     def advice(self) -> Advice:

@@ -1,9 +1,24 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 from typing import Any
 
 from juno import Advice, Candle, strategies
 from juno.config import init_module_instance
 
 from .strategy import MidTrend, MidTrendPolicy, Oscillator, Persistence, Signal
+
+
+@dataclass
+class SigOscParams:
+    sig: Any
+    osc: Any
+    osc_filter: str = "enforce"
+    mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT
+    persistence: int = 0
+
+    def construct(self) -> SigOsc:
+        return SigOsc(self)
 
 
 # Generic signal with additional oscillator, persistence and mid trend filters.
@@ -21,21 +36,14 @@ class SigOsc(Signal):
     _t: int = 0
     _t1: int
 
-    def __init__(
-        self,
-        sig: dict[str, Any],
-        osc: dict[str, Any],
-        osc_filter: str = "enforce",
-        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
-        persistence: int = 0,
-    ) -> None:
-        assert osc_filter in ["enforce", "prevent"]
+    def __init__(self, params: SigOscParams) -> None:
+        assert params.osc_filter in ["enforce", "prevent"]
 
-        self._sig = init_module_instance(strategies, sig)
-        self._osc = init_module_instance(strategies, osc)
-        self._osc_filter = osc_filter
-        self._mid_trend = MidTrend(mid_trend_policy)
-        self._persistence = Persistence(level=persistence, return_previous=False)
+        self._sig = init_module_instance(strategies, params.sig)
+        self._osc = init_module_instance(strategies, params.osc)
+        self._osc_filter = params.osc_filter
+        self._mid_trend = MidTrend(params.mid_trend_policy)
+        self._persistence = Persistence(level=params.persistence, return_previous=False)
         self._t1 = (
             max(self._sig.maturity, self._osc.maturity)
             + max(self._mid_trend.maturity, self._persistence.maturity)

@@ -1,9 +1,21 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 from decimal import Decimal
 
 from juno import Candle, indicators
 from juno.constraints import Int, Uniform
 
 from .strategy import Strategy
+
+
+@dataclass
+class MmiParams:
+    period: int = 200
+    threshold: Decimal = Decimal("0.75")
+
+    def construct(self) -> Mmi:
+        return Mmi(self)
 
 
 class Mmi(Strategy):
@@ -19,13 +31,9 @@ class Mmi(Strategy):
     _mmi: indicators.Mmi
     _threshold: Decimal
 
-    def __init__(
-        self,
-        period: int = 200,
-        threshold: Decimal = Decimal("0.75"),
-    ) -> None:
-        self._mmi = indicators.Mmi(period)
-        self._threshold = threshold
+    def __init__(self, params: MmiParams) -> None:
+        self._mmi = indicators.Mmi(params.period)
+        self._threshold = params.threshold
 
     @property
     def maturity(self) -> int:

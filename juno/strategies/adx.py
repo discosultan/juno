@@ -1,9 +1,21 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 from decimal import Decimal
 
 from juno import Candle, indicators
 from juno.constraints import Int, Uniform
 
 from .strategy import Strategy
+
+
+@dataclass
+class AdxParams:
+    period: int = 28
+    threshold: Decimal = Decimal("0.25")
+
+    def construct(self) -> Adx:
+        return Adx(self)
 
 
 class Adx(Strategy):
@@ -19,13 +31,9 @@ class Adx(Strategy):
     _adx: indicators.Adx
     _threshold: Decimal
 
-    def __init__(
-        self,
-        period: int = 28,
-        threshold: Decimal = Decimal("0.25"),
-    ) -> None:
-        self._adx = indicators.Adx(period)
-        self._threshold = threshold
+    def __init__(self, params: AdxParams) -> None:
+        self._adx = indicators.Adx(params.period)
+        self._threshold = params.threshold
 
     @property
     def maturity(self) -> int:
