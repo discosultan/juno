@@ -20,11 +20,7 @@ class FourWeekRuleParams:
     ma_period: int = 14  # Normally half the period.
 
     def construct(self) -> FourWeekRule:
-        return FourWeekRule(
-            period=self.period,
-            ma=self.ma,
-            ma_period=self.ma_period,
-        )
+        return FourWeekRule(self)
 
 
 # Signals a long position when a candle close price goes above a highest four week close price.
@@ -48,15 +44,10 @@ class FourWeekRule(Signal):
     _t: int = 0
     _t1: int
 
-    def __init__(
-        self,
-        period: int = 28,
-        ma: str = "ema",
-        ma_period: int = 14,  # Normally half the period.
-    ) -> None:
-        self._prices = deque(maxlen=period)
-        self._ma = get_module_type(indicators, ma)(ma_period)
-        self._t1 = period + 1
+    def __init__(self, params: FourWeekRuleParams) -> None:
+        self._prices = deque(maxlen=params.period)
+        self._ma = get_module_type(indicators, params.ma)(params.ma_period)
+        self._t1 = params.period + 1
 
     @property
     def advice(self) -> Advice:

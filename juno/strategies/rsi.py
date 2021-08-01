@@ -1,9 +1,22 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 from decimal import Decimal
 
 from juno import Candle, indicators
 from juno.constraints import Int, Uniform
 
 from .strategy import Oscillator, Strategy
+
+
+@dataclass
+class RsiParams:
+    period: int = 14
+    up_threshold: Decimal = Decimal("70.0")
+    down_threshold: Decimal = Decimal("30.0")
+
+    def construct(self) -> Rsi:
+        return Rsi(self)
 
 
 # TODO: For example, well-known market technician Constance Brown, CMT, has promoted the idea that
@@ -24,18 +37,13 @@ class Rsi(Oscillator):
     _up_threshold: Decimal
     _down_threshold: Decimal
 
-    def __init__(
-        self,
-        period: int = 14,
-        up_threshold: Decimal = Decimal("70.0"),
-        down_threshold: Decimal = Decimal("30.0"),
-    ) -> None:
-        assert period > 0
-        assert up_threshold >= down_threshold
+    def __init__(self, params: RsiParams) -> None:
+        assert params.period > 0
+        assert params.up_threshold >= params.down_threshold
 
-        self.indicator = indicators.Rsi(period)
-        self._up_threshold = up_threshold
-        self._down_threshold = down_threshold
+        self.indicator = indicators.Rsi(params.period)
+        self._up_threshold = params.up_threshold
+        self._down_threshold = params.down_threshold
 
     @property
     def maturity(self) -> int:

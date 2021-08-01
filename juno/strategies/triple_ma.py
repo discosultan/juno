@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Triple
-from juno.indicators import MA, Ema
+from juno.indicators import MA
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
@@ -21,14 +21,7 @@ class TripleMAParams:
     long_period: int = 18  # Common 18 or 20.
 
     def construct(self) -> TripleMA:
-        return TripleMA(
-            short_ma=self.short_ma,
-            medium_ma=self.medium_ma,
-            long_ma=self.long_ma,
-            short_period=self.short_period,
-            medium_period=self.medium_period,
-            long_period=self.long_period,
-        )
+        return TripleMA(self)
 
 
 # Signals long when shorter average crosses above the longer.
@@ -57,21 +50,13 @@ class TripleMA(Signal):
     _long_ma: MA
     _advice: Advice = Advice.NONE
 
-    def __init__(
-        self,
-        short_ma: str = Ema.__name__.lower(),
-        medium_ma: str = Ema.__name__.lower(),
-        long_ma: str = Ema.__name__.lower(),
-        short_period: int = 4,  # Common 4 or 5. Daily.
-        medium_period: int = 9,  # Common 9 or 10.
-        long_period: int = 18,  # Common 18 or 20.
-    ) -> None:
-        assert short_period > 0
-        assert short_period < medium_period < long_period
+    def __init__(self, params: TripleMAParams) -> None:
+        assert params.short_period > 0
+        assert params.short_period < params.medium_period < params.long_period
 
-        self._short_ma = get_module_type(indicators, short_ma)(short_period)
-        self._medium_ma = get_module_type(indicators, medium_ma)(medium_period)
-        self._long_ma = get_module_type(indicators, long_ma)(long_period)
+        self._short_ma = get_module_type(indicators, params.short_ma)(params.short_period)
+        self._medium_ma = get_module_type(indicators, params.medium_ma)(params.medium_period)
+        self._long_ma = get_module_type(indicators, params.long_ma)(params.long_period)
 
     @property
     def advice(self) -> Advice:
