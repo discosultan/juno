@@ -1175,24 +1175,37 @@ class UserDataStream:
         # fetch request. This might require a more sophisticated tracking impl.
         # For example, instead of pub/sub events, keep a queue of messages and deliver them
         # based on timestamps.
+
+        queue_id = str(uuid.uuid4())
+
+        _log.info(f"subscribing to {self._account} {event_type} events with queue id {queue_id}")
         await self._ensure_connection()
+        event_queues = self._queues[event_type]
+        _log.info(f"subscribed to {self._account} {event_type} events with queue id {queue_id}")
+
         try:
-            event_queues = self._queues[event_type]
-            queue_id = str(uuid.uuid4())
             yield stream_queue(event_queues[queue_id], raise_on_exc=True)
         finally:
+            _log.info(
+                f"unsubscribing from {self._account} {event_type} events with queue id {queue_id}"
+            )
             del event_queues[queue_id]
             if all(len(q) == 0 for q in self._queues.values()):
+                _log.info(f"no subscriptions left; closing {self._account} user data stream")
                 await self._cancel()
+            _log.info(
+                f"unsubscribed from {self._account} {event_type} events with queue id {queue_id}"
+            )
 
     async def _cancel(self) -> None:
         to_cancel = [
             self._listen_key_refresh_task,
             self._stream_user_data_task,
         ]
-        # We set the tasks to `None` so that we could re-initate the stream again.
+        # We set the tasks to `None` so that we could re-initiate the stream again.
         self._listen_key_refresh_task = None
         self._stream_user_data_task = None
+        self._stream_connected.clear()
         await cancel(*to_cancel)
 
     async def _ensure_listen_key(self) -> None:

@@ -187,20 +187,12 @@ def create_task_cancel_owner_on_exception(coro: Coroutine) -> asyncio.Task:
 async def stream_queue(
     queue: asyncio.Queue, timeout: Optional[float] = None, raise_on_exc: bool = False
 ) -> AsyncIterable[Any]:
-    if timeout is None:
-        while True:
-            item = await queue.get()
-            if raise_on_exc and isinstance(item, Exception):
-                raise item
-            yield item
-            queue.task_done()
-    else:
-        while True:
-            item = await asyncio.wait_for(queue.get(), timeout=timeout)
-            if raise_on_exc and isinstance(item, Exception):
-                raise item
-            yield item
-            queue.task_done()
+    while True:
+        item = await asyncio.wait_for(queue.get(), timeout=timeout)
+        if raise_on_exc and isinstance(item, Exception):
+            raise item
+        yield item
+        queue.task_done()
 
 
 async def process_task_on_queue(queue: asyncio.Queue, coro: Awaitable[T]) -> T:

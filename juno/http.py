@@ -102,8 +102,9 @@ class ClientSession:
         self, url: str, name: Optional[str] = None, **kwargs: Any
     ) -> AsyncIterator[ClientWebSocketResponse]:
         name = name or next(_random_words)
-        _log.info(f"WS {name} {url}: {kwargs}")
+        _log.info(f"req {name} WS {url}: {kwargs}")
         async with self._session.ws_connect(url, **kwargs) as ws:
+            _log.info(f"res {name} closed: {ws.closed} close code: {ws.close_code}")
             yield ClientWebSocketResponse(ws, name)
 
 

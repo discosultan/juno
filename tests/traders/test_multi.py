@@ -889,3 +889,58 @@ async def test_allowed_age_drift() -> None:
     assert pos.open_time == 2
     assert pos.close_time == 2
     assert pos.close_reason is CloseReason.CANCELLED
+
+
+async def test_close_positions_on_command() -> None:
+    chandler = fakes.Chandler(
+        future_candles={
+            ("dummy", "eth-btc", 1): [
+                Candle(time=0, close=Decimal("1.0")),  # LONG.
+                Candle(time=1, close=Decimal("1.0")),  # NONE.
+            ],
+            ("dummy", "ltc-btc", 1): [
+                Candle(time=0, close=Decimal("1.0")),  # LONG.
+                Candle(time=1, close=Decimal("1.0")),  # NONE.
+            ],
+        },
+    )
+    informant = fakes.Informant(
+        tickers={
+            "eth-btc": Ticker(
+                volume=Decimal("1.0"),
+                quote_volume=Decimal("2.0"),
+                price=Decimal("1.0"),
+            ),
+            "ltc-btc": Ticker(
+                volume=Decimal("1.0"),
+                quote_volume=Decimal("1.0"),
+                price=Decimal("1.0"),
+            ),
+        }
+    )
+    time = fakes.Time(time=2)
+    trader = traders.Multi(chandler=chandler, informant=informant, get_time_ms=time.get_time)
+    config = traders.MultiConfig(
+        exchange="dummy",
+        interval=1,
+        start=0,
+        end=3,
+        quote=Decimal("1.0"),
+        strategy=TypeConstructor.from_type(Fixed, advices=[Advice.LONG, Advice.NONE]),
+        long=True,
+        close_on_exit=False,
+        track_count=2,
+        position_count=2,
+    )
+    state = await trader.initialize(config)
+
+    task = asyncio.create_task(trader.run(state))
+
+    await asyncio.gather(
+        chandler.future_candle_queues[("dummy", "eth-btc", 1)].join(),
+        chandler.future_candle_queues[("dummy", "ltc-btc", 1)].join(),
+    )
+
+    await trader.close_positions(state, ["eth-btc", "ltc-btc"], CloseReason.CANCELLED)
+
+    await cancel(task)

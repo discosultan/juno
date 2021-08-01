@@ -171,6 +171,11 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                 )
             except PositionNotOpen:
                 await send_message(f"not all {symbols} positions open")
+            except Exception:
+                msg = "unhandled exception while closing positions"
+                _log.exception(msg)
+                await send_message(msg)
+                raise
 
         @self.command(help="Sets whether trader closes positions on exit")
         async def close_on_exit(ctx: commands.Context, value: str) -> None:

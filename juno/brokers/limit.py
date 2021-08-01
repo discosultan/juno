@@ -24,8 +24,8 @@ from .broker import Broker
 
 _log = logging.getLogger(__name__)
 
-_NEW_EVENT_WAIT_TIMEOUT = 30
-_CANCELLED_EVENT_WAIT_TIMEOUT = 30
+_NEW_EVENT_WAIT_TIMEOUT = 60
+_CANCELLED_EVENT_WAIT_TIMEOUT = 60
 
 
 class _Context:
@@ -211,9 +211,6 @@ class Limit(Broker):
 
             try:
                 await asyncio.gather(keep_limit_order_best_task, track_fills_task)
-            except BadOrder:
-                await cancel(keep_limit_order_best_task, track_fills_task)
-                raise
             except _FilledFromKeepAtBest:
                 try:
                     await cancel(track_fills_task)
@@ -224,6 +221,9 @@ class Limit(Broker):
                     await cancel(keep_limit_order_best_task)
                 except _FilledFromKeepAtBest:
                     pass
+            except Exception:
+                await cancel(keep_limit_order_best_task, track_fills_task)
+                raise
             finally:
                 if self._cancel_order_on_error and ctx.active_order:
                     # Cancel active order.
@@ -280,9 +280,16 @@ class Limit(Broker):
                     _log.info(
                         f"waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled"
                     )
-                    fills_since_last_order = await asyncio.wait_for(
-                        ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT
-                    )
+                    try:
+                        fills_since_last_order = await asyncio.wait_for(
+                            ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT
+                        )
+                    except TimeoutError:
+                        _log.exception(
+                            f"timed out waiting for {symbol} {side.name} order {ctx.client_id} to "
+                            "be cancelled"
+                        )
+                        raise
                     filled_size_since_last_order = Fill.total_size(fills_since_last_order)
                     add_back_size = ctx.active_order.size - filled_size_since_last_order
                     add_back = (
@@ -335,7 +342,14 @@ class Limit(Broker):
                     # Order would immediately match and take. Retry.
                     continue
 
-                await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
+                try:
+                    await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
+                except TimeoutError:
+                    _log.exception(
+                        f"timed out waiting for {symbol} {side.name} order {ctx.client_id} to be "
+                        "confirmed"
+                    )
+                    raise
                 deduct = price * size if ctx.use_quote else size
                 ctx.available -= deduct
                 ctx.active_order = _ActiveOrder(price=price, size=size)
