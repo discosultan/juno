@@ -2,7 +2,7 @@
 
 import asyncio
 from decimal import Decimal
-from typing import Callable
+from typing import Any, Callable
 
 import pytest
 
@@ -15,8 +15,8 @@ from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.statistics import CoreStatistics
-from juno.strategies import DoubleMA2Params, FixedParams
 from juno.storages import Memory, Storage
+from juno.strategies import DoubleMA2Params, FixedParams, FourWeekRuleParams
 from juno.time import HOUR_MS
 from juno.traders import Basic, BasicState, Trader
 from juno.trading import Position
@@ -137,14 +137,13 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
         end=1514761200000,
         interval=HOUR_MS,
         quote=Decimal("100.0"),
-        strategy=DoubleMA2Params() {
-            "type": "doublema2",
-            "short_period": 18,
-            "long_period": 29,
-            "neg_threshold": Decimal("-0.25"),
-            "pos_threshold": Decimal("0.25"),
-            "persistence": 4,
-        },
+        strategy=DoubleMA2Params(
+            short_period=18,
+            long_period=29,
+            neg_threshold=Decimal("-0.25"),
+            pos_threshold=Decimal("0.25"),
+            persistence=4,
+        ),
         trader={
             "type": "basic",
             "symbol": "eth-btc",
@@ -204,10 +203,7 @@ async def test_paper(mocker) -> None:
         exchange="magicmock",
         interval=1,
         quote=Decimal("100.0"),
-        strategy={
-            "type": "fixed",
-            "advices": ["none", "long", "none", "liquidate"],
-        },
+        strategy=FixedParams(advices=[Advice.NONE, Advice.LONG, Advice.NONE, Advice.LIQUIDATE]),
         trader={
             "type": "basic",
             "symbol": "eth-btc",
@@ -268,10 +264,7 @@ async def test_live(mocker) -> None:
     config = Live.Config(
         exchange="magicmock",
         interval=1,
-        strategy={
-            "type": "fixed",
-            "advices": ["none", "long", "none", "liquidate"],
-        },
+        strategy=FixedParams(advices=[Advice.NONE, Advice.LONG, Advice.NONE, Advice.LIQUIDATE]),
         trader={
             "type": "basic",
             "symbol": "eth-btc",
@@ -291,8 +284,8 @@ async def test_live(mocker) -> None:
     assert pos.close_time == 4
 
 
-@pytest.mark.parametrize("strategy", ["fixed", "fourweekrule"])
-async def test_live_persist_and_resume(mocker, strategy: str) -> None:
+@pytest.mark.parametrize("strategy", [FixedParams(), FourWeekRuleParams()])
+async def test_live_persist_and_resume(mocker, strategy: Any) -> None:
     exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
     exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
