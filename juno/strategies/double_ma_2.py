@@ -1,28 +1,12 @@
-from __future__ import annotations
-
 import operator
-from dataclasses import dataclass
 from decimal import Decimal
 
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Pair, Uniform
-from juno.indicators import MA
+from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
-
-
-@dataclass
-class DoubleMA2Params:
-    short_period: int
-    long_period: int
-    neg_threshold: Decimal
-    pos_threshold: Decimal
-    short_ma: str = "ema"
-    long_ma: str = "ema"
-
-    def construct(self) -> DoubleMA2:
-        return DoubleMA2(self)
 
 
 # Moving average moving average crossover.
@@ -45,14 +29,22 @@ class DoubleMA2(Signal):
     _pos_threshold: Decimal
     _advice: Advice = Advice.NONE
 
-    def __init__(self, params: DoubleMA2Params) -> None:
-        assert params.short_period > 0
-        assert params.short_period < params.long_period
+    def __init__(
+        self,
+        short_period: int,
+        long_period: int,
+        neg_threshold: Decimal,
+        pos_threshold: Decimal,
+        short_ma: str = Ema.__name__.lower(),
+        long_ma: str = Ema.__name__.lower(),
+    ) -> None:
+        assert short_period > 0
+        assert short_period < long_period
 
-        self._short_ma = get_module_type(indicators, params.short_ma)(params.short_period)
-        self._long_ma = get_module_type(indicators, params.long_ma)(params.long_period)
-        self._neg_threshold = params.neg_threshold
-        self._pos_threshold = params.pos_threshold
+        self._short_ma = get_module_type(indicators, short_ma)(short_period)
+        self._long_ma = get_module_type(indicators, long_ma)(long_period)
+        self._neg_threshold = neg_threshold
+        self._pos_threshold = pos_threshold
 
     @property
     def advice(self) -> Advice:

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from juno import Advice, Candle, indicators
 from juno.constraints import Int
-from juno.indicators import MA
+from juno.indicators import MA, Ema2
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
@@ -17,7 +17,10 @@ class SingleMAParams:
     period: int = 50
 
     def construct(self) -> SingleMA:
-        return SingleMA(self)
+        return SingleMA(
+            period=self.period,
+            ma=self.ma,
+        )
 
 
 # Signals long when a candle close price goes above moving average and moving average is ascending.
@@ -40,8 +43,12 @@ class SingleMA(Signal):
     _t: int = 0
     _t1: int
 
-    def __init__(self, params: SingleMAParams) -> None:
-        self._ma = get_module_type(indicators, params.ma)(params.period)
+    def __init__(
+        self,
+        ma: str = Ema2.__name__.lower(),
+        period: int = 50,  # Daily.
+    ) -> None:
+        self._ma = get_module_type(indicators, ma)(period)
         self._t1 = self._ma.maturity + 1
 
     @property

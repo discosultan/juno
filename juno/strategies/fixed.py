@@ -1,26 +1,11 @@
-from __future__ import annotations
-
 import asyncio
 import logging
-from dataclasses import dataclass
 
 from juno import Advice, Candle
 
 from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
 
 _log = logging.getLogger(__name__)
-
-
-@dataclass
-class FixedParams:
-    advices: list[Advice] = []
-    maturity: int = 1
-    mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT
-    persistence: int = 0
-    cancel: bool = False
-
-    def construct(self) -> Fixed:
-        return Fixed(self)
 
 
 class Fixed(Signal):
@@ -36,16 +21,23 @@ class Fixed(Signal):
     _t1: int
     _t2: int
 
-    def __init__(self, params: FixedParams) -> None:
-        self.advices = list(params.advices)
+    def __init__(
+        self,
+        advices: list[Advice] = [],
+        maturity: int = 1,
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
+        persistence: int = 0,
+        cancel: bool = False,
+    ) -> None:
+        self.advices = list(advices)
         self.updates = []
-        self.cancel = params.cancel
+        self.cancel = cancel
 
-        self._maturity = params.maturity
-        self._mid_trend = MidTrend(params.mid_trend_policy)
-        self._persistence = Persistence(level=params.persistence, return_previous=False)
-        self._t1 = params.maturity
-        self._t2 = params.maturity + max(self._mid_trend.maturity, self._persistence.maturity) - 1
+        self._maturity = maturity
+        self._mid_trend = MidTrend(mid_trend_policy)
+        self._persistence = Persistence(level=persistence, return_previous=False)
+        self._t1 = maturity
+        self._t2 = maturity + max(self._mid_trend.maturity, self._persistence.maturity) - 1
 
     @property
     def advice(self) -> Advice:

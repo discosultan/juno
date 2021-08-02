@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
 from typing import Any
 
 from juno import Advice, Candle
@@ -11,15 +8,6 @@ from .stoch import Stoch
 from .strategy import Signal
 
 
-@dataclass
-class DoubleMAStochParams:
-    double_ma: Any
-    stoch: Any
-
-    def construct(self) -> DoubleMAStoch:
-        return DoubleMAStoch(self)
-
-
 # Combines a double moving average with stochastic oscillator as a filter.
 # https://www.tradingpedia.com/forex-trading-strategies/combining-stochastic-oscillator-and-emas/
 class DoubleMAStoch(Signal):
@@ -27,9 +15,13 @@ class DoubleMAStoch(Signal):
     _double_ma: DoubleMA
     _stoch: Stoch
 
-    def __init__(self, params: DoubleMAStochParams) -> None:
-        self._double_ma = init_instance(DoubleMA, params.double_ma)
-        self._stoch = init_instance(Stoch, params.stoch)
+    def __init__(
+        self,
+        double_ma: dict[str, Any],
+        stoch: dict[str, Any],
+    ) -> None:
+        self._double_ma = init_instance(DoubleMA, double_ma)
+        self._stoch = init_instance(Stoch, stoch)
 
     @property
     def advice(self) -> Advice:
