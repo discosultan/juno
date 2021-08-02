@@ -6,7 +6,7 @@ from typing import Callable
 
 import pytest
 
-from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
+from juno import Advice, Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel, resolved_stream, stream_queue
 from juno.brokers import Broker, Market
@@ -15,6 +15,7 @@ from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.statistics import CoreStatistics
+from juno.strategies import DoubleMA2Params, FixedParams
 from juno.storages import Memory, Storage
 from juno.time import HOUR_MS
 from juno.traders import Basic, BasicState, Trader
@@ -59,10 +60,9 @@ async def test_backtest(mocker) -> None:
         start=0,
         end=6,
         quote=Decimal("100.0"),
-        strategy={
-            "type": "fixed",
-            "advices": ["none", "long", "none", "liquidate", "long"],
-        },
+        strategy=FixedParams(
+            advices=[Advice.NONE, Advice.LONG, Advice.NONE, Advice.LIQUIDATE, Advice.LONG]
+        ),
         trader={
             "type": "basic",
             "symbol": "eth-btc",
@@ -137,7 +137,7 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
         end=1514761200000,
         interval=HOUR_MS,
         quote=Decimal("100.0"),
-        strategy={
+        strategy=DoubleMA2Params() {
             "type": "doublema2",
             "short_period": 18,
             "long_period": 29,
