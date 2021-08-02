@@ -6,13 +6,14 @@ from dataclasses import dataclass
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Pair
 from juno.indicators import MA, Ema
+from juno.typing import Constructor
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
 
 
 @dataclass
-class DoubleMAParams:
+class DoubleMAParams(Constructor):
     short_ma: str = "ema"
     long_ma: str = "ema"
     short_period: int = 5  # Common 5 or 10. Daily.

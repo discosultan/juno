@@ -8,13 +8,14 @@ from juno import Advice, Candle, indicators
 from juno.constraints import Int
 from juno.indicators import MA
 from juno.math import minmax
+from juno.typing import Constructor
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
 
 
 @dataclass
-class FourWeekRuleParams:
+class FourWeekRuleParams(Constructor):
     period: int = 28
     ma: str = "ema"
     ma_period: int = 14  # Normally half the period.

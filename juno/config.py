@@ -9,7 +9,7 @@ from typing import Any, Mapping, Optional, TypeVar, Union, get_args, get_origin,
 from juno import Interval, Timestamp, json
 from juno.itertools import recursive_iter
 from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
-from juno.typing import TypeConstructor, get_input_type_hints, isenum, isnamedtuple
+from juno.typing import GenericConstructor, get_input_type_hints, isenum, isnamedtuple
 from juno.utils import get_module_type, map_concrete_module_types
 
 T = TypeVar("T")
@@ -120,9 +120,9 @@ def init_module_instance(module: ModuleType, config: dict[str, Any]) -> Any:
 
 def get_module_type_constructor(
     module: ModuleType, config: dict[str, Any]
-) -> TypeConstructor[Any]:
+) -> GenericConstructor[Any]:
     type_, kwargs = get_module_type_and_kwargs(module, config)
-    return TypeConstructor.from_type(type_, **kwargs)
+    return GenericConstructor.from_type(type_, **kwargs)
 
 
 def get_type_name_and_kwargs(config: dict[str, Any]) -> tuple[str, dict[str, Any]]:

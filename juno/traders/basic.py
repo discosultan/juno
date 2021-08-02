@@ -26,7 +26,7 @@ from juno.trading import (
     TradingMode,
     TradingSummary,
 )
-from juno.typing import TypeConstructor
+from juno.typing import Constructor
 from juno.utils import unpack_assets
 
 from .trader import Trader
@@ -42,9 +42,9 @@ class BasicConfig:
     symbol: str
     interval: Interval
     end: Timestamp
-    strategy: TypeConstructor[Signal]
-    stop_loss: Optional[TypeConstructor[StopLoss]] = None
-    take_profit: Optional[TypeConstructor[TakeProfit]] = None
+    strategy: Constructor[Signal]
+    stop_loss: Optional[Constructor[StopLoss]] = None
+    take_profit: Optional[Constructor[TakeProfit]] = None
     start: Optional[Timestamp] = None  # None means earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     mode: TradingMode = TradingMode.BACKTEST

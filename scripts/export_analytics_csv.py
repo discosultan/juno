@@ -12,7 +12,7 @@ from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
-from juno.typing import TypeConstructor
+from juno.typing import GenericConstructor
 from juno.utils import unpack_assets
 
 SYMBOL = "eth-btc"
@@ -39,7 +39,7 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal("1.0"),
-            strategy=TypeConstructor.from_type(
+            strategy=GenericConstructor.from_type(
                 strategies.DoubleMA2,
                 {
                     "short_period": 3,
@@ -50,7 +50,7 @@ async def main() -> None:
                     "long_ma": "smma",
                 },
             ),
-            stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal("0.0827")),
+            stop_loss=GenericConstructor.from_type(stop_loss.Basic, Decimal("0.0827")),
             missed_candle_policy=MissedCandlePolicy.LAST,
         )
         trader_state = await trader.initialize(trader_config)

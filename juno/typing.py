@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field, is_dataclass
 from decimal import Decimal
@@ -270,8 +271,14 @@ def get_type_by_fully_qualified_name(name: str) -> type[Any]:
     return type_
 
 
+class Constructor(ABC, Generic[T]):
+    @abstractmethod
+    def construct(self) -> T:
+        pass
+
+
 @dataclass(frozen=True)
-class TypeConstructor(Generic[T]):
+class GenericConstructor(Constructor[T]):
     name: str  # Fully qualified name.
     args: tuple[Any, ...] = ()
     kwargs: dict[str, Any] = field(default_factory=dict)
@@ -284,8 +291,8 @@ class TypeConstructor(Generic[T]):
         return get_type_by_fully_qualified_name(self.name)
 
     @staticmethod
-    def from_type(type_: type[T], *args: Any, **kwargs: Any) -> TypeConstructor:
-        return TypeConstructor(
+    def from_type(type_: type[T], *args: Any, **kwargs: Any) -> GenericConstructor:
+        return GenericConstructor(
             name=get_fully_qualified_name(type_),
             args=args,
             kwargs=kwargs,

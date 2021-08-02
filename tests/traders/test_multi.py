@@ -20,7 +20,7 @@ from juno import (
 from juno.asyncio import cancel
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
-from juno.typing import TypeConstructor
+from juno.typing import GenericConstructor
 from tests import fakes
 
 
@@ -55,12 +55,12 @@ async def test_simple() -> None:
         start=0,
         end=4,
         quote=Decimal("1"),  # Deliberately 1 and not 1.0. Shouldn't screw up splitting.
-        strategy=TypeConstructor.from_type(
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[Advice.LONG, Advice.LIQUIDATE, Advice.SHORT, Advice.SHORT],
         ),
         symbol_strategies={
-            "xmr-btc": TypeConstructor.from_type(
+            "xmr-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LIQUIDATE, Advice.LONG, Advice.LONG, Advice.LONG],
             ),
@@ -143,12 +143,12 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         start=0,
         end=4,
         quote=Decimal("2.0"),
-        strategy=TypeConstructor.from_type(
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[Advice.LONG, Advice.LIQUIDATE, Advice.SHORT, Advice.SHORT],
         ),
         symbol_strategies={
-            "ltc-btc": TypeConstructor.from_type(
+            "ltc-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LIQUIDATE, Advice.LONG, Advice.LIQUIDATE, Advice.SHORT],
             ),
@@ -247,7 +247,7 @@ async def test_historical() -> None:
         start=0,
         end=10,
         quote=Decimal("2.0"),
-        strategy=TypeConstructor.from_type(
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[Advice.LONG] * 10,
         ),
@@ -303,8 +303,8 @@ async def test_trailing_stop_loss() -> None:
         start=0,
         end=6,
         quote=Decimal("3.0"),
-        stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal("0.5")),
-        strategy=TypeConstructor.from_type(
+        stop_loss=GenericConstructor.from_type(stop_loss.Basic, Decimal("0.5")),
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[
                 Advice.LONG,
@@ -384,7 +384,7 @@ async def test_close_on_exit(
         start=0,
         end=3,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
         ),
@@ -464,7 +464,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
         start=0,
         end=2,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[Advice.LONG, Advice.LONG],
         ),
@@ -510,7 +510,7 @@ async def test_open_new_positions() -> None:
         start=0,
         end=1,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[Advice.LONG],
         ),
@@ -552,14 +552,14 @@ async def test_take_profit() -> None:
         start=0,
         end=2,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(
+        strategy=GenericConstructor.from_type(
             Fixed,
             advices=[Advice.LONG, Advice.NONE],
         ),
         long=True,
         track_count=1,
         position_count=1,
-        take_profit=TypeConstructor.from_type(take_profit.Basic, Decimal("0.5")),
+        take_profit=GenericConstructor.from_type(take_profit.Basic, Decimal("0.5")),
     )
     state = await trader.initialize(config)
 
@@ -599,17 +599,17 @@ async def test_repick_symbols() -> None:
         start=0,
         end=2,
         quote=Decimal("2.0"),
-        strategy=TypeConstructor.from_type(Fixed),
+        strategy=GenericConstructor.from_type(Fixed),
         symbol_strategies={
-            "eth-btc": TypeConstructor.from_type(
+            "eth-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LONG, Advice.NONE],
             ),
-            "ltc-btc": TypeConstructor.from_type(
+            "ltc-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.NONE, Advice.NONE],
             ),
-            "xmr-btc": TypeConstructor.from_type(
+            "xmr-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LONG],
             ),
@@ -683,7 +683,9 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> N
         start=1,
         end=2,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(Fixed, maturity=2, advices=[Advice.NONE, Advice.NONE]),
+        strategy=GenericConstructor.from_type(
+            Fixed, maturity=2, advices=[Advice.NONE, Advice.NONE]
+        ),
         track_count=1,
         position_count=1,
         adjust_start=True,
@@ -726,9 +728,11 @@ async def test_repick_symbols_with_adjusted_start() -> None:
         start=1,
         end=3,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(Fixed, maturity=2, advices=[Advice.NONE, Advice.NONE]),
+        strategy=GenericConstructor.from_type(
+            Fixed, maturity=2, advices=[Advice.NONE, Advice.NONE]
+        ),
         symbol_strategies={
-            "ltc-btc": TypeConstructor.from_type(
+            "ltc-btc": GenericConstructor.from_type(
                 Fixed,
                 maturity=2,
                 advices=[Advice.NONE, Advice.LONG],
@@ -789,17 +793,17 @@ async def test_rebalance_quotes() -> None:
         start=0,
         end=3,
         quote=Decimal("3.0"),
-        strategy=TypeConstructor.from_type(Fixed),
+        strategy=GenericConstructor.from_type(Fixed),
         symbol_strategies={
-            "eth-btc": TypeConstructor.from_type(
+            "eth-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LONG, Advice.NONE, Advice.LIQUIDATE],
             ),
-            "ltc-btc": TypeConstructor.from_type(
+            "ltc-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LONG, Advice.LIQUIDATE, Advice.NONE],
             ),
-            "xmr-btc": TypeConstructor.from_type(
+            "xmr-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.NONE, Advice.NONE, Advice.NONE],
             ),
@@ -856,13 +860,13 @@ async def test_allowed_age_drift() -> None:
         start=0,
         end=2,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(Fixed),
+        strategy=GenericConstructor.from_type(Fixed),
         symbol_strategies={
-            "eth-btc": TypeConstructor.from_type(
+            "eth-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LONG, Advice.LIQUIDATE],
             ),
-            "ltc-btc": TypeConstructor.from_type(
+            "ltc-btc": GenericConstructor.from_type(
                 Fixed,
                 advices=[Advice.LONG, Advice.LONG],
             ),
@@ -926,7 +930,7 @@ async def test_close_positions_on_command() -> None:
         start=0,
         end=3,
         quote=Decimal("1.0"),
-        strategy=TypeConstructor.from_type(Fixed, advices=[Advice.LONG, Advice.NONE]),
+        strategy=GenericConstructor.from_type(Fixed, advices=[Advice.LONG, Advice.NONE]),
         long=True,
         close_on_exit=False,
         track_count=2,

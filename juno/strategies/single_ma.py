@@ -6,13 +6,14 @@ from decimal import Decimal
 from juno import Advice, Candle, indicators
 from juno.constraints import Int
 from juno.indicators import MA, Ema2
+from juno.typing import Constructor
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
 
 
 @dataclass
-class SingleMAParams:
+class SingleMAParams(Constructor):
     ma: str = "ema"
     period: int = 50
 

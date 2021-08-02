@@ -37,7 +37,7 @@ from juno.trading import (
     TradingMode,
     TradingSummary,
 )
-from juno.typing import TypeConstructor
+from juno.typing import Constructor
 
 from .trader import Trader
 
@@ -51,11 +51,11 @@ class MultiConfig:
     exchange: str
     interval: Interval
     end: Timestamp
-    strategy: TypeConstructor[Signal]
+    strategy: Constructor[Signal]
     # Overrides default strategy.
-    symbol_strategies: dict[str, TypeConstructor[Signal]] = field(default_factory=dict)
-    stop_loss: Optional[TypeConstructor[StopLoss]] = None
-    take_profit: Optional[TypeConstructor[TakeProfit]] = None
+    symbol_strategies: dict[str, Constructor[Signal]] = field(default_factory=dict)
+    stop_loss: Optional[Constructor[StopLoss]] = None
+    take_profit: Optional[Constructor[TakeProfit]] = None
     start: Optional[Timestamp] = None  # None means max earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     trail_stop_loss: bool = True

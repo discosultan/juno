@@ -16,7 +16,7 @@ from juno.storages import SQLite
 from juno.time import DAY_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
-from juno.typing import TypeConstructor, type_to_raw
+from juno.typing import GenericConstructor, type_to_raw
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--exchange", default="binance")
@@ -78,11 +78,11 @@ async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreSt
             strategy=strategy,
             # stop_loss=TypeConstructor.from_type(stop_loss.Noop),
             # take_profit=TypeConstructor.from_type(take_profit.Noop),
-            stop_loss=TypeConstructor.from_type(
+            stop_loss=GenericConstructor.from_type(
                 stop_loss.Basic,
                 Decimal("0.1"),
             ),
-            take_profit=TypeConstructor.from_type(
+            take_profit=GenericConstructor.from_type(
                 take_profit.Basic,
                 Decimal("0.1"),
             ),
