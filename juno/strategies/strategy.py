@@ -40,7 +40,7 @@ class Maturity:
 
     def update(self, value: Advice) -> Advice:
         result = Advice.NONE
-        if self._age >= self._maturity:
+        if self._age >= self._maturity - 1:
             result = value
 
         self._age = min(self._age + 1, self._maturity)

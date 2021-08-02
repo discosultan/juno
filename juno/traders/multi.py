@@ -445,10 +445,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 advice_age_valid = (
                     ss.changed.prevailing_advice_age - 1
                 ) <= config.allowed_age_drift
-                if ss.advice is Advice.LONG and advice_age_valid:
+                if config.long and ss.advice is Advice.LONG and advice_age_valid:
                     to_process.append(self._open_long_position(state, ss, ss.last_candle))
                     available -= 1
-                elif ss.advice is Advice.SHORT and advice_age_valid:
+                elif config.short and ss.advice is Advice.SHORT and advice_age_valid:
                     to_process.append(self._open_short_position(state, ss, ss.last_candle))
                     available -= 1
 

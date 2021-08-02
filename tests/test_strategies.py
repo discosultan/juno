@@ -4,7 +4,7 @@ import pytest
 
 from juno import Advice, Candle, strategies
 from juno.constraints import Int, Pair
-from juno.strategies import MidTrendPolicy, Strategy
+from juno.strategies import MidTrendPolicy, Sig, Strategy
 
 
 class DummyStrategy(Strategy):
@@ -60,14 +60,14 @@ def test_mid_trend_ignore_starting_with_none_does_not_ignore_first() -> None:
 
 
 def test_maturity() -> None:
-    target = strategies.Maturity(maturity=0)
+    target = strategies.Maturity(maturity=1)
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
 def test_maturity_ignore_not_mature() -> None:
-    target = strategies.Maturity(maturity=1)
+    target = strategies.Maturity(maturity=2)
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
@@ -161,3 +161,27 @@ def test_combine_advice() -> None:
     assert Advice.combine(Advice.NONE, Advice.LONG) is Advice.NONE
     assert Advice.combine(Advice.LONG, Advice.LIQUIDATE) is Advice.LIQUIDATE
     assert Advice.combine(Advice.LONG, Advice.LONG) is Advice.LONG
+
+
+@pytest.mark.parametrize(
+    "extra_maturity,advices,expected_advice",
+    [
+        (2, ["long", "long"], Advice.NONE),
+        (2, ["short", "long"], Advice.LONG),
+    ],
+)
+def test_sig_extra_maturity_changed_enabled(extra_maturity, advices, expected_advice) -> None:
+    sig = Sig(
+        sig={
+            "type": "fixed",
+            "advices": advices,
+        },
+        mid_trend_policy=MidTrendPolicy.CURRENT,
+        extra_maturity=extra_maturity,
+        changed_enabled=True,
+    )
+
+    sig.update(Candle(time=0))
+    sig.update(Candle(time=1))
+
+    assert sig.advice is expected_advice

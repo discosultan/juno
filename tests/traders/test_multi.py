@@ -948,3 +948,43 @@ async def test_close_positions_on_command() -> None:
     await trader.close_positions(state, ["eth-btc", "ltc-btc"], CloseReason.CANCELLED)
 
     await cancel(task)
+
+
+async def test_no_positions_when_long_and_short_disabled() -> None:
+    chandler = fakes.Chandler(
+        candles={
+            ("dummy", "eth-btc", 1): [
+                Candle(time=0, close=Decimal("1.0")),  # LONG.
+                Candle(time=1, close=Decimal("1.0")),  # SHORT.
+            ],
+        },
+    )
+    informant = fakes.Informant(
+        tickers={
+            "eth-btc": Ticker(
+                volume=Decimal("1.0"),
+                quote_volume=Decimal("2.0"),
+                price=Decimal("1.0"),
+            ),
+        }
+    )
+    time = fakes.Time(time=2)
+    trader = traders.Multi(chandler=chandler, informant=informant, get_time_ms=time.get_time)
+    config = traders.MultiConfig(
+        exchange="dummy",
+        interval=1,
+        start=0,
+        end=2,
+        quote=Decimal("1.0"),
+        strategy=GenericConstructor.from_type(Fixed, advices=[Advice.LONG, Advice.SHORT]),
+        long=False,
+        short=False,
+        close_on_exit=True,
+        track_count=1,
+        position_count=1,
+    )
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
+
+    assert len(summary.list_positions()) == 0
