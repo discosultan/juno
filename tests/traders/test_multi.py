@@ -23,6 +23,8 @@ from juno.trading import CloseReason, Position, TradingMode
 from juno.typing import GenericConstructor
 from tests import fakes
 
+TIMEOUT = 1.0
+
 
 async def test_simple() -> None:
     symbols = ["eth-btc", "ltc-btc", "xmr-btc"]
@@ -647,7 +649,7 @@ async def test_repick_symbols() -> None:
         Candle(time=1, close=Decimal("1.0"))
     )
 
-    summary = await asyncio.wait_for(task, timeout=1.0)
+    summary = await asyncio.wait_for(task, timeout=TIMEOUT)
 
     positions = summary.list_positions()
     assert len(positions) == 2
@@ -752,12 +754,91 @@ async def test_repick_symbols_with_adjusted_start() -> None:
         ),
     }
 
-    summary = await trader.run(state)
+    summary = await asyncio.wait_for(trader.run(state), timeout=TIMEOUT)
 
     positions = summary.list_positions()
     assert len(positions) == 1
     assert positions[0].open_time == 3
     assert positions[0].symbol == "ltc-btc"
+
+
+async def test_repick_symbols_does_not_repick_when_disabled() -> None:
+    informant = fakes.Informant(
+        tickers={
+            "eth-btc": Ticker(
+                volume=Decimal("2.0"),
+                quote_volume=Decimal("1.0"),
+                price=Decimal("1.0"),
+            ),
+            "ltc-btc": Ticker(
+                volume=Decimal("1.0"),
+                quote_volume=Decimal("1.0"),
+                price=Decimal("1.0"),
+            ),
+        }
+    )
+    chandler = fakes.Chandler(
+        future_candles={
+            ("dummy", "eth-btc", 1): [
+                Candle(time=0, close=Decimal("1.0")),
+                Candle(time=1, close=Decimal("1.0")),
+            ],
+            ("dummy", "ltc-btc", 1): [
+                Candle(time=0, close=Decimal("1.0")),
+                Candle(time=1, close=Decimal("1.0")),
+            ],
+            ("dummy", "xmr-btc", 1): [
+                Candle(time=1, close=Decimal("1.0")),
+            ],
+        }
+    )
+    trader = traders.Multi(chandler=chandler, informant=informant)
+
+    config = traders.MultiConfig(
+        exchange="dummy",
+        interval=1,
+        start=0,
+        end=2,
+        quote=Decimal("1.0"),
+        strategy=GenericConstructor.from_type(Fixed),
+        symbol_strategies={
+            "eth-btc": GenericConstructor.from_type(
+                Fixed,
+                advices=[Advice.LONG, Advice.NONE],
+            ),
+            "ltc-btc": GenericConstructor.from_type(
+                Fixed,
+                advices=[Advice.NONE, Advice.LONG],
+            ),
+        },
+        long=True,
+        track_count=2,
+        position_count=2,
+        close_on_exit=True,
+        repick_symbols=False,
+    )
+    state = await trader.initialize(config)
+    informant.tickers = {
+        "eth-btc": Ticker(
+            volume=Decimal("2.0"),
+            quote_volume=Decimal("1.0"),
+            price=Decimal("1.0"),
+        ),
+        "xmr-btc": Ticker(
+            volume=Decimal("1.0"),
+            quote_volume=Decimal("1.0"),
+            price=Decimal("1.0"),
+        ),
+    }
+
+    summary = await asyncio.wait_for(trader.run(state), timeout=TIMEOUT)
+
+    positions = summary.list_positions()
+    assert len(positions) == 2
+    assert positions[0].open_time == 1
+    assert positions[0].symbol == "eth-btc"
+    assert positions[1].open_time == 2
+    assert positions[1].symbol == "ltc-btc"
 
 
 async def test_rebalance_quotes() -> None:

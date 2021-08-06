@@ -73,6 +73,7 @@ class MultiConfig:
     exchange_candle_timeout: Optional[Interval] = None
     allowed_age_drift: int = 0
     quote_asset: str = "btc"
+    repick_symbols: bool = True
 
 
 @dataclass
@@ -243,10 +244,12 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
     async def run(self, state: MultiState) -> TradingSummary:
         config = state.config
-        _log.info(
+        msg = (
             f"managing up to {config.position_count} positions by tracking top "
-            f"{config.track_count} symbols: {list(state.symbol_states.keys())}"
+            f"{config.track_count} symbols by volume: {list(state.symbol_states.keys())}"
         )
+        _log.info(msg)
+        await self._events.emit(config.channel, "message", msg)
         _log.info(f"quote split as: {state.quotes}")
 
         self._queues[state.id] = asyncio.Queue()
@@ -342,7 +345,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             await self._try_open_new_positions(state)
 
             # Repick top symbols. Do not repick during adjusted start period.
-            if state.next_ > state.start:
+            if config.repick_symbols and state.next_ > state.start:
                 top_symbols = await self._find_top_symbols(config)
                 leaving_symbols = [
                     s
