@@ -1202,7 +1202,7 @@ class UserDataStream:
             self._listen_key_refresh_task,
             self._stream_user_data_task,
         ]
-        # We set the tasks to `None` so that we could re-initiate the stream again.
+        # Clear the state so we can re-initialize on next subscribe.
         self._listen_key = None
         self._listen_key_refresh_task = None
         self._stream_user_data_task = None
