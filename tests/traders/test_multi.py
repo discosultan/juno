@@ -976,6 +976,61 @@ async def test_allowed_age_drift() -> None:
     assert pos.close_reason is CloseReason.CANCELLED
 
 
+async def test_open_positions_on_command() -> None:
+    chandler = fakes.Chandler(
+        future_candles={
+            ("dummy", "eth-btc", 1): [
+                Candle(time=0, close=Decimal("1.0")),  # NONE.
+            ],
+        },
+    )
+    informant = fakes.Informant(
+        tickers={
+            "eth-btc": Ticker(
+                volume=Decimal("1.0"),
+                quote_volume=Decimal("1.0"),
+                price=Decimal("1.0"),
+            ),
+        }
+    )
+    time = fakes.Time(time=1)
+    trader = traders.Multi(chandler=chandler, informant=informant, get_time_ms=time.get_time)
+    config = traders.MultiConfig(
+        exchange="dummy",
+        interval=1,
+        start=0,
+        end=2,
+        quote=Decimal("1.0"),
+        strategy=GenericConstructor.from_type(Fixed, advices=[Advice.NONE, Advice.LIQUIDATE]),
+        long=True,
+        close_on_exit=False,
+        track_count=1,
+        position_count=1,
+    )
+    state = await trader.initialize(config)
+
+    task = asyncio.create_task(trader.run(state))
+
+    await asyncio.gather(
+        chandler.future_candle_queues[("dummy", "eth-btc", 1)].join(),
+    )
+
+    await trader.open_positions(state, ["eth-btc"], False)
+
+    chandler.future_candle_queues[("dummy", "eth-btc", 1)].put_nowait(
+        Candle(time=1, close=Decimal("1.0"))  # LIQUIDATE.
+    )
+
+    summary = await task
+
+    long_positions = summary.list_positions(type_=Position.Long)
+    assert len(long_positions) == 1
+    pos = long_positions[0]
+    assert pos.symbol == "eth-btc"
+    assert pos.open_time == 1
+    assert pos.close_time == 2
+
+
 async def test_close_positions_on_command() -> None:
     chandler = fakes.Chandler(
         future_candles={

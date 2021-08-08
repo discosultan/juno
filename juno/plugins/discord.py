@@ -14,13 +14,7 @@ from juno.components import Chandler, Events, Informant
 from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader
-from juno.trading import (
-    CloseReason,
-    Position,
-    PositionNotOpen,
-    SimulatedPositionMixin,
-    TradingSummary,
-)
+from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public
 
@@ -154,6 +148,36 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         async def on_message(message: str) -> None:
             await send_message(format_message("received message", message))
 
+        async def open_positions(ctx: commands.Context, value: str, short: bool) -> None:
+            if ctx.channel.name != channel_name:
+                return
+            assert trader_ctx
+
+            symbols = value.split(",")
+
+            await send_message(f"opening {symbols} {'short' if short else 'long'} positions")
+            try:
+                await trader_ctx.instance.open_positions(
+                    state=trader_ctx.state,
+                    symbols=symbols,
+                    short=short,
+                )
+            except ValueError as e:
+                await send_message(f"could not open positions for {symbols}: {e}")
+            except Exception:
+                msg = "unhandled exception while opening positions"
+                _log.exception(msg)
+                await send_message(msg)
+                raise
+
+        @self.command(help="Opens new long positions by specified comma-separated symbols")
+        async def open_long_positions(ctx: commands.Context, value: str) -> None:
+            await open_positions(ctx, value, False)
+
+        @self.command(help="Opens new short positions by specified comma-separated symbols")
+        async def open_short_positions(ctx: commands.Context, value: str) -> None:
+            await open_positions(ctx, value, True)
+
         @self.command(help="Closes open positions by specified comma-separated symbols")
         async def close_positions(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
@@ -169,8 +193,8 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                     symbols=symbols,
                     reason=CloseReason.CANCELLED,
                 )
-            except PositionNotOpen:
-                await send_message(f"not all {symbols} positions open")
+            except ValueError as e:
+                await send_message(f"could not close positions for {symbols}: {e}")
             except Exception:
                 msg = "unhandled exception while closing positions"
                 _log.exception(msg)

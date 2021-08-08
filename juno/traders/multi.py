@@ -31,7 +31,6 @@ from juno.trading import (
     CloseReason,
     Position,
     PositionMixin,
-    PositionNotOpen,
     SimulatedPositionMixin,
     StartMixin,
     TradingMode,
@@ -594,24 +593,70 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         candles_updated.release(symbol_state.symbol)
         await ready.wait()
 
+    async def open_positions(
+        self, state: MultiState, symbols: list[str], short: bool
+    ) -> list[Position.Open]:
+        if len(symbols) == 0:
+            return []
+
+        queue = self._queues[state.id]
+        allowed_symbols = set(state.symbol_states.keys())
+        open_symbols = {ss.symbol for ss in state.symbol_states.values() if ss.open_position}
+        cannot_open_symbols = set(symbols) & open_symbols
+        symbol_states_to_process = [
+            ss for ss in state.symbol_states.values() if ss.symbol in symbols
+        ]
+
+        if not state.running:
+            raise ValueError("Trader not running")
+        if queue.qsize() > 0:
+            raise ValueError("Process with position already pending")
+        if not all(s in allowed_symbols for s in symbols):
+            raise ValueError(f"Can only open {allowed_symbols} positions")
+        if state.config.position_count - len(open_symbols) < len(symbols):
+            raise ValueError("Cannot open all the positions due to position limit")
+        if len(cannot_open_symbols) > 0:
+            raise ValueError(f"Cannot open already open {cannot_open_symbols} positions")
+        if not all(ss.last_candle for ss in symbol_states_to_process):
+            raise ValueError("No candle received for all symbols yet")
+
+        return await process_task_on_queue(
+            queue,
+            self._open_positions(state, symbol_states_to_process, short),
+        )
+
     async def close_positions(
         self, state: MultiState, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
         if len(symbols) == 0:
             return []
-        if not state.running:
-            raise PositionNotOpen("Trader not running")
+
         queue = self._queues[state.id]
-        if queue.qsize() > 0:
-            raise PositionNotOpen("Process with position already pending")
-        symbol_states = [
-            ss for ss in (state.symbol_states.get(s) for s in symbols) if ss and ss.open_position
+        allowed_symbols = set(state.symbol_states.keys())
+        open_symbols = {ss.symbol for ss in state.symbol_states.values() if ss.open_position}
+        cannot_close_symbols = set(symbols) - open_symbols
+        symbol_states_to_process = [
+            ss for ss in state.symbol_states.values() if ss.symbol in symbols
         ]
-        if len(symbol_states) != len(symbols):
-            raise PositionNotOpen(f"Attempted to close positions {symbols} but not all open")
+
+        if not state.running:
+            raise ValueError("Trader not running")
+        if queue.qsize() > 0:
+            raise ValueError("Process with position already pending")
+        if not all(s in allowed_symbols for s in symbols):
+            raise ValueError(f"Can only open {allowed_symbols} positions")
+        if len(open_symbols) == 0:
+            raise ValueError("No positions open")
+        if len(cannot_close_symbols) > 0:
+            raise ValueError(f"Cannot close already close {cannot_close_symbols} positions")
+        if not all(ss.last_candle for ss in symbol_states_to_process):
+            raise ValueError("No candle received for all symbols yet")
+
         return await process_task_on_queue(
             queue,
-            self._close_positions(state, symbol_states, reason),
+            self._close_positions(
+                state, [ss for ss in state.symbol_states.values() if ss.symbol in symbols], reason
+            ),
         )
 
     async def _close_positions(
@@ -642,6 +687,31 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             return await self._close_short_position(
                 state, symbol_state, symbol_state.last_candle, reason
             )
+
+    async def _open_positions(
+        self, state: MultiState, symbol_states: list[_SymbolState], short: bool
+    ) -> list[Position.Open]:
+        if len(symbol_states) == 0:
+            return []
+
+        _log.info(f"opening {len(symbol_states)} {'short' if short else 'long'} position(s)")
+        positions = await asyncio.gather(
+            *(self._open_position(state, ss, short) for ss in symbol_states)
+        )
+        await self._events.emit(state.config.channel, "positions_opened", positions, state.summary)
+        return positions
+
+    async def _open_position(
+        self, state: MultiState, symbol_state: _SymbolState, short: bool
+    ) -> Position.Open:
+        assert not symbol_state.open_position
+        assert symbol_state.last_candle
+        if short:
+            _log.info(f"opening {symbol_state.symbol} short position")
+            return await self._open_short_position(state, symbol_state, symbol_state.last_candle)
+        else:
+            _log.info(f"opening {symbol_state.symbol} short position open")
+            return await self._open_long_position(state, symbol_state, symbol_state.last_candle)
 
     async def _open_long_position(
         self, state: MultiState, symbol_state: _SymbolState, candle: Candle

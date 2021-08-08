@@ -43,6 +43,12 @@ class Trader(ABC, Generic[TC, TS]):
         pass
 
     @abstractmethod
+    async def open_positions(
+        self, state: TS, symbols: list[str], short: bool
+    ) -> list[Position.Open]:
+        pass
+
+    @abstractmethod
     async def close_positions(
         self, state: TS, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
