@@ -148,19 +148,19 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         async def on_message(message: str) -> None:
             await send_message(format_message("received message", message))
 
-        @self.command(help="Opens new positions by specified comma-separated symbols")
-        async def open_positions(ctx: commands.Context, value: str) -> None:
+        async def open_positions(ctx: commands.Context, value: str, short: bool) -> None:
             if ctx.channel.name != channel_name:
                 return
             assert trader_ctx
 
             symbols = value.split(",")
 
-            await send_message(f"opening {symbols} positions")
+            await send_message(f"opening {symbols} {'short' if short else 'long'} positions")
             try:
                 await trader_ctx.instance.open_positions(
                     state=trader_ctx.state,
                     symbols=symbols,
+                    short=short,
                 )
             except ValueError as e:
                 await send_message(f"could not open positions for {symbols}: {e}")
@@ -169,6 +169,14 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                 _log.exception(msg)
                 await send_message(msg)
                 raise
+
+        @self.command(help="Opens new long positions by specified comma-separated symbols")
+        async def open_long_positions(ctx: commands.Context, value: str) -> None:
+            await open_positions(ctx, value, False)
+
+        @self.command(help="Opens new short positions by specified comma-separated symbols")
+        async def open_short_positions(ctx: commands.Context, value: str) -> None:
+            await open_positions(ctx, value, True)
 
         @self.command(help="Closes open positions by specified comma-separated symbols")
         async def close_positions(ctx: commands.Context, value: str) -> None:

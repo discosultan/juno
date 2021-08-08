@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Optional, TypeVar, Union
 from uuid import uuid4
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
@@ -142,7 +142,9 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert self._user
         return self._user
 
-    async def open_positions(self, state: BasicState, symbols: list[str]) -> list[Position.Open]:
+    async def open_positions(
+        self, state: BasicState, symbols: list[str], short: bool
+    ) -> list[Position.Open]:
         if len(symbols) == 0:
             return []
 
@@ -156,11 +158,17 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             raise ValueError("Position already open")
         if len(symbols) > 1:
             raise ValueError("Can only open a single position")
+        if symbols[0] != state.config.symbol:
+            raise ValueError(f"Can only open {state.config.symbol} position")
         if not state.last_candle:
             raise ValueError("No candle received yet")
 
-        # TODO
-        return []
+        coro: Union[Awaitable[Position.OpenLong], Awaitable[Position.OpenShort]] = (
+            self._open_short_position(state, state.last_candle)
+            if short
+            else self._open_long_position(state, state.last_candle)
+        )
+        return [await process_task_on_queue(queue, coro)]
 
     async def close_positions(
         self, state: BasicState, symbols: list[str], reason: CloseReason
@@ -395,7 +403,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             _log.info(f"{open_position.symbol} short position open; closing")
             return await self._close_short_position(state, candle, reason)
 
-    async def _open_long_position(self, state: BasicState, candle: Candle) -> None:
+    async def _open_long_position(self, state: BasicState, candle: Candle) -> Position.OpenLong:
         config = state.config
 
         assert not state.open_position
@@ -423,6 +431,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         await self._events.emit(
             config.channel, "positions_opened", [state.open_position], state.summary
         )
+        return position
 
     async def _close_long_position(
         self, state: BasicState, candle: Candle, reason: CloseReason
@@ -454,7 +463,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         await self._events.emit(config.channel, "positions_closed", [position], state.summary)
         return position
 
-    async def _open_short_position(self, state: BasicState, candle: Candle) -> None:
+    async def _open_short_position(self, state: BasicState, candle: Candle) -> Position.OpenShort:
         config = state.config
 
         assert not state.open_position
@@ -482,6 +491,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         await self._events.emit(
             config.channel, "positions_opened", [state.open_position], state.summary
         )
+        return position
 
     async def _close_short_position(
         self, state: BasicState, candle: Candle, reason: CloseReason
