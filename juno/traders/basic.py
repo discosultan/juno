@@ -20,7 +20,6 @@ from juno.trading import (
     CloseReason,
     Position,
     PositionMixin,
-    PositionNotOpen,
     SimulatedPositionMixin,
     StartMixin,
     TradingMode,
@@ -143,23 +142,47 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert self._user
         return self._user
 
+    async def open_positions(self, state: BasicState, symbols: list[str]) -> list[Position.Open]:
+        if len(symbols) == 0:
+            return []
+
+        queue = self._queues[state.id]
+
+        if not state.running:
+            raise ValueError("Trader not running")
+        if queue.qsize() > 0:
+            raise ValueError("Process with position already pending")
+        if state.open_position:
+            raise ValueError("Position already open")
+        if len(symbols) > 1:
+            raise ValueError("Can only open a single position")
+        if not state.last_candle:
+            raise ValueError("No candle received yet")
+
+        # TODO
+        return []
+
     async def close_positions(
         self, state: BasicState, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
         if len(symbols) == 0:
             return []
-        if not state.running:
-            raise PositionNotOpen("Trader not running")
+
         queue = self._queues[state.id]
+
+        if not state.running:
+            raise ValueError("Trader not running")
         if queue.qsize() > 0:
-            raise PositionNotOpen("Process with position already pending")
-        if (
-            not state.open_position
-            or len(symbols) > 1
-            or state.open_position.symbol != symbols[0]
-            or not state.last_candle
-        ):
-            raise PositionNotOpen(f"Attempted to close positions {symbols} but not all open")
+            raise ValueError("Process with position already pending")
+        if not state.open_position:
+            raise ValueError("No position open")
+        if len(symbols) > 1:
+            raise ValueError("Can only close a single position")
+        if state.open_position.symbol != symbols[0]:
+            raise ValueError(f"Only {state.open_position.symbol} position open")
+        if not state.last_candle:
+            raise ValueError("No candle received yet")
+
         return [await process_task_on_queue(queue, self._close_position(state, reason))]
 
     async def initialize(self, config: BasicConfig) -> BasicState:

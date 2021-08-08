@@ -31,7 +31,6 @@ from juno.trading import (
     CloseReason,
     Position,
     PositionMixin,
-    PositionNotOpen,
     SimulatedPositionMixin,
     StartMixin,
     TradingMode,
@@ -594,21 +593,51 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         candles_updated.release(symbol_state.symbol)
         await ready.wait()
 
+    async def open_positions(self, state: MultiState, symbols: list[str]) -> list[Position.Open]:
+        if len(symbols) == 0:
+            return []
+
+        queue = self._queues[state.id]
+        symbol_states = [
+            ss for ss in (state.symbol_states.get(s) for s in symbols) if ss and ss.open_position
+        ]
+        open_symbols = {ss.symbol for ss in symbol_states}
+        cannot_open_symbols = set(symbols) & open_symbols
+
+        if not state.running:
+            raise ValueError("Trader not running")
+        if queue.qsize() > 0:
+            raise ValueError("Process with position already pending")
+        if state.config.position_count - len(symbol_states) < len(symbols):
+            raise ValueError("Cannot open all the positions due to position limit")
+        if len(cannot_open_symbols) > 0:
+            raise ValueError(f"Cannot open already open {cannot_open_symbols} positions")
+
+        # TODO
+        return []
+
     async def close_positions(
         self, state: MultiState, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
         if len(symbols) == 0:
             return []
-        if not state.running:
-            raise PositionNotOpen("Trader not running")
+
         queue = self._queues[state.id]
-        if queue.qsize() > 0:
-            raise PositionNotOpen("Process with position already pending")
         symbol_states = [
             ss for ss in (state.symbol_states.get(s) for s in symbols) if ss and ss.open_position
         ]
-        if len(symbol_states) != len(symbols):
-            raise PositionNotOpen(f"Attempted to close positions {symbols} but not all open")
+        open_symbols = {ss.symbol for ss in symbol_states}
+        cannot_close_symbols = set(symbols) - open_symbols
+
+        if not state.running:
+            raise ValueError("Trader not running")
+        if queue.qsize() > 0:
+            raise ValueError("Process with position already pending")
+        if len(symbol_states) == 0:
+            raise ValueError("No positions open")
+        if len(cannot_close_symbols) > 0:
+            raise ValueError(f"Cannot close already close {cannot_close_symbols} positions")
+
         return await process_task_on_queue(
             queue,
             self._close_positions(state, symbol_states, reason),
