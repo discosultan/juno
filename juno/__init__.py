@@ -46,6 +46,7 @@ __all__ = [
     "OrderType",
     "OrderUpdate",
     "OrderWouldBeTaker",
+    "SavingsProduct",
     "Side",
     "Ticker",
     "TimeInForce",
