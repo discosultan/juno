@@ -40,6 +40,7 @@ from juno import (
     OrderType,
     OrderUpdate,
     OrderWouldBeTaker,
+    SavingsProduct,
     Side,
     Ticker,
     TimeInForce,
@@ -888,30 +889,54 @@ class Binance(Exchange):
 
     # Savings.
 
-    async def list_flexible_products(self) -> list[Any]:
-        return await self._api_request_json(
+    async def map_flexible_products(self) -> dict[str, SavingsProduct]:
+        content = await self._api_request_json(
             "GET", "/sapi/v1/lending/daily/product/list", security=_SEC_USER_DATA
         )
+        result = {}
+        _log.critical(content[0])
+        for product in content:
+            asset = _from_asset(product["asset"])
+            result[asset] = SavingsProduct(
+                product_id=product["productId"],
+                asset=asset,
+                can_purchase=product["canPurchase"],
+                can_redeem=product["canRedeem"],
+                purchased_amount=product["purchasedAmount"],
+                min_purchase_amount=product["minPurchaseAmount"],
+                limit=product["upLimit"],
+            )
+        return result
 
-    async def purchase_flexible_product(self, asset: str, size: Decimal) -> None:
+    async def purchase_flexible_product(self, product_id: str, size: Decimal) -> None:
         await self._api_request_json(
-            "GET",
+            "POST",
             "/sapi/v1/lending/daily/purchase",
             data={
-                "productId": _to_asset(asset),
+                "productId": product_id,
                 "amount": _to_decimal(size),
             },
             security=_SEC_USER_DATA,
         )
 
-    async def redeem_flexible_product(self, asset: str, size: Decimal) -> None:
+    async def redeem_flexible_product(self, product_id: str, size: Decimal) -> None:
         await self._api_request_json(
-            "GET",
+            "POST",
             "/sapi/v1/lending/daily/redeem",
             data={
-                "productId": _to_asset(asset),
+                "productId": product_id,
                 "amount": _to_decimal(size),
                 "type": "FAST",  # "FAST" | "NORMAL"
+            },
+            security=_SEC_USER_DATA,
+        )
+
+    async def get_flexible_product_position(self, asset: str) -> Any:
+        return await self._api_request_json(
+            "GET",
+            "/sapi/v1/lending/daily/token/position",
+            data={
+                "asset": _to_asset(asset),
             },
             security=_SEC_USER_DATA,
         )
@@ -1322,6 +1347,10 @@ class UserDataStream:
 
 def _to_asset(asset: str) -> str:
     return asset.upper()
+
+
+def _from_asset(asset: str) -> str:
+    return asset.lower()
 
 
 def _to_http_symbol(symbol: str) -> str:

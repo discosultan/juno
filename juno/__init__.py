@@ -15,6 +15,7 @@ from .common import (
     OrderStatus,
     OrderType,
     OrderUpdate,
+    SavingsProduct,
     Side,
     Ticker,
     TimeInForce,

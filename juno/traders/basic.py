@@ -105,6 +105,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         self,
         chandler: Chandler,
         informant: Informant,
+        custodian: Custodian = None,
         user: Optional[User] = None,
         broker: Optional[Broker] = None,  # Only required if not backtesting.
         events: Events = Events(),

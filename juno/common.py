@@ -296,3 +296,14 @@ class ExchangeInfo:
 @dataclass
 class AssetInfo:
     precision: int = 8
+
+
+@dataclass
+class SavingsProduct:
+    product_id: str
+    asset: str
+    can_purchase: bool
+    can_redeem: bool
+    purchased_amount: Decimal
+    min_purchase_amount: Decimal
+    limit: Decimal
