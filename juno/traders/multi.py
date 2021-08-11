@@ -183,7 +183,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         real_start = self._get_time_ms()
 
         quote = await self._custodian.request_quote(
-            config.quote, config.exchange, config.quote_asset, config.mode
+            exchange=config.exchange, asset=config.quote_asset, quote=config.quote
         )
         position_quote = quote / config.position_count
         for symbol in symbols:
