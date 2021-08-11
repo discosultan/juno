@@ -9,7 +9,7 @@ from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
-from juno.exchanges import Exchange
+from juno.custodians import Custodian
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
@@ -105,19 +105,18 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         self,
         chandler: Chandler,
         informant: Informant,
-        custodian: Custodian = None,
         user: Optional[User] = None,
         broker: Optional[Broker] = None,  # Only required if not backtesting.
+        custodian: Custodian = Custodian(),
         events: Events = Events(),
-        exchanges: list[Exchange] = [],
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._user = user
         self._broker = broker
+        self._custodian = custodian
         self._events = events
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
@@ -133,10 +132,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     @property
     def chandler(self) -> Chandler:
         return self._chandler
-
-    @property
-    def exchanges(self) -> dict[str, Exchange]:
-        return self._exchanges
 
     @property
     def user(self) -> User:
@@ -210,7 +205,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         )
         real_start = self._get_time_ms()
 
-        quote = await self.request_quote(
+        quote = await self._custodian.request_quote(
             config.quote, config.exchange, config.quote_asset, config.mode
         )
         assert quote > filters.price.min

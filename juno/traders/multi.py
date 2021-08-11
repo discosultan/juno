@@ -19,7 +19,7 @@ from juno.asyncio import (
 )
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
-from juno.exchanges import Exchange
+from juno.custodians import Custodian
 from juno.math import floor_multiple_offset, rpstdev, split
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
@@ -133,16 +133,16 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         informant: Informant,
         user: Optional[User] = None,
         broker: Optional[Broker] = None,
+        custodian: Custodian = Custodian(),
         events: Events = Events(),
-        exchanges: list[Exchange] = [],
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._user = user
         self._broker = broker
+        self._custodian = custodian
         self._events = events
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
@@ -158,10 +158,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
     @property
     def chandler(self) -> Chandler:
         return self._chandler
-
-    @property
-    def exchanges(self) -> dict[str, Exchange]:
-        return self._exchanges
 
     @property
     def user(self) -> User:
@@ -186,7 +182,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         )
         real_start = self._get_time_ms()
 
-        quote = await self.request_quote(
+        quote = await self._custodian.request_quote(
             config.quote, config.exchange, config.quote_asset, config.mode
         )
         position_quote = quote / config.position_count

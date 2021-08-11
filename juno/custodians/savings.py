@@ -3,12 +3,13 @@ from decimal import Decimal
 from typing import Optional
 
 from juno.components import User
+from juno.custodians.custodian import Custodian
 from juno.exchanges import Binance, Exchange
 
 _log = logging.getLogger(__name__)
 
 
-class Savings:
+class Savings(Custodian):
     def __init__(self, user: User, exchanges: list[Exchange]) -> None:
         self._user = user
         self._binance = next(e for e in exchanges if isinstance(e, Binance))
