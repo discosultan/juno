@@ -15,7 +15,7 @@ async def main() -> None:
     async with init_instance(Binance, from_env()) as exchange:
         products = await exchange.map_flexible_products()
         product_id = products[args.asset].product_id
-        await exchange.purchase_flexible_product(product_id, args.size)
+        await exchange.redeem_flexible_product(product_id, args.size)
 
 
 asyncio.run(main())
