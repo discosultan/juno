@@ -88,6 +88,7 @@ class Live(Agent):
             ),
             mode=TradingMode.LIVE,
             channel=state.name,
+            custodian="spot",
         )
         if not state.result:
             state.result = await trader.initialize(trader_config)

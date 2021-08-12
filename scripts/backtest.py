@@ -91,6 +91,7 @@ async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreSt
             short=True,
             missed_candle_policy=MissedCandlePolicy.IGNORE,
             adjust_start=False,
+            custodian="stub",
         )
     )
     summary = await trader.run(state)

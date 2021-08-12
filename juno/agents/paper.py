@@ -90,6 +90,7 @@ class Paper(Agent):
             ),
             mode=TradingMode.PAPER,
             channel=state.name,
+            custodian="stub",
         )
         if not state.result:
             state.result = await trader.initialize(trader_config)

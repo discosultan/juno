@@ -3,7 +3,8 @@ from decimal import Decimal
 from typing import Optional
 
 from juno.components import User
-from juno.custodians.custodian import Custodian
+
+from .custodian import Custodian
 
 _log = logging.getLogger(__name__)
 

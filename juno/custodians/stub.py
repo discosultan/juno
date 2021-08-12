@@ -1,17 +1,17 @@
-from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Optional
 
+from .custodian import Custodian
 
-class Custodian(ABC):
-    @abstractmethod
+
+class Stub(Custodian):
     async def request_quote(self, exchange: str, asset: str, quote: Optional[Decimal]) -> Decimal:
-        pass
+        if quote is None:
+            raise ValueError("Quote must be specified ")
+        return quote
 
-    @abstractmethod
     async def acquire(self, exchange: str, asset: str, quote: Decimal) -> None:
         pass
 
-    @abstractmethod
     async def release(self, exchange: str, asset: str, quote: Decimal) -> None:
         pass

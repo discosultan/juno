@@ -11,6 +11,7 @@ from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel, resolved_stream, stream_queue
 from juno.brokers import Broker, Market
 from juno.components import Chandler, Informant, Orderbook, User
+from juno.custodians import Custodian, Spot
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
@@ -263,6 +264,7 @@ async def test_live(mocker) -> None:
     container = _get_container(exchange)
     container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
     container.add_singleton_type(Broker, lambda: Market)
+    container.add_singleton_instance(list[Custodian], lambda: [Spot(container.resolve(User))])
     agent = container.resolve(Live)
 
     config = Live.Config(
@@ -305,6 +307,7 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
     container = _get_container(exchange)
     container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
     container.add_singleton_type(Broker, lambda: Market)
+    container.add_singleton_instance(list[Custodian], lambda: [Spot(container.resolve(User))])
     agent = container.resolve(Live)
 
     config = Live.Config(

@@ -9,7 +9,7 @@ from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
-from juno.custodians import Custodian
+from juno.custodians import Custodian, Stub
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
@@ -55,6 +55,7 @@ class BasicConfig:
     close_on_exit: bool = True  # Whether to close open position on exit.
     # Timeout in case no candle (including open) from exchange.
     exchange_candle_timeout: Optional[Interval] = None
+    custodian: str = "stub"
 
     @property
     def base_asset(self) -> str:
@@ -107,7 +108,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         informant: Informant,
         user: Optional[User] = None,
         broker: Optional[Broker] = None,  # Only required if not backtesting.
-        custodian: Custodian = Custodian(),
+        custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
@@ -115,7 +116,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         self._informant = informant
         self._user = user
         self._broker = broker
-        self._custodian = custodian
+        self._custodians = {type(c).__name__.lower(): c for c in custodians}
         self._events = events
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
@@ -205,7 +206,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         )
         real_start = self._get_time_ms()
 
-        quote = await self._custodian.request_quote(
+        quote = await self._custodians[config.custodian].request_quote(
             exchange=config.exchange, asset=config.quote_asset, quote=config.quote
         )
         assert quote > filters.price.min
