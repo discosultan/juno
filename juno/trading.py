@@ -260,7 +260,7 @@ class TradingSummary:
     quote: Decimal
     quote_asset: str
 
-    positions: list[Position.Closed] = field(default_factory=list)
+    _positions: list[Position.Closed] = field(default_factory=list)
 
     end: Timestamp = -1
 
@@ -270,10 +270,10 @@ class TradingSummary:
 
     @property
     def profit(self) -> Decimal:
-        return sum((p.profit for p in self.positions), Decimal("0.0"))
+        return sum((p.profit for p in self._positions), Decimal("0.0"))
 
     def append_position(self, pos: Position.Closed) -> None:
-        self.positions.append(pos)
+        self._positions.append(pos)
         self.finish(pos.close_time)
 
     def get_positions(
@@ -281,7 +281,7 @@ class TradingSummary:
         type_: Optional[type[Position.Closed]] = None,
         reason: Optional[CloseReason] = None,
     ) -> Iterable[Position.Closed]:
-        result = (p for p in self.positions)
+        result = (p for p in self._positions)
         if type_ is not None:
             result = (p for p in result if isinstance(p, type_))
         if reason is not None:
