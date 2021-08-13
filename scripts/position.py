@@ -8,6 +8,7 @@ from decimal import Decimal
 from juno.brokers import Broker, Limit
 from juno.components import Chandler, Informant, Orderbook, User
 from juno.config import from_env, init_instance
+from juno.custodians import Custodian, Savings, Spot, Stub
 from juno.exchanges import Binance, Exchange
 from juno.storages import SQLite
 from juno.trading import CloseReason, PositionMixin, TradingMode
@@ -24,6 +25,7 @@ parser.add_argument(
     help="if set, open short; otherwise long position",
 )
 parser.add_argument("--cycles", type=int, default=1)
+parser.add_argument("--custodian", default="spot", help="either savings, spot or stub")
 args = parser.parse_args()
 
 
@@ -37,6 +39,10 @@ class PositionHandler(PositionMixin):
         self._user = User(exchanges=[exchange])
         self._orderbook = Orderbook(exchanges=[exchange])
         self._broker = Limit(informant=self._informant, orderbook=self._orderbook, user=self._user)
+        self._custodians = {
+            type(c).__name__.lower(): c
+            for c in [Savings(self._user, [exchange]), Spot(self._user), Stub()]
+        }
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
         await asyncio.gather(
             self._informant.__aenter__(),
@@ -73,6 +79,10 @@ class PositionHandler(PositionMixin):
     def user(self) -> User:
         return self._user
 
+    @property
+    def custodians(self) -> dict[str, Custodian]:
+        return self._custodians
+
 
 async def main() -> None:
     async with PositionHandler() as handler:
@@ -88,6 +98,7 @@ async def main() -> None:
                             symbol=s,
                             collateral=args.quote,
                             mode=TradingMode.LIVE,
+                            custodian=args.custodian,
                         )
                         for s in args.symbols
                     )
@@ -97,7 +108,10 @@ async def main() -> None:
                 await asyncio.gather(
                     *(
                         handler.close_short_position(
-                            position=p, mode=TradingMode.LIVE, reason=CloseReason.STRATEGY
+                            position=p,
+                            mode=TradingMode.LIVE,
+                            reason=CloseReason.STRATEGY,
+                            custodian=args.custodian,
                         )
                         for p in positions
                     )
@@ -107,7 +121,11 @@ async def main() -> None:
                 positions = await asyncio.gather(
                     *(
                         handler.open_long_position(
-                            exchange="binance", symbol=s, quote=args.quote, mode=TradingMode.LIVE
+                            exchange="binance",
+                            symbol=s,
+                            quote=args.quote,
+                            mode=TradingMode.LIVE,
+                            custodian=args.custodian,
                         )
                         for s in args.symbols
                     )
@@ -117,7 +135,10 @@ async def main() -> None:
                 await asyncio.gather(
                     *(
                         handler.close_long_position(
-                            position=p, mode=TradingMode.LIVE, reason=CloseReason.STRATEGY
+                            position=p,
+                            mode=TradingMode.LIVE,
+                            reason=CloseReason.STRATEGY,
+                            custodian=args.custodian,
                         )
                         for p in positions
                     )

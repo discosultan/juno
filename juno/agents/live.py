@@ -35,6 +35,7 @@ class Live(Agent):
         persist: bool = False
         quote: Optional[Decimal] = None
         end: Optional[Timestamp] = None
+        custodian: str = "spot"
 
     @dataclass
     class State:
@@ -88,7 +89,7 @@ class Live(Agent):
             ),
             mode=TradingMode.LIVE,
             channel=state.name,
-            custodian="spot",
+            custodian=config.custodian,
         )
         if not state.result:
             state.result = await trader.initialize(trader_config)

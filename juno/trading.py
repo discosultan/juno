@@ -22,6 +22,7 @@ from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp
 from juno.asyncio import gather_dict
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
+from juno.custodians import Custodian
 from juno.math import annualized, ceil_multiple, floor_multiple_offset, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_assets, unpack_base_asset, unpack_quote_asset
@@ -60,6 +61,7 @@ class Position(ModuleType):
         close_fills: list[Fill]
         close_reason: CloseReason
 
+        @property
         def quote_delta(self) -> Decimal:
             return self.gain
 
@@ -125,6 +127,7 @@ class Position(ModuleType):
                 close_reason=reason,
             )
 
+        @property
         def quote_delta(self) -> Decimal:
             return -self.cost
 
@@ -151,6 +154,7 @@ class Position(ModuleType):
         close_reason: CloseReason
         interest: Decimal  # base
 
+        @property
         def quote_delta(self) -> Decimal:
             return -Fill.total_quote(self.close_fills)
 
@@ -227,6 +231,7 @@ class Position(ModuleType):
                 interest=interest,
             )
 
+        @property
         def quote_delta(self) -> Decimal:
             return Fill.total_quote(self.fills) - Fill.total_fee(
                 self.fills, unpack_quote_asset(self.symbol)
@@ -452,12 +457,21 @@ class PositionMixin(ABC):
     def user(self) -> User:
         pass
 
+    @property
+    @abstractmethod
+    def custodians(self) -> dict[str, Custodian]:
+        pass
+
     async def open_long_position(
-        self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
+        self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode, custodian: str
     ) -> Position.OpenLong:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"opening position {symbol} {mode.name} long with {quote} quote")
 
+        base_asset, quote_asset = unpack_assets(symbol)
+        custodian_instance = self.custodians[custodian]
+
+        await custodian_instance.acquire(exchange, quote_asset, quote)
         res = await self.broker.buy(
             exchange=exchange,
             symbol=symbol,
@@ -465,23 +479,32 @@ class PositionMixin(ABC):
             account="spot",
             test=mode is TradingMode.PAPER,
         )
-
         open_position = Position.OpenLong(
             exchange=exchange,
             symbol=symbol,
             time=res.time,
             fills=res.fills,
         )
+        await custodian_instance.release(
+            exchange,
+            base_asset,
+            open_position.base_gain,
+        )
+
         _log.info(f"opened position {open_position.symbol} {mode.name} long")
         _log.debug(extract_public(open_position))
         return open_position
 
     async def close_long_position(
-        self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
+        self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason, custodian: str
     ) -> Position.Long:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"closing position {position.symbol} {mode.name} long")
 
+        base_asset, quote_asset = unpack_assets(position.symbol)
+        custodian_instance = self.custodians[custodian]
+
+        await custodian_instance.acquire(position.exchange, base_asset, position.base_gain)
         res = await self.broker.sell(
             exchange=position.exchange,
             symbol=position.symbol,
@@ -489,18 +512,21 @@ class PositionMixin(ABC):
             account="spot",
             test=mode is TradingMode.PAPER,
         )
-
         closed_position = position.close(
             time=res.time,
             fills=res.fills,
             reason=reason,
         )
+        await custodian_instance.release(
+            position.exchange, quote_asset, closed_position.quote_delta
+        )
+
         _log.info(f"closed position {closed_position.symbol} {mode.name} long")
         _log.debug(extract_public(closed_position))
         return closed_position
 
     async def open_short_position(
-        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
+        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode, custodian: str
     ) -> Position.OpenShort:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"opening position {symbol} {mode.name} short with {collateral} collateral")
@@ -511,9 +537,11 @@ class PositionMixin(ABC):
         # lowers multiplier for now for reduced risk.
         margin_multiplier = 2
         # margin_multiplier = self.informant.get_margin_multiplier(exchange)
+        custodian_instance = self.custodians[custodian]
 
         price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
 
+        await custodian_instance.acquire(exchange, quote_asset, collateral)
         if mode is TradingMode.PAPER:
             limit = self.informant.get_borrow_info(
                 exchange=exchange, asset=base_asset, account=symbol
@@ -601,7 +629,7 @@ class PositionMixin(ABC):
         return borrowable
 
     async def close_short_position(
-        self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
+        self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason, custodian: str
     ) -> Position.Short:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"closing position {position.symbol} {mode.name} short")
@@ -611,6 +639,7 @@ class PositionMixin(ABC):
         borrow_info = self.informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
         )
+        custodian_instance = self.custodians[custodian]
 
         # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
         if mode is TradingMode.PAPER:
@@ -698,15 +727,15 @@ class PositionMixin(ABC):
                 )
                 assert new_balance.repay == 0
 
-            transfer = closed_position.collateral + closed_position.profit
             _log.info(
-                f"transferring {transfer} {quote_asset} from {position.symbol} to spot account"
+                f"transferring {closed_position.gain} {quote_asset} from {position.symbol} to "
+                "spot account"
             )
             transfer_tasks = [
                 self.user.transfer(
                     exchange=position.exchange,
                     asset=quote_asset,
-                    size=transfer,
+                    size=closed_position.gain,
                     from_account=position.symbol,
                     to_account="spot",
                 ),
@@ -726,6 +755,11 @@ class PositionMixin(ABC):
                     )
                 )
             await asyncio.gather(*transfer_tasks)
+        await custodian_instance.release(
+            position.exchange,
+            quote_asset,
+            closed_position.gain,
+        )
 
         _log.info(f"closed position {closed_position.symbol} {mode.name} short")
         _log.debug(extract_public(closed_position))

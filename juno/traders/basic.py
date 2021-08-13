@@ -139,6 +139,10 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert self._user
         return self._user
 
+    @property
+    def custodians(self) -> dict[str, Custodian]:
+        return self._custodians
+
     async def open_positions(
         self, state: BasicState, symbols: list[str], short: bool
     ) -> list[Position.Open]:
@@ -419,10 +423,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 symbol=config.symbol,
                 quote=state.quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = position
 
         await self._events.emit(
@@ -450,10 +455,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = None
         state.summary.append_position(position)
 
@@ -479,10 +485,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 symbol=config.symbol,
                 collateral=state.quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = position
 
         await self._events.emit(
@@ -510,10 +517,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = None
         state.summary.append_position(position)
 

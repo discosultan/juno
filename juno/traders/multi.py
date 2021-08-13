@@ -165,6 +165,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         assert self._user
         return self._user
 
+    @property
+    def custodians(self) -> dict[str, Custodian]:
+        return self._custodians
+
     async def initialize(self, config: MultiConfig) -> MultiState:
         assert config.mode is TradingMode.BACKTEST or self.broker
         assert config.start is None or config.start >= 0
@@ -731,10 +735,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 symbol=symbol_state.symbol,
                 quote=symbol_state.allocated_quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         symbol_state.open_position = position
 
         return position
@@ -759,10 +764,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal("0.0")
 
@@ -792,10 +798,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         symbol_state.open_position = position
 
         return position
@@ -820,10 +827,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal("0.0")
 
