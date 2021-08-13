@@ -9,7 +9,7 @@ from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
-from juno.exchanges import Exchange
+from juno.custodians import Custodian, Stub
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
@@ -55,6 +55,7 @@ class BasicConfig:
     close_on_exit: bool = True  # Whether to close open position on exit.
     # Timeout in case no candle (including open) from exchange.
     exchange_candle_timeout: Optional[Interval] = None
+    custodian: str = "stub"
 
     @property
     def base_asset(self) -> str:
@@ -107,16 +108,16 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         informant: Informant,
         user: Optional[User] = None,
         broker: Optional[Broker] = None,  # Only required if not backtesting.
+        custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
-        exchanges: list[Exchange] = [],
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._user = user
         self._broker = broker
+        self._custodians = {type(c).__name__.lower(): c for c in custodians}
         self._events = events
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
@@ -134,13 +135,13 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         return self._chandler
 
     @property
-    def exchanges(self) -> dict[str, Exchange]:
-        return self._exchanges
-
-    @property
     def user(self) -> User:
         assert self._user
         return self._user
+
+    @property
+    def custodians(self) -> dict[str, Custodian]:
+        return self._custodians
 
     async def open_positions(
         self, state: BasicState, symbols: list[str], short: bool
@@ -209,8 +210,8 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         )
         real_start = self._get_time_ms()
 
-        quote = await self.request_quote(
-            config.quote, config.exchange, config.quote_asset, config.mode
+        quote = await self._custodians[config.custodian].request_quote(
+            exchange=config.exchange, asset=config.quote_asset, quote=config.quote
         )
         assert quote > filters.price.min
 
@@ -422,10 +423,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 symbol=config.symbol,
                 quote=state.quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = position
 
         await self._events.emit(
@@ -453,10 +455,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = None
         state.summary.append_position(position)
 
@@ -482,10 +485,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 symbol=config.symbol,
                 collateral=state.quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = position
 
         await self._events.emit(
@@ -513,10 +517,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        state.quote += position.quote_delta()
+        state.quote += position.quote_delta
         state.open_position = None
         state.summary.append_position(position)
 

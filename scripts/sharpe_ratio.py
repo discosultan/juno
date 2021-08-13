@@ -36,7 +36,7 @@ async def main() -> None:
         exchanges=exchanges,
     )
     informant = Informant(sqlite, exchanges)
-    trader = Basic(informant=informant, chandler=chandler, exchanges=exchanges)
+    trader = Basic(informant=informant, chandler=chandler)
     start = floor_multiple(strptimestamp("2019-01-01"), INTERVAL)
     end = floor_multiple(strptimestamp("2019-12-01"), INTERVAL)
     base_asset, quote_asset = unpack_assets(SYMBOL)

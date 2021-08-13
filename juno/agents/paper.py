@@ -68,7 +68,6 @@ class Paper(Agent):
         end = MAX_TIME_MS if config.end is None else config.end
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
-        strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
         trader = self._traders[trader_name]
 
         trader_config_type = type(trader).config()
@@ -91,6 +90,7 @@ class Paper(Agent):
             ),
             mode=TradingMode.PAPER,
             channel=state.name,
+            custodian="stub",
         )
         if not state.result:
             state.result = await trader.initialize(trader_config)

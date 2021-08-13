@@ -136,9 +136,6 @@ class Exchange(AbstractAsyncContextManager, ABC):
     async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
         raise NotImplementedError()
 
-    async def create_account(self, account: str) -> None:
-        raise NotImplementedError()
-
     async def get_deposit_address(self, asset: str) -> str:
         raise NotImplementedError()
 

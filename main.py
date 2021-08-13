@@ -9,9 +9,10 @@ import pkg_resources
 from mergedeep import merge
 
 import juno
-from juno import agents, components, config, traders
+from juno import agents, components, config, custodians, traders
 from juno.agents import Agent
 from juno.brokers import Broker
+from juno.custodians import Custodian
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
@@ -71,7 +72,14 @@ async def main() -> None:
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     trader_types = map_concrete_module_types(traders, Trader).values()
     container.add_singleton_types(trader_types)
-    container.add_singleton_instance(list[Trader], lambda: map(container.resolve, trader_types))
+    container.add_singleton_instance(
+        list[Trader], lambda: list(map(container.resolve, trader_types))
+    )
+    custodian_types = map_concrete_module_types(custodians, Custodian).values()
+    container.add_singleton_types(custodian_types)
+    container.add_singleton_instance(
+        list[Custodian], lambda: list(map(container.resolve, custodian_types))
+    )
     container.add_singleton_types(map_concrete_module_types(components).values())
 
     # Load agents and plugins.

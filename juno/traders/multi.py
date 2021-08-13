@@ -19,7 +19,7 @@ from juno.asyncio import (
 )
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
-from juno.exchanges import Exchange
+from juno.custodians import Custodian, Stub
 from juno.math import floor_multiple_offset, rpstdev, split
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
@@ -73,6 +73,7 @@ class MultiConfig:
     allowed_age_drift: int = 0
     quote_asset: str = "btc"
     repick_symbols: bool = True
+    custodian: str = "stub"
 
 
 @dataclass
@@ -133,16 +134,16 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         informant: Informant,
         user: Optional[User] = None,
         broker: Optional[Broker] = None,
+        custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
-        exchanges: list[Exchange] = [],
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._user = user
         self._broker = broker
+        self._custodians = {type(c).__name__.lower(): c for c in custodians}
         self._events = events
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
@@ -160,13 +161,13 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return self._chandler
 
     @property
-    def exchanges(self) -> dict[str, Exchange]:
-        return self._exchanges
-
-    @property
     def user(self) -> User:
         assert self._user
         return self._user
+
+    @property
+    def custodians(self) -> dict[str, Custodian]:
+        return self._custodians
 
     async def initialize(self, config: MultiConfig) -> MultiState:
         assert config.mode is TradingMode.BACKTEST or self.broker
@@ -186,8 +187,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         )
         real_start = self._get_time_ms()
 
-        quote = await self.request_quote(
-            config.quote, config.exchange, config.quote_asset, config.mode
+        quote = await self._custodians[config.custodian].request_quote(
+            exchange=config.exchange, asset=config.quote_asset, quote=config.quote
         )
         position_quote = quote / config.position_count
         for symbol in symbols:
@@ -734,10 +735,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 symbol=symbol_state.symbol,
                 quote=symbol_state.allocated_quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         symbol_state.open_position = position
 
         return position
@@ -762,10 +764,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal("0.0")
 
@@ -795,10 +798,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
                 mode=config.mode,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         symbol_state.open_position = position
 
         return position
@@ -823,10 +827,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,
+                custodian=config.custodian,
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta()
+        symbol_state.allocated_quote += position.quote_delta
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal("0.0")
 
