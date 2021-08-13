@@ -894,7 +894,6 @@ class Binance(Exchange):
             "GET", "/sapi/v1/lending/daily/product/list", security=_SEC_USER_DATA
         )
         result = {}
-        _log.critical(content[0])
         for product in content:
             asset = _from_asset(product["asset"])
             result[asset] = SavingsProduct(
