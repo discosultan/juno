@@ -976,6 +976,8 @@ class Binance(Exchange):
             "/sapi/v1/userDataStream",
             "/sapi/v1/userDataStream/isolated",
             "/sapi/v1/margin/isolated/transfer",
+            "/sapi/v1/lending/daily/purchase",
+            "/sapi/v1/lending/daily/redeem",
         }:
             limiters.append(self._margin_limiter.acquire())
 

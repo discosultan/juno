@@ -1,13 +1,17 @@
+import asyncio
 import logging
 from decimal import Decimal
 from typing import Optional
 
+from juno import Balance
 from juno.components import User
 from juno.exchanges import Binance, Exchange
 
 from .custodian import Custodian
 
 _log = logging.getLogger(__name__)
+
+_TIMEOUT = 10.0
 
 
 class Savings(Custodian):
@@ -42,7 +46,17 @@ class Savings(Custodian):
             raise NotImplementedError()
 
         products = await self._binance.map_flexible_products()
-        await self._binance.redeem_flexible_product(products[asset].product_id, quote)
+
+        if asset not in products:
+            _log.info(f"{asset} savings product not available; skipping")
+            return
+
+        async with self._user.sync_wallet(exchange, "spot") as wallet:
+            await self._binance.redeem_flexible_product(products[asset].product_id, quote)
+            await asyncio.wait_for(
+                _wait_for_wallet_updated_with(wallet, asset, quote),
+                timeout=_TIMEOUT,
+            )
         _log.info(f"redeemed {quote} worth of {asset} flexible savings product")
 
     async def release(self, exchange: str, asset: str, quote: Decimal) -> None:
@@ -50,5 +64,25 @@ class Savings(Custodian):
             raise NotImplementedError()
 
         products = await self._binance.map_flexible_products()
-        await self._binance.purchase_flexible_product(products[asset].product_id, quote)
+
+        if asset not in products:
+            _log.info(f"{asset} savings product not available; skipping")
+            return
+
+        async with self._user.sync_wallet(exchange, "spot") as wallet:
+            await self._binance.purchase_flexible_product(products[asset].product_id, quote)
+            savings_asset = f"ld{asset}"
+            await asyncio.wait_for(
+                _wait_for_wallet_updated_with(wallet, savings_asset, quote),
+                timeout=_TIMEOUT,
+            )
         _log.info(f"purchased {quote} worth of {asset} flexible savings product")
+
+
+async def _wait_for_wallet_updated_with(
+    wallet: User.WalletSyncContext, asset: str, quote: Decimal
+) -> None:
+    while True:
+        await wallet.updated.wait()
+        if wallet.balances.get(asset, Balance()).available >= quote:
+            return
