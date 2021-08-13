@@ -42,13 +42,13 @@ class Savings(Custodian):
             raise NotImplementedError()
 
         products = await self._binance.map_flexible_products()
-        await self._binance.purchase_flexible_product(products[asset].product_id, quote)
-        _log.info(f"purchased {quote} worth of {asset} flexible savings product")
+        await self._binance.redeem_flexible_product(products[asset].product_id, quote)
+        _log.info(f"redeemed {quote} worth of {asset} flexible savings product")
 
     async def release(self, exchange: str, asset: str, quote: Decimal) -> None:
         if exchange != "binance":
             raise NotImplementedError()
 
         products = await self._binance.map_flexible_products()
-        await self._binance.redeem_flexible_product(products[asset].product_id, quote)
-        _log.info(f"redeemed {quote} worth of {asset} flexible savings product")
+        await self._binance.purchase_flexible_product(products[asset].product_id, quote)
+        _log.info(f"purchased {quote} worth of {asset} flexible savings product")

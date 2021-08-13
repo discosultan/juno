@@ -901,8 +901,8 @@ class Binance(Exchange):
                 asset=asset,
                 can_purchase=product["canPurchase"],
                 can_redeem=product["canRedeem"],
-                purchased_amount=product["purchasedAmount"],
-                min_purchase_amount=product["minPurchaseAmount"],
+                purchased_amount=Decimal(product["purchasedAmount"]),
+                min_purchase_amount=Decimal(product["minPurchaseAmount"]),
                 limit=product["upLimit"],
             )
         return result
