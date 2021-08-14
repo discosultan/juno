@@ -1,16 +1,18 @@
 from decimal import Decimal
 
 import pytest
+from pytest_mock import MockerFixture
 
 from juno import BorrowInfo, ExchangeInfo, Fees, Filters, Ticker
 from juno.components import Informant
+from juno.exchanges import Exchange
 from juno.filters import Price, Size
 
 from . import fakes
 
 
 @pytest.mark.parametrize("exchange_key", ["__all__", "eth-btc"])
-async def test_get_fees_filters(storage, exchange_key) -> None:
+async def test_get_fees_filters(storage, exchange_key: str) -> None:
     fees = Fees(maker=Decimal("0.001"), taker=Decimal("0.002"))
     filters = Filters(
         price=Price(min=Decimal("1.0"), max=Decimal("1.0"), step=Decimal("1.0")),
@@ -121,7 +123,7 @@ async def test_resource_caching_to_storage(storage) -> None:
     assert len(storage.set_calls) == 2
 
 
-async def test_map_tickers_exclude_symbol_patterns(mocker, storage) -> None:
+async def test_map_tickers_exclude_symbol_patterns(mocker: MockerFixture, storage) -> None:
     ticker = Ticker(
         volume=Decimal("1.0"),
         quote_volume=Decimal("1.0"),
@@ -133,7 +135,7 @@ async def test_map_tickers_exclude_symbol_patterns(mocker, storage) -> None:
         "ltc": ticker,
     }
 
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.get_exchange_info.return_value = ExchangeInfo()
     exchange.map_tickers.return_value = tickers
 

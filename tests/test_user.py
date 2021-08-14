@@ -1,15 +1,18 @@
 import asyncio
 from decimal import Decimal
 
+from pytest_mock import MockerFixture
+
 from juno import Balance
 from juno.asyncio import stream_queue
 from juno.components import User
+from juno.exchanges import Exchange
 
 
-async def test_get_balance(mocker) -> None:
+async def test_get_balance(mocker: MockerFixture) -> None:
     balance = Balance(available=Decimal("1.0"), hold=Decimal("0.0"))
 
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_balances.return_value = {"spot": {"btc": balance}}
 
     async with User(exchanges=[exchange]) as user:
@@ -18,8 +21,8 @@ async def test_get_balance(mocker) -> None:
     assert out_balance == balance
 
 
-async def test_map_all_significant_balances(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_map_all_significant_balances(mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_balances.side_effect = [
         {
             "spot": {
@@ -46,8 +49,8 @@ async def test_map_all_significant_balances(mocker) -> None:
     }
 
 
-async def test_map_all_isolated(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_map_all_isolated(mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_balances.return_value = {
         "eth-btc": {
             "eth": Balance(available=Decimal("1.0")),
@@ -70,10 +73,12 @@ async def test_map_all_isolated(mocker) -> None:
     }
 
 
-async def test_concurrent_sync_should_not_ping_exchange_multiple_times(mocker) -> None:
+async def test_concurrent_sync_should_not_ping_exchange_multiple_times(
+    mocker: MockerFixture,
+) -> None:
     balances = {"btc": Balance(available=Decimal("1.0"))}
 
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_balances.return_value = {"spot": balances}
 
     async with User(exchanges=[exchange]) as user:
@@ -91,8 +96,8 @@ async def test_concurrent_sync_should_not_ping_exchange_multiple_times(mocker) -
     assert exchange.connect_stream_balances.call_count == 2
 
 
-async def test_concurrent_sync_should_have_isolated_events(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_concurrent_sync_should_have_isolated_events(mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_balances.return_value = {"spot": {}}
     balances: asyncio.Queue[dict[str, Balance]] = asyncio.Queue()
     exchange.connect_stream_balances.return_value.__aenter__.return_value = stream_queue(balances)

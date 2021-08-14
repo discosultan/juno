@@ -2,6 +2,7 @@ import asyncio
 from decimal import Decimal
 
 import pytest
+from pytest_mock import MockerFixture
 
 from juno import (
     Advice,
@@ -18,6 +19,8 @@ from juno import (
     traders,
 )
 from juno.asyncio import cancel
+from juno.brokers import Market
+from juno.components import Informant, User
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
 from juno.typing import GenericConstructor
@@ -437,10 +440,10 @@ async def test_close_on_exit(
     assert position.profit == expected_profit
 
 
-async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
-    user = mocker.patch("juno.components.user.User", autospec=True)
+async def test_quote_not_requested_when_resumed_in_live_mode(mocker: MockerFixture) -> None:
+    user = mocker.MagicMock(User, autospec=True)
     user.get_balance.return_value = Balance(Decimal("1.0"))
-    broker = mocker.patch("juno.brokers.market.Market", autospec=True)
+    broker = mocker.MagicMock(Market, autospec=True)
     broker.buy.return_value = OrderResult(
         time=0,
         status=OrderStatus.FILLED,
@@ -659,8 +662,8 @@ async def test_repick_symbols() -> None:
     assert positions[1].symbol == "xmr-btc"
 
 
-async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> None:
-    informant = mocker.patch("juno.components.Informant", autospec=True)
+async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker: MockerFixture) -> None:
+    informant = mocker.MagicMock(Informant, autospec=True)
     informant.get_fees_filters.return_value = (Fees(), Filters())
     informant.map_tickers.return_value = {
         "eth-btc": Ticker(

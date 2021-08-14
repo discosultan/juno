@@ -5,6 +5,7 @@ from typing import AsyncIterator
 from uuid import uuid4
 
 import pytest
+from pytest_mock import MockerFixture
 
 from juno import BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus, OrderUpdate
 from juno.asyncio import Event, stream_queue
@@ -405,24 +406,24 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
         assert exchange.place_order_calls[0]["price"] == Decimal("0.9")
 
 
-async def test_cancels_open_order_on_error(mocker) -> None:
+async def test_cancels_open_order_on_error(mocker: MockerFixture) -> None:
     client_id = str(uuid4())
 
-    informant = mocker.patch("juno.components.Informant", autospec=True)
+    informant = mocker.MagicMock(Informant, autospec=True)
     informant.get_fees_filters.return_value = (Fees(), Filters())
 
-    orderbook_sync = mocker.patch("juno.components.Orderbook.SyncContext")
+    orderbook_sync = mocker.MagicMock(Orderbook.SyncContext)
     # orderbook_sync.list_asks.return_value = [(Decimal('2.0'), Decimal('1.0'))]
     orderbook_sync.list_bids.return_value = [(Decimal("1.0"), Decimal("1.0"))]
     orderbook_sync.updated = Event(autoclear=True)
     orderbook_sync.updated.set()
 
-    orderbook = mocker.patch("juno.components.Orderbook", autospec=True)
+    orderbook = mocker.MagicMock(Orderbook, autospec=True)
     orderbook.sync.return_value.__aenter__.return_value = orderbook_sync
 
     orders: asyncio.Queue[OrderUpdate.Any] = asyncio.Queue()
     orders.put_nowait(OrderUpdate.New(client_id=client_id))
-    user = mocker.patch("juno.components.User", autospec=True)
+    user = mocker.MagicMock(User, autospec=True)
     user.connect_stream_orders.return_value.__aenter__.return_value = stream_queue(orders)
     user.generate_client_id.return_value = client_id
 

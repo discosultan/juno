@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Callable
 
 import pytest
+from pytest_mock import MockerFixture
 
 from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
@@ -26,8 +27,8 @@ from juno.utils import load_json_file
 from . import fakes
 
 
-async def test_backtest(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_backtest(mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     fees = Fees(Decimal("0.0"), Decimal("0.0"))
@@ -105,8 +106,8 @@ async def test_backtest(mocker) -> None:
 # 1. was failing as quote was incorrectly calculated after closing a position.
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize("scenario_nr", [1, 2])
-async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_backtest_scenarios(mocker: MockerFixture, scenario_nr: int) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_candle_intervals.return_value = {HOUR_MS: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo(
@@ -156,8 +157,8 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
         await agent.run(config)
 
 
-async def test_paper(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_paper(mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
@@ -229,8 +230,8 @@ async def test_paper(mocker) -> None:
     assert pos.profit == 0
 
 
-async def test_live(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_live(mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
@@ -294,8 +295,8 @@ async def test_live(mocker) -> None:
 
 
 @pytest.mark.parametrize("strategy", ["fixed", "fourweekrule"])
-async def test_live_persist_and_resume(mocker, strategy: str) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_live_persist_and_resume(mocker: MockerFixture, strategy: str) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()

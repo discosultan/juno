@@ -2,10 +2,12 @@ import asyncio
 from decimal import Decimal
 
 import pytest
+from pytest_mock import MockerFixture
 
 from juno import Depth, ExchangeException, Filters
 from juno.asyncio import stream_queue
 from juno.components import Orderbook
+from juno.exchanges import Exchange
 from juno.filters import Price, Size
 
 from . import fakes
@@ -196,10 +198,12 @@ async def test_find_order_bids(size, snapshot_bids, update_bids, expected_output
     assert_fills(output, expected_output)
 
 
-async def test_concurrent_sync_should_not_ping_exchange_multiple_times(mocker) -> None:
+async def test_concurrent_sync_should_not_ping_exchange_multiple_times(
+    mocker: MockerFixture,
+) -> None:
     asks = [(Decimal("1.0"), Decimal("1.0"))]
 
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.can_stream_depth_snapshot = False
     exchange.get_depth.return_value = Depth.Snapshot(asks=asks)
 
@@ -218,8 +222,8 @@ async def test_concurrent_sync_should_not_ping_exchange_multiple_times(mocker) -
     assert exchange.connect_stream_depth.call_count == 2
 
 
-async def test_concurrent_sync_should_have_isolated_events(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_concurrent_sync_should_have_isolated_events(mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.can_stream_depth_snapshot = False
     exchange.get_depth.return_value = Depth.Snapshot()
     depths: asyncio.Queue[Depth.Update] = asyncio.Queue()
@@ -263,8 +267,10 @@ async def test_sync_on_exchange_exception() -> None:
             assert book.list_asks()
 
 
-async def test_initial_depth_update_out_of_sync_retry_only_get_depth(mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_initial_depth_update_out_of_sync_retry_only_get_depth(
+    mocker: MockerFixture,
+) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.can_stream_depth_snapshot = False
     exchange.get_depth.side_effect = [Depth.Snapshot(last_id=1), Depth.Snapshot(last_id=2)]
     depths: asyncio.Queue[Depth.Update] = asyncio.Queue()

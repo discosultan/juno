@@ -2,10 +2,12 @@ import asyncio
 from decimal import Decimal
 
 import pytest
+from pytest_mock import MockerFixture
 
 from juno import Candle, ExchangeException, Trade
 from juno.asyncio import cancel, list_async, resolved_stream
 from juno.components import Chandler
+from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.time import WEEK_MS, strptimestamp
 from juno.utils import key
@@ -479,8 +481,8 @@ async def test_list_candles(storage) -> None:
     assert len(candles) == 2
 
 
-async def test_map_symbol_interval_candles(storage, mocker) -> None:
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+async def test_map_symbol_interval_candles(storage, mocker: MockerFixture) -> None:
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_candle_intervals.return_value = {
         1: 0,
         2: 0,
@@ -502,7 +504,7 @@ async def test_map_symbol_interval_candles(storage, mocker) -> None:
     assert len(candles) == 4
 
 
-async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None:
+async def test_list_candles_simulate_open_from_interval(mocker: MockerFixture, storage) -> None:
     async def stream_historical_candles(symbol, interval, start, end):
         if interval == 1:
             for i in range(6):
@@ -526,7 +528,7 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
                     volume=Decimal("2.0"),
                 )
 
-    exchange = mocker.patch("juno.exchanges.Exchange", autospec=True)
+    exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.map_candle_intervals.return_value = {
         1: 0,
         2: 0,
