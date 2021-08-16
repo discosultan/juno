@@ -14,14 +14,15 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as exchange:
+    exchange = init_instance(Binance, from_env())
+    user = User([exchange])
+    async with exchange, user:
         size = args.size
         if size is None:
-            async with User([exchange]) as user:
-                balance = await user.get_balance("binance", "spot", args.asset)
-                size = balance.available
+            balance = await user.get_balance("binance", "spot", args.asset)
+            size = balance.available
 
-        products = await exchange.map_flexible_products()
+        products = await user.map_savings_products("binance")
         product = products[args.asset]
         product_id = product.product_id
 
@@ -31,7 +32,7 @@ async def main() -> None:
                 f"{product.min_purchase_amount}"
             )
         else:
-            await exchange.purchase_flexible_product(product_id, size)
+            await user.purchase_savings_product("binance", product_id, size)
             logging.info(f"purchased {size} worth of {args.asset}")
 
 

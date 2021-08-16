@@ -14,19 +14,20 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as exchange:
+    exchange = init_instance(Binance, from_env())
+    user = User([exchange])
+    async with exchange, user:
         size = args.size
         if size is None:
-            async with User([exchange]) as user:
-                savings_balance = await user.get_balance("binance", "spot", f"ld{args.asset}")
-                size = savings_balance.available
+            savings_balance = await user.get_balance("binance", "spot", f"ld{args.asset}")
+            size = savings_balance.available
 
         if size == Decimal("0.0"):
             logging.info("nothing to redeem")
         else:
-            products = await exchange.map_flexible_products()
+            products = await user.map_savings_products("binance")
             product_id = products[args.asset].product_id
-            await exchange.redeem_flexible_product(product_id, size)
+            await user.redeem_savings_product("binance", product_id, size)
             logging.info(f"redeemed {size} {args.asset}")
 
 
