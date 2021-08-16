@@ -14,7 +14,6 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optio
 
 import aiohttp
 from dateutil.tz import UTC
-from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
 from juno import (
     AssetInfo,
@@ -408,7 +407,7 @@ class Coinbase(Exchange):
             if page_after is not None:
                 data["after"] = page_after
             response = await self._public_request(method=method, url=url, data=data)
-            response.raise_for_status()
+            await ExchangeException.raise_for_status(response)
             yield await response.json()
             page_after = response.headers.get("CB-AFTER")
             if page_after is None:
@@ -416,14 +415,9 @@ class Coinbase(Exchange):
 
     async def _public_request_json(self, method: str, url: str, data: dict[str, Any] = {}) -> Any:
         response = await self._public_request(method, url, data)
-        response.raise_for_status()
+        await ExchangeException.raise_for_status(response)
         return await response.json()
 
-    @retry(
-        stop=stop_after_attempt(2),
-        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
-        before_sleep=before_sleep_log(_log, logging.WARNING),
-    )
     async def _public_request(
         self, method: str, url: str, data: dict[str, Any] = {}
     ) -> ClientResponse:
@@ -436,14 +430,9 @@ class Coinbase(Exchange):
 
     async def _private_request_json(self, method: str, url: str, data: dict[str, Any] = {}) -> Any:
         response = await self._private_request(method, url, data)
-        response.raise_for_status()
+        await ExchangeException.raise_for_status(response)
         return await response.json()
 
-    @retry(
-        stop=stop_after_attempt(2),
-        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
-        before_sleep=before_sleep_log(_log, logging.WARNING),
-    )
     async def _private_request(
         self, method: str, url: str, data: dict[str, Any] = {}
     ) -> ClientResponse:
@@ -461,10 +450,18 @@ class Coinbase(Exchange):
         return await self._request(method, url, headers=headers, data=body)
 
     async def _request(self, method: str, url: str, **kwargs: Any) -> ClientResponse:
-        async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as response:
-            if response.status >= 500:
-                raise ExchangeException(f"Server error {response.status}")
-            return response
+        try:
+            async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as response:
+                if response.status >= 500:
+                    content = await response.text()
+                    raise ExchangeException(f"Server error {response.status} {content}")
+                return response
+        except (
+            aiohttp.ClientConnectionError,
+            aiohttp.ClientPayloadError,
+        ) as e:
+            _log.warning(f"request exc: {e}")
+            raise ExchangeException(str(e))
 
 
 class CoinbaseFeed:

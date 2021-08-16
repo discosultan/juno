@@ -41,6 +41,9 @@ class ClientResponse:
     def headers(self) -> CIMultiDictProxy:
         return self._response.headers
 
+    async def text(self) -> str:
+        return await self._response.text()
+
     async def json(self) -> Any:
         return await self._response.json(loads=json.loads)
 

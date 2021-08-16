@@ -40,8 +40,7 @@ class PositionHandler(PositionMixin):
         self._orderbook = Orderbook(exchanges=[exchange])
         self._broker = Limit(informant=self._informant, orderbook=self._orderbook, user=self._user)
         self._custodians = {
-            type(c).__name__.lower(): c
-            for c in [Savings(self._user, [exchange]), Spot(self._user), Stub()]
+            type(c).__name__.lower(): c for c in [Savings(self._user), Spot(self._user), Stub()]
         }
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
         await asyncio.gather(

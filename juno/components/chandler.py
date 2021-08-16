@@ -568,8 +568,12 @@ class Chandler(AbstractAsyncContextManager):
             exchange_instance = self._exchanges[exchange]
             if exchange_instance.can_stream_historical_earliest_candle:
                 candle = await first_async(
-                    exchange_instance.stream_historical_candles(
-                        symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
+                    self.stream_candles(
+                        exchange=exchange,
+                        symbol=symbol,
+                        interval=interval,
+                        start=0,
+                        end=MAX_TIME_MS,
                     )
                 )
             else:
@@ -624,15 +628,18 @@ class Chandler(AbstractAsyncContextManager):
         raise ValueError("First candle not found")
 
     async def get_last_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
-        exchange_instance = self._exchanges[exchange]
         interval_offset = self.get_interval_offset(exchange, interval)
 
         now = self._get_time_ms()
         end = floor_multiple_offset(now, interval, interval_offset)
         start = end - interval
         return await first_async(
-            exchange_instance.stream_historical_candles(
-                symbol=symbol, interval=interval, start=start, end=end
+            self.stream_candles(
+                exchange=exchange,
+                symbol=symbol,
+                interval=interval,
+                start=start,
+                end=end,
             )
         )
 

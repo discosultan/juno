@@ -14,6 +14,7 @@ from juno import (
     ExchangeInfo,
     OrderMissing,
     OrderType,
+    SavingsProduct,
     Side,
     Ticker,
     Trade,
@@ -297,6 +298,16 @@ async def test_get_deposit_address(loop, request, exchange: Exchange) -> None:
 
     address = await exchange.get_deposit_address("btc")
     assert type(address) is str
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@parametrize_exchange([Binance])
+async def test_map_savings_products(loop, request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+
+    savings_products = await exchange.map_savings_products()
+    assert types_match(savings_products, dict[str, SavingsProduct])
 
 
 def skip_not_configured(request, exchange):

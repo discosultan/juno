@@ -438,7 +438,10 @@ async def test_get_first_candle_by_search_not_found(
 
 
 async def test_get_first_candle_caching_to_storage(storage) -> None:
-    exchange = fakes.Exchange(historical_candles=[Candle()])
+    exchange = fakes.Exchange(
+        candle_intervals={1: 0},
+        historical_candles=[Candle(time=0)],
+    )
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
@@ -457,7 +460,10 @@ async def test_get_first_candle_caching_to_storage(storage) -> None:
 
 
 async def test_get_last_candle(storage) -> None:
-    exchange = fakes.Exchange(historical_candles=[Candle(time=0), Candle(time=2)])
+    exchange = fakes.Exchange(
+        candle_intervals={2: 0},
+        historical_candles=[Candle(time=0), Candle(time=2)],
+    )
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],

@@ -14,6 +14,7 @@ from juno import (
     OrderResult,
     OrderType,
     OrderUpdate,
+    SavingsProduct,
     Side,
     Ticker,
     TimeInForce,
@@ -140,6 +141,17 @@ class Exchange(AbstractAsyncContextManager, ABC):
         raise NotImplementedError()
 
     async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
+        raise NotImplementedError()
+
+    # Savings.
+
+    async def map_savings_products(self) -> dict[str, SavingsProduct]:
+        raise NotImplementedError()
+
+    async def purchase_savings_product(self, product_id: str, size: Decimal) -> None:
+        raise NotImplementedError()
+
+    async def redeem_savings_product(self, product_id: str, size: Decimal) -> None:
         raise NotImplementedError()
 
     @staticmethod

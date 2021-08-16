@@ -175,6 +175,7 @@ def test_type_to_raw(obj, expected_output) -> None:
         ((1,), BasicNamedTuple, False),
         (1, int, True),
         ("a", int, False),
+        ("value", str, True),
         ({"a": BasicNamedTuple(1, 2)}, dict[str, BasicNamedTuple], True),
         ({"a": 1, "b": "x"}, dict[str, int], False),
         ({"value": 1}, BasicNamedTuple, False),

@@ -8,9 +8,25 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Optional
 
-from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type, wait_exponential
+from tenacity import (
+    AsyncRetrying,
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
-from juno import Balance, ExchangeException, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
+from juno import (
+    Balance,
+    ExchangeException,
+    OrderResult,
+    OrderType,
+    OrderUpdate,
+    SavingsProduct,
+    Side,
+    TimeInForce,
+)
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
@@ -83,6 +99,12 @@ class User:
             if len(ctxs) == 0:
                 await cancel(self._wallet_sync_tasks[key])
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def get_balance(
         self,
         exchange: str,
@@ -98,6 +120,12 @@ class User:
             asset, Balance.zero()
         )
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def map_balances(
         self,
         exchange: str,
@@ -129,11 +157,25 @@ class User:
     async def connect_stream_orders(
         self, exchange: str, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        async with self._exchanges[exchange].connect_stream_orders(
-            account=account, symbol=symbol
-        ) as stream:
-            yield stream
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt_with_reset(8, 300),
+            wait=wait_exponential(),
+            retry=retry_if_exception_type(ExchangeException),
+            before_sleep=before_sleep_log(_log, logging.WARNING),
+        ):
+            with attempt:
+                async with self._exchanges[exchange].connect_stream_orders(
+                    account=account,
+                    symbol=symbol,
+                ) as stream:
+                    yield stream
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def place_order(
         self,
         exchange: str,
@@ -159,6 +201,12 @@ class User:
             client_id=client_id,
         )
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def cancel_order(
         self,
         exchange: str,
@@ -172,6 +220,12 @@ class User:
             client_id=client_id,
         )
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def transfer(
         self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
@@ -179,14 +233,61 @@ class User:
             asset=asset, size=size, from_account=from_account, to_account=to_account
         )
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def borrow(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
         await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def repay(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
         await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
     async def get_max_borrowable(self, exchange: str, asset: str, account: str) -> Decimal:
         return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
+    async def map_savings_products(self, exchange: str) -> dict[str, SavingsProduct]:
+        return await self._exchanges[exchange].map_savings_products()
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
+    async def purchase_savings_product(
+        self, exchange: str, product_id: str, size: Decimal
+    ) -> None:
+        return await self._exchanges[exchange].purchase_savings_product(product_id, size)
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
+    async def redeem_savings_product(self, exchange: str, product_id: str, size: Decimal) -> None:
+        return await self._exchanges[exchange].redeem_savings_product(product_id, size)
 
     async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
         ctxs = self._wallet_sync_ctxs[(exchange, account)]

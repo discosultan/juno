@@ -67,8 +67,9 @@ from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
-_BASE_REST_URL = "https://api.binance.com"
+_BASE_API_URL = "https://api.binance.com"
 _BASE_WS_URL = "wss://stream.binance.com:9443"
+_BASE_GATEWAY_URL = "https://www.binance.com/gateway-api"
 
 _SEC_NONE = 0  # Endpoint can be accessed freely.
 _SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
@@ -86,6 +87,10 @@ _ERR_INVALID_LISTEN_KEY = -1125
 _ERR_TOO_MANY_REQUESTS = -1003
 _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST = -11001
 _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS = -11004
+
+_LIMITERS_BASIC = 1
+_LIMITERS_ORDER = 2
+_LIMITERS_MARGIN = 3
 
 _BINANCE_START = strptimestamp("2017-07-01")
 
@@ -125,10 +130,24 @@ class Binance(Exchange):
         # Rate limiters.
         x = 1.5  # We use this factor to be on the safe side and not use up the entire bucket.
         self._reqs_per_min_limiter = AsyncLimiter(1200, 60 * x)
-        self._raw_reqs_limiter = AsyncLimiter(5000, 300 * x)
-        self._orders_per_sec_limiter = AsyncLimiter(10, 1 * x)
-        self._orders_per_day_limiter = AsyncLimiter(100_000, DAY_SEC * x)
-        self._margin_limiter = AsyncLimiter(1, 2 * x)
+        raw_reqs_limiter = AsyncLimiter(5000, 300 * x)
+        orders_per_sec_limiter = AsyncLimiter(10, 1 * x)
+        orders_per_day_limiter = AsyncLimiter(100_000, DAY_SEC * x)
+        margin_limiter = AsyncLimiter(1, 2 * x)
+        self._limiter_groups = {
+            _LIMITERS_BASIC: [
+                raw_reqs_limiter,
+            ],
+            _LIMITERS_ORDER: [
+                raw_reqs_limiter,
+                orders_per_day_limiter,
+                orders_per_sec_limiter,
+            ],
+            _LIMITERS_MARGIN: [
+                raw_reqs_limiter,
+                margin_limiter,
+            ],
+        }
 
         self._clock = Clock(self)
         self._user_data_streams: dict[str, UserDataStream] = {}
@@ -171,16 +190,28 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
         fees_res, filters_res, isolated_pairs, margin_res, isolated_res = await asyncio.gather(
-            self._api_request_json("GET", "/sapi/v1/asset/tradeFee", security=_SEC_USER_DATA),
-            self._api_request_json("GET", "/api/v3/exchangeInfo", weight=10),
-            self._list_symbols(isolated=True),
-            self._request_json(
+            self._api_request_json(
                 method="GET",
-                url="https://www.binance.com/gateway-api/v1/friendly/margin/vip/spec/list-all",
+                url="/sapi/v1/asset/tradeFee",
+                weight=1,
+                limiters=_LIMITERS_BASIC,
+                security=_SEC_USER_DATA,
             ),
-            self._request_json(
+            self._api_request_json(
                 method="GET",
-                url="https://www.binance.com/gateway-api/v1/public/isolated-margin/pair/vip-level",
+                url="/api/v3/exchangeInfo",
+                weight=10,
+                limiters=_LIMITERS_BASIC,
+                security=_SEC_NONE,
+            ),
+            self._list_symbols(isolated=True),
+            self._gateway_request_json(
+                method="GET",
+                url="/v1/friendly/margin/vip/spec/list-all",
+            ),
+            self._gateway_request_json(
+                method="GET",
+                url="/v1/public/isolated-margin/pair/vip-level",
             ),
         )
 
@@ -298,7 +329,12 @@ class Binance(Exchange):
         data = {"symbol": _to_http_symbol(symbols[0])} if symbols else None
         weight = 1 if symbols else 40
         content = await self._api_request_json(
-            "GET", "/api/v3/ticker/24hr", data=data, weight=weight
+            method="GET",
+            url="/api/v3/ticker/24hr",
+            data=data,
+            weight=weight,
+            limiters=_LIMITERS_BASIC,
+            security=_SEC_NONE,
         )
         response_data = [content] if symbols else content
         return {
@@ -314,7 +350,11 @@ class Binance(Exchange):
         result = {}
         if account == "spot":
             content = await self._api_request_json(
-                "GET", "/api/v3/account", weight=10, security=_SEC_USER_DATA
+                method="GET",
+                url="/api/v3/account",
+                weight=10,
+                limiters=_LIMITERS_BASIC,
+                security=_SEC_USER_DATA,
             )
             result["spot"] = {
                 b["asset"].lower(): Balance(
@@ -325,7 +365,11 @@ class Binance(Exchange):
             }
         elif account == "margin":
             content = await self._api_request_json(
-                "GET", "/sapi/v1/margin/account", weight=1, security=_SEC_USER_DATA
+                method="GET",
+                url="/sapi/v1/margin/account",
+                weight=1,
+                limiters=_LIMITERS_BASIC,
+                security=_SEC_USER_DATA,
             )
             result["margin"] = {
                 b["asset"].lower(): Balance(
@@ -341,7 +385,11 @@ class Binance(Exchange):
             # The weight is the same though, so not much benefit to using that.
             # https://binance-docs.github.io/apidocs/spot/en/#query-isolated-margin-account-info-user_data
             content = await self._api_request_json(
-                "GET", "/sapi/v1/margin/isolated/account", weight=1, security=_SEC_USER_DATA
+                method="GET",
+                url="/sapi/v1/margin/isolated/account",
+                weight=1,
+                limiters=_LIMITERS_BASIC,
+                security=_SEC_USER_DATA,
             )
             for balances in content["assets"]:
                 base_asset, quote_asset = unpack_assets(_from_symbol(balances["symbol"]))
@@ -400,10 +448,12 @@ class Binance(Exchange):
         }
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
         content = await self._api_request_json(
-            "GET",
-            "/api/v3/depth",
+            method="GET",
+            url="/api/v3/depth",
             weight=LIMIT_TO_WEIGHT[LIMIT],
+            limiters=_LIMITERS_BASIC,
             data={"limit": LIMIT, "symbol": _to_http_symbol(symbol)},
+            security=_SEC_NONE,
         )
         return Depth.Snapshot(
             bids=[(Decimal(x[0]), Decimal(x[1])) for x in content["bids"]],
@@ -427,7 +477,10 @@ class Binance(Exchange):
         if self._high_precision:  # Low precision is every 1000ms.
             url += "@100ms"
         async with self._connect_refreshing_stream(
-            url=url, interval=12 * HOUR_SEC, name="depth", raise_on_disconnect=True
+            url=url,
+            interval=12 * HOUR_SEC,
+            name="depth",
+            raise_on_disconnect=True,
         ) as ws:
             yield inner(ws)
 
@@ -455,11 +508,12 @@ class Binance(Exchange):
         if account not in ["spot", "margin"]:
             data["isIsolated"] = "TRUE"
         content = await self._api_request_json(
-            "GET",
-            url,
+            method="GET",
+            url=url,
             data=data,
-            security=_SEC_USER_DATA,
             weight=weight,
+            limiters=_LIMITERS_BASIC,
+            security=_SEC_USER_DATA,
         )
         return [
             Order(
@@ -562,7 +616,12 @@ class Binance(Exchange):
             url = "/sapi/v1/margin/order"
             weight = 1
         content = await self._api_request_json(
-            "POST", url, data=data, security=_SEC_TRADE, weight=weight
+            method="POST",
+            url=url,
+            data=data,
+            weight=weight,
+            limiters=_LIMITERS_ORDER,
+            security=_SEC_TRADE,
         )
 
         # In case of LIMIT_MARKET order, the following are not present in the response:
@@ -602,7 +661,14 @@ class Binance(Exchange):
         }
         if account not in ["spot", "margin"]:
             data["isIsolated"] = "TRUE"
-        await self._api_request_json("DELETE", url, data=data, security=_SEC_TRADE)
+        await self._api_request_json(
+            method="DELETE",
+            url=url,
+            data=data,
+            weight=1,
+            limiters=_LIMITERS_ORDER,
+            security=_SEC_TRADE,
+        )
 
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
@@ -616,8 +682,8 @@ class Binance(Exchange):
             pagination_interval = end - start
         for page_start, page_end in page_limit(start, end, pagination_interval, limit):
             content = await self._api_request_json(
-                "GET",
-                "/api/v3/klines",
+                method="GET",
+                url="/api/v3/klines",
                 data={
                     "symbol": binance_symbol,
                     "interval": binance_interval,
@@ -625,6 +691,9 @@ class Binance(Exchange):
                     "endTime": page_end - 1,
                     "limit": limit,
                 },
+                weight=1,
+                limiters=_LIMITERS_BASIC,
+                security=_SEC_NONE,
             )
             for c in content:
                 # Binance can return bad candles where the time does not fall within the requested
@@ -686,7 +755,14 @@ class Binance(Exchange):
 
             time = None
 
-            content = await self._api_request_json("GET", "/api/v3/aggTrades", data=payload)
+            content = await self._api_request_json(
+                method="GET",
+                url="/api/v3/aggTrades",
+                data=payload,
+                weight=1,
+                limiters=_LIMITERS_BASIC,
+                security=_SEC_NONE,
+            )
             for t in content:
                 time = t["T"]
                 assert time < end
@@ -726,13 +802,15 @@ class Binance(Exchange):
         if from_account in ["spot", "margin"] and to_account in ["spot", "margin"]:
             assert from_account != to_account
             await self._api_request_json(
-                "POST",
-                "/sapi/v1/margin/transfer",
+                method="POST",
+                url="/sapi/v1/margin/transfer",
                 data={
                     "asset": _to_asset(asset),
                     "amount": _to_decimal(size),
                     "type": 1 if to_account == "margin" else 2,
                 },
+                weight=1,
+                limiters=_LIMITERS_MARGIN,  # Not documented.
                 security=_SEC_MARGIN,
             )
         else:
@@ -740,8 +818,8 @@ class Binance(Exchange):
             assert from_account == "spot" or to_account == "spot"
             to_spot = to_account == "spot"
             await self._api_request_json(
-                "POST",
-                "/sapi/v1/margin/isolated/transfer",
+                method="POST",
+                url="/sapi/v1/margin/isolated/transfer",
                 data={
                     "asset": _to_asset(asset),
                     "symbol": _to_http_symbol(from_account if to_spot else to_account),
@@ -749,6 +827,8 @@ class Binance(Exchange):
                     "transTo": "SPOT" if to_spot else "ISOLATED_MARGIN",
                     "amount": _to_decimal(size),
                 },
+                weight=1,
+                limiters=_LIMITERS_MARGIN,
                 security=_SEC_MARGIN,
             )
 
@@ -762,9 +842,11 @@ class Binance(Exchange):
             data["isIsolated"] = "TRUE"
             data["symbol"] = _to_http_symbol(account)
         await self._api_request_json(
-            "POST",
-            "/sapi/v1/margin/loan",
+            method="POST",
+            url="/sapi/v1/margin/loan",
             data=data,
+            weight=1,
+            limiters=_LIMITERS_MARGIN,
             security=_SEC_MARGIN,
         )
 
@@ -778,9 +860,11 @@ class Binance(Exchange):
             data["isIsolated"] = "TRUE"
             data["symbol"] = _to_http_symbol(account)
         await self._api_request_json(
-            "POST",
-            "/sapi/v1/margin/repay",
+            method="POST",
+            url="/sapi/v1/margin/repay",
             data=data,
+            weight=1,
+            limiters=_LIMITERS_MARGIN,
             security=_SEC_MARGIN,
         )
 
@@ -790,11 +874,12 @@ class Binance(Exchange):
         if account != "margin":
             data["isolatedSymbol"] = _to_http_symbol(account)
         content = await self._api_request_json(
-            "GET",
-            "/sapi/v1/margin/maxBorrowable",
+            method="GET",
+            url="/sapi/v1/margin/maxBorrowable",
             data=data,
-            security=_SEC_USER_DATA,
             weight=5,
+            limiters=_LIMITERS_BASIC,
+            security=_SEC_USER_DATA,
         )
         return Decimal(content["amount"])
 
@@ -804,48 +889,57 @@ class Binance(Exchange):
         if account != "margin":
             data["isolatedSymbol"] = _to_http_symbol(account)
         content = await self._api_request_json(
-            "GET",
-            "/sapi/v1/margin/maxTransferable",
+            method="GET",
+            url="/sapi/v1/margin/maxTransferable",
             data=data,
-            security=_SEC_USER_DATA,
             weight=5,
+            limiters=_LIMITERS_BASIC,
+            security=_SEC_USER_DATA,
         )
         return Decimal(content["amount"])
 
     async def convert_dust(self, assets: list[str]) -> None:
         await self._api_request_json(
-            "POST",
-            "/sapi/v1/asset/dust",
+            method="POST",
+            url="/sapi/v1/asset/dust",
             data=MultiDict([("asset", _to_asset(a)) for a in assets]),
+            weight=1,
+            limiters=_LIMITERS_BASIC,
             security=_SEC_USER_DATA,
         )
 
     async def _list_symbols(self, isolated: bool = False) -> list[str]:
         content = await self._api_request_json(
-            "GET",
-            f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
+            method="GET",
+            url=f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
+            weight=1,
+            limiters=_LIMITERS_BASIC,
             security=_SEC_USER_DATA,
         )
         return [_from_symbol(s["symbol"]) for s in content]
 
     async def get_deposit_address(self, asset: str) -> str:
         content = await self._api_request_json(
-            "GET",
-            "/sapi/v1/capital/deposit/address",
+            method="GET",
+            url="/sapi/v1/capital/deposit/address",
             data={"coin": _to_asset(asset)},
+            weight=1,
+            limiters=_LIMITERS_BASIC,
             security=_SEC_USER_DATA,
         )
         return content["address"]
 
     async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
         await self._api_request_json(
-            "POST",
-            "/sapi/v1/capital/withdraw/apply",
+            method="POST",
+            url="/sapi/v1/capital/withdraw/apply",
             data={
                 "coin": _to_asset(asset),
                 "address": address,
                 "amount": _to_decimal(amount),
             },
+            weight=1,
+            limiters=_LIMITERS_BASIC,
             security=_SEC_USER_DATA,
         )
 
@@ -856,12 +950,14 @@ class Binance(Exchange):
         for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
             tasks.append(
                 self._api_request_json(
-                    "GET",
-                    "/sapi/v1/capital/deposit/hisrec",
+                    method="GET",
+                    url="/sapi/v1/capital/deposit/hisrec",
                     data={
                         "startTime": page_start,
                         "endTime": page_end - 1,
                     },
+                    weight=1,
+                    limiters=_LIMITERS_BASIC,
                     security=_SEC_USER_DATA,
                 )
             )
@@ -875,12 +971,14 @@ class Binance(Exchange):
         for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
             tasks.append(
                 self._api_request_json(
-                    "GET",
-                    "/sapi/v1/capital/withdraw/history",
+                    method="GET",
+                    url="/sapi/v1/capital/withdraw/history",
                     data={
                         "startTime": page_start,
                         "endTime": page_end - 1,
                     },
+                    weight=1,
+                    limiters=_LIMITERS_BASIC,
                     security=_SEC_USER_DATA,
                 )
             )
@@ -889,9 +987,13 @@ class Binance(Exchange):
 
     # Savings.
 
-    async def map_flexible_products(self) -> dict[str, SavingsProduct]:
+    async def map_savings_products(self) -> dict[str, SavingsProduct]:
         content = await self._api_request_json(
-            "GET", "/sapi/v1/lending/daily/product/list", security=_SEC_USER_DATA
+            method="GET",
+            url="/sapi/v1/lending/daily/product/list",
+            weight=1,
+            limiters=_LIMITERS_BASIC,
+            security=_SEC_USER_DATA,
         )
         result = {}
         for product in content:
@@ -903,85 +1005,65 @@ class Binance(Exchange):
                 can_redeem=product["canRedeem"],
                 purchased_amount=Decimal(product["purchasedAmount"]),
                 min_purchase_amount=Decimal(product["minPurchaseAmount"]),
-                limit=product["upLimit"],
+                limit=Decimal(product["upLimit"]),
             )
         return result
 
-    async def purchase_flexible_product(self, product_id: str, size: Decimal) -> None:
+    async def purchase_savings_product(self, product_id: str, size: Decimal) -> None:
         await self._api_request_json(
-            "POST",
-            "/sapi/v1/lending/daily/purchase",
+            method="POST",
+            url="/sapi/v1/lending/daily/purchase",
             data={
                 "productId": product_id,
                 "amount": _to_decimal(size),
             },
+            weight=1,
+            limiters=_LIMITERS_MARGIN,  # Not documented.
             security=_SEC_USER_DATA,
         )
 
-    async def redeem_flexible_product(self, product_id: str, size: Decimal) -> None:
+    async def redeem_savings_product(self, product_id: str, size: Decimal) -> None:
         await self._api_request_json(
-            "POST",
-            "/sapi/v1/lending/daily/redeem",
+            method="POST",
+            url="/sapi/v1/lending/daily/redeem",
             data={
                 "productId": product_id,
                 "amount": _to_decimal(size),
                 "type": "FAST",  # "FAST" | "NORMAL"
             },
+            weight=1,
+            limiters=_LIMITERS_MARGIN,  # Not documented.
             security=_SEC_USER_DATA,
         )
 
-    async def get_flexible_product_position(self, asset: str) -> Any:
+    async def get_savings_product_position(self, asset: str) -> Any:
         return await self._api_request_json(
-            "GET",
-            "/sapi/v1/lending/daily/token/position",
+            method="GET",
+            url="/sapi/v1/lending/daily/token/position",
             data={
                 "asset": _to_asset(asset),
             },
+            weight=1,
+            limiters=_LIMITERS_BASIC,
             security=_SEC_USER_DATA,
         )
 
     # Common.
 
-    @retry(
-        stop=stop_after_attempt(2),
-        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
-        before_sleep=before_sleep_log(_log, logging.WARNING),
-    )
     async def _api_request_json(
         self,
         method: str,
         url: str,
-        weight: int = 1,
+        weight: int,
+        limiters: int,
+        security: int,
         data: Optional[Any] = None,
-        security: int = _SEC_NONE,
     ) -> Any:
         # Preparation.
-        limiters = [
-            self._raw_reqs_limiter.acquire(),
+        await asyncio.gather(
             self._reqs_per_min_limiter.acquire(weight),
-        ]
-        if url in {"/api/v3/order", "/sapi/v1/margin/order"}:
-            limiters.extend(
-                (
-                    self._orders_per_day_limiter.acquire(),
-                    self._orders_per_sec_limiter.acquire(),
-                )
-            )
-        elif url in {
-            # The following are documented to be rate limited.
-            "/sapi/v1/margin/transfer",
-            "/sapi/v1/margin/loan",
-            "/sapi/v1/margin/repay",
-            # The following are NOT documented but seem to be rate limited as well.
-            "/sapi/v1/userDataStream",
-            "/sapi/v1/userDataStream/isolated",
-            "/sapi/v1/margin/isolated/transfer",
-            "/sapi/v1/lending/daily/purchase",
-            "/sapi/v1/lending/daily/redeem",
-        }:
-            limiters.append(self._margin_limiter.acquire())
-
-        await asyncio.gather(*limiters)
+            *(limiter.acquire() for limiter in self._limiter_groups[limiters]),
+        )
 
         kwargs: dict[str, Any] = {}
 
@@ -1007,7 +1089,7 @@ class Binance(Exchange):
             kwargs["params" if method == "GET" else "data"] = data
 
         # Request.
-        response = await self._request(method=method, url=_BASE_REST_URL + url, **kwargs)
+        response = await self._request(method=method, url=_BASE_API_URL + url, **kwargs)
         content = await response.json()
 
         # Error handling.
@@ -1047,30 +1129,34 @@ class Binance(Exchange):
             elif error_code == _ERR_UNKNOWN:
                 raise ExchangeException(error_msg)
             else:
-                raise NotImplementedError(f"No handling for binance error: {content}")
+                raise NotImplementedError(f"No handling for error: {response.status} {content}")
 
-        response.raise_for_status()
+        await ExchangeException.raise_for_status(response)
         return content
 
-    @retry(
-        stop=stop_after_attempt(2),
-        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
-        before_sleep=before_sleep_log(_log, logging.WARNING),
-    )
-    async def _request_json(self, method: str, url: str, **kwargs: Any) -> Any:
-        response = await self._request(method, url, **kwargs)
-        response.raise_for_status()
+    async def _gateway_request_json(self, method: str, url: str, **kwargs: Any) -> Any:
+        response = await self._request(method, _BASE_GATEWAY_URL + url, **kwargs)
+
+        await ExchangeException.raise_for_status(response)
         return await response.json()
 
     # We don't want to retry here because the caller of this method may need to adjust request
     # params on retry.
     async def _request(self, method: str, url: str, **kwargs: Any) -> ClientResponse:
-        async with self._session.request(method=method, url=url, **kwargs) as response:
-            # TODO: If status 50X (502 for example during exchange maintenance), we may
-            # want to wait for a some kind of a successful health check before retrying.
-            if response.status >= 500:
-                raise ExchangeException(f"Server error {response.status}")
-            return response
+        try:
+            async with self._session.request(method=method, url=url, **kwargs) as response:
+                # TODO: If status 50X (502 for example during exchange maintenance), we may
+                # want to wait for a some kind of a successful health check before retrying.
+                if response.status >= 500:
+                    content = await response.text()
+                    raise ExchangeException(f"Server error {response.status} {content}")
+                return response
+        except (
+            aiohttp.ClientConnectionError,
+            aiohttp.ClientPayloadError,
+        ) as e:
+            _log.warning(f"request exc: {e}")
+            raise ExchangeException(str(e))
 
     @asynccontextmanager
     async def _connect_refreshing_stream(
@@ -1087,7 +1173,12 @@ class Binance(Exchange):
                 raise_on_disconnect=raise_on_disconnect,
             ) as stream:
                 yield stream
-        except (aiohttp.WSServerHandshakeError, aiohttp.WebSocketError) as e:
+        except (
+            aiohttp.ClientConnectionError,
+            aiohttp.ClientPayloadError,
+            aiohttp.ClientResponseError,
+            aiohttp.WebSocketError,
+        ) as e:
             _log.warning(f"{name} web socket exc: {e}")
             raise ExchangeException(str(e))
 
@@ -1140,16 +1231,20 @@ class Clock:
     @retry(
         stop=stop_after_attempt(10),
         wait=wait_exponential(),
-        retry=retry_if_exception_type(
-            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
-        ),
+        retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _sync_clock(self) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
         _log.info("syncing clock with Binance")
         before = time_ms()
-        content = await self._binance._api_request_json("GET", "/api/v3/time")
+        content = await self._binance._api_request_json(
+            method="GET",
+            url="/api/v3/time",
+            weight=1,
+            limiters=_LIMITERS_BASIC,
+            security=_SEC_NONE,
+        )
         server_time = content["serverTime"]
         after = time_ms()
         # Assume response time is same as request time.
@@ -1168,7 +1263,7 @@ class CreateListenKeyResult(TypedDict):
 class UserDataStream:
     def __init__(self, binance: Binance, account: str = "spot") -> None:
         self._binance = binance
-        self._base_url = {
+        self._url = {
             "spot": "/api/v3/userDataStream",
             "margin": "/sapi/v1/userDataStream",
         }.get(account, "/sapi/v1/userDataStream/isolated")
@@ -1294,9 +1389,7 @@ class UserDataStream:
     @retry(
         stop=stop_after_attempt(10),
         wait=wait_exponential(),
-        retry=retry_if_exception_type(
-            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
-        ),
+        retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _create_listen_key(self) -> CreateListenKeyResult:
@@ -1305,15 +1398,18 @@ class UserDataStream:
         if self._account not in ["spot", "margin"]:
             data["symbol"] = _to_http_symbol(self._account)
         return await self._binance._api_request_json(
-            "POST", self._base_url, data=data, security=_SEC_USER_STREAM
+            method="POST",
+            url=self._url,
+            data=data,
+            weight=1,
+            limiters=_LIMITERS_MARGIN,  # Not documented.
+            security=_SEC_USER_STREAM,
         )
 
     @retry(
         stop=stop_after_attempt(10),
         wait=wait_exponential(),
-        retry=retry_if_exception_type(
-            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
-        ),
+        retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _update_listen_key(self, listen_key: str) -> None:
@@ -1322,18 +1418,18 @@ class UserDataStream:
         if self._account not in ["spot", "margin"]:
             data["symbol"] = _to_http_symbol(self._account)
         await self._binance._api_request_json(
-            "PUT",
-            self._base_url,
+            method="PUT",
+            url=self._url,
             data=data,
+            weight=1,
+            limiters=_LIMITERS_MARGIN,  # Not documented.
             security=_SEC_USER_STREAM,
         )
 
     @retry(
         stop=stop_after_attempt(10),
         wait=wait_exponential(),
-        retry=retry_if_exception_type(
-            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
-        ),
+        retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _delete_listen_key(self, listen_key: str) -> None:
@@ -1342,7 +1438,12 @@ class UserDataStream:
         if self._account not in ["spot", "margin"]:
             data["symbol"] = _to_http_symbol(self._account)
         await self._binance._api_request_json(
-            "DELETE", self._base_url, data=data, security=_SEC_USER_STREAM
+            method="DELETE",
+            url=self._url,
+            data=data,
+            weight=1,
+            limiters=_LIMITERS_MARGIN,  # Not documented.
+            security=_SEC_USER_STREAM,
         )
 
 

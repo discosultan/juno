@@ -5,7 +5,6 @@ from typing import Optional
 
 from juno import Balance
 from juno.components import User
-from juno.exchanges import Binance, Exchange
 
 from .custodian import Custodian
 
@@ -15,14 +14,10 @@ _TIMEOUT = 10.0
 
 
 class Savings(Custodian):
-    def __init__(self, user: User, exchanges: list[Exchange]) -> None:
+    def __init__(self, user: User) -> None:
         self._user = user
-        self._binance = next(e for e in exchanges if isinstance(e, Binance))
 
     async def request_quote(self, exchange: str, asset: str, quote: Optional[Decimal]) -> Decimal:
-        if exchange != "binance":
-            raise NotImplementedError()
-
         # On Binance, a flexible savings asset is indicated with an "ld"-prefix. It stands for
         # "lending daily".
         savings_asset = f"ld{asset}"
@@ -42,17 +37,14 @@ class Savings(Custodian):
         return quote
 
     async def acquire(self, exchange: str, asset: str, quote: Decimal) -> None:
-        if exchange != "binance":
-            raise NotImplementedError()
-
-        products = await self._binance.map_flexible_products()
+        products = await self._user.map_savings_products(exchange)
 
         if asset not in products:
             _log.info(f"{asset} savings product not available; skipping")
             return
 
         async with self._user.sync_wallet(exchange, "spot") as wallet:
-            await self._binance.redeem_flexible_product(products[asset].product_id, quote)
+            await self._user.redeem_savings_product(exchange, products[asset].product_id, quote)
             await asyncio.wait_for(
                 _wait_for_wallet_updated_with(wallet, asset, quote),
                 timeout=_TIMEOUT,
@@ -60,17 +52,14 @@ class Savings(Custodian):
         _log.info(f"redeemed {quote} worth of {asset} flexible savings product")
 
     async def release(self, exchange: str, asset: str, quote: Decimal) -> None:
-        if exchange != "binance":
-            raise NotImplementedError()
-
-        products = await self._binance.map_flexible_products()
+        products = await self._user.map_savings_products(exchange)
 
         if asset not in products:
             _log.info(f"{asset} savings product not available; skipping")
             return
 
         async with self._user.sync_wallet(exchange, "spot") as wallet:
-            await self._binance.purchase_flexible_product(products[asset].product_id, quote)
+            await self._user.purchase_savings_product(exchange, products[asset].product_id, quote)
             savings_asset = f"ld{asset}"
             await asyncio.wait_for(
                 _wait_for_wallet_updated_with(wallet, savings_asset, quote),
