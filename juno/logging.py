@@ -2,6 +2,7 @@ import logging
 import sys
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+from typing import Optional
 
 from colorlog import ColoredFormatter
 
@@ -33,7 +34,7 @@ def create_handlers(
     if len(log_outputs) > 0:
         raise NotImplementedError(f"{log_outputs=}")
 
-    formatter = None
+    formatter: Optional[logging.Formatter] = None
     if log_format == "default":
         pass
     elif log_format == "color":

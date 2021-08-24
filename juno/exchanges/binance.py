@@ -87,6 +87,7 @@ _ERR_INVALID_LISTEN_KEY = -1125
 _ERR_TOO_MANY_REQUESTS = -1003
 _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST = -11001
 _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS = -11004
+_ERR_SYSTEM_BUSY = -3044
 
 _LIMITERS_BASIC = 1
 _LIMITERS_ORDER = 2
@@ -1115,6 +1116,8 @@ class Binance(Exchange):
             elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST:
                 raise ExchangeException(error_msg)
             elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS:
+                raise ExchangeException(error_msg)
+            elif error_code == _ERR_SYSTEM_BUSY:
                 raise ExchangeException(error_msg)
             # TODO: Check only specific error codes.
             elif error_code <= -9000:  # Filter error.
