@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Coroutine, Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 from uuid import uuid4
 
 from more_itertools import take
@@ -267,8 +267,11 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             if state.close_on_exit:
                 await self._close_positions(
                     state,
-                    [ss for ss in state.symbol_states.values() if ss.open_position],
-                    CloseReason.CANCELLED,
+                    [
+                        (ss, CloseReason.CANCELLED)
+                        for ss in state.symbol_states.values()
+                        if ss.open_position
+                    ],
                 )
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
@@ -409,21 +412,24 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         queue = self._queues[state.id]
         await queue.join()
 
-        to_process: list[Coroutine[None, None, Position.Closed]] = []
+        to_process: list[tuple[_SymbolState, CloseReason]] = []
         for ss in (ss for ss in state.symbol_states.values() if ss.ready):
             assert ss.last_candle
             if isinstance(ss.open_position, Position.OpenLong) and ss.advice in [
                 Advice.LIQUIDATE,
                 Advice.SHORT,
             ]:
-                to_process.append(self._close_long_position(state, ss, ss.last_candle, ss.reason))
+                to_process.append((ss, ss.reason))
             elif isinstance(ss.open_position, Position.OpenShort) and ss.advice in [
                 Advice.LIQUIDATE,
                 Advice.LONG,
             ]:
-                to_process.append(self._close_short_position(state, ss, ss.last_candle, ss.reason))
+                to_process.append((ss, ss.reason))
         if len(to_process) > 0:
-            positions = await process_task_on_queue(queue, asyncio.gather(*to_process))
+            positions = await process_task_on_queue(
+                queue, self._close_positions(state, to_process)
+            )
+
             await self._events.emit(config.channel, "positions_closed", positions, state.summary)
 
     async def _try_open_new_positions(self, state: MultiState) -> None:
@@ -432,7 +438,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         queue = self._queues[state.id]
         await queue.join()
 
-        to_process: list[Coroutine[None, None, Position.Open]] = []
+        to_process: list[tuple[_SymbolState, bool]] = []
         count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
         assert count <= config.position_count
         available = config.position_count - count
@@ -449,14 +455,14 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     ss.changed.prevailing_advice_age - 1
                 ) <= config.allowed_age_drift
                 if config.long and ss.advice is Advice.LONG and advice_age_valid:
-                    to_process.append(self._open_long_position(state, ss, ss.last_candle))
+                    to_process.append((ss, False))
                     available -= 1
                 elif config.short and ss.advice is Advice.SHORT and advice_age_valid:
-                    to_process.append(self._open_short_position(state, ss, ss.last_candle))
+                    to_process.append((ss, True))
                     available -= 1
 
         if len(to_process) > 0:
-            positions = await process_task_on_queue(queue, asyncio.gather(*to_process))
+            positions = await process_task_on_queue(queue, self._open_positions(state, to_process))
             await self._events.emit(config.channel, "positions_opened", positions, state.summary)
 
     async def _track_advice(
@@ -604,9 +610,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         allowed_symbols = set(state.symbol_states.keys())
         open_symbols = {ss.symbol for ss in state.symbol_states.values() if ss.open_position}
         cannot_open_symbols = set(symbols) & open_symbols
-        symbol_states_to_process = [
-            ss for ss in state.symbol_states.values() if ss.symbol in symbols
-        ]
+        to_process = [ss for ss in state.symbol_states.values() if ss.symbol in symbols]
 
         if not state.running:
             raise ValueError("Trader not running")
@@ -618,12 +622,12 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             raise ValueError("Cannot open all the positions due to position limit")
         if len(cannot_open_symbols) > 0:
             raise ValueError(f"Cannot open already open {cannot_open_symbols} positions")
-        if not all(ss.last_candle for ss in symbol_states_to_process):
+        if not all(ss.last_candle for ss in to_process):
             raise ValueError("No candle received for all symbols yet")
 
         return await process_task_on_queue(
             queue,
-            self._open_positions(state, symbol_states_to_process, short),
+            self._open_positions(state, [(ss, short) for ss in to_process]),
         )
 
     async def close_positions(
@@ -656,19 +660,22 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return await process_task_on_queue(
             queue,
             self._close_positions(
-                state, [ss for ss in state.symbol_states.values() if ss.symbol in symbols], reason
+                state,
+                [(ss, reason) for ss in state.symbol_states.values() if ss.symbol in symbols],
             ),
         )
 
     async def _close_positions(
-        self, state: MultiState, symbol_states: list[_SymbolState], reason: CloseReason
+        self,
+        state: MultiState,
+        entries: list[tuple[_SymbolState, CloseReason]],
     ) -> list[Position.Closed]:
-        if len(symbol_states) == 0:
+        if len(entries) == 0:
             return []
 
-        _log.info(f"closing {len(symbol_states)} open position(s)")
+        _log.info(f"closing {len(entries)} open position(s)")
         positions = await asyncio.gather(
-            *(self._close_position(state, ss, reason) for ss in symbol_states)
+            *(self._close_position(state, ss, reason) for ss, reason in entries)
         )
         await self._events.emit(state.config.channel, "positions_closed", positions, state.summary)
         return positions
@@ -690,14 +697,16 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             )
 
     async def _open_positions(
-        self, state: MultiState, symbol_states: list[_SymbolState], short: bool
+        self,
+        state: MultiState,
+        entries: list[tuple[_SymbolState, bool]],
     ) -> list[Position.Open]:
-        if len(symbol_states) == 0:
+        if len(entries) == 0:
             return []
 
-        _log.info(f"opening {len(symbol_states)} {'short' if short else 'long'} position(s)")
+        _log.info(f"opening {len(entries)} position(s)")
         positions = await asyncio.gather(
-            *(self._open_position(state, ss, short) for ss in symbol_states)
+            *(self._open_position(state, ss, short) for ss, short in entries)
         )
         await self._events.emit(state.config.channel, "positions_opened", positions, state.summary)
         return positions
