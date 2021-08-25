@@ -438,7 +438,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         queue = self._queues[state.id]
         await queue.join()
 
-        to_process: list[tuple[_SymbolState, bool]] = []
+        to_process: list[tuple[_SymbolState, bool]] = []  # [symbol state, short]
         count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
         assert count <= config.position_count
         available = config.position_count - count
@@ -699,7 +699,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
     async def _open_positions(
         self,
         state: MultiState,
-        entries: list[tuple[_SymbolState, bool]],
+        entries: list[tuple[_SymbolState, bool]],  # [symbol state, short]
     ) -> list[Position.Open]:
         if len(entries) == 0:
             return []
