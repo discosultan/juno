@@ -116,7 +116,10 @@ class Slack(Plugin):
         # Note that this is bad as it will break formatting. Splitting is done by chars and not
         # words.
         for msg_slice in sliced(msg, max_length):
-            await self._slack_client.chat_postMessage(channel=channel, text=msg_slice)
+            await self._slack_client.chat_postMessage(
+                channel=channel,
+                text=msg_slice,  # type: ignore
+            )
 
     def _format_message(self, agent_name: str, title: str, content: Any) -> str:
         return f"Agent {agent_name} {title}:\n```\n{content}\n```\n"
