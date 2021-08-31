@@ -17,8 +17,7 @@ from juno.asyncio import (
     create_task_cancel_owner_on_exception,
     process_task_on_queue,
 )
-from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant, User
+from juno.components import Chandler, Events, Informant, Positioner, SimulatedPositioner
 from juno.custodians import Custodian, Stub
 from juno.math import floor_multiple_offset, rpstdev, split
 from juno.stop_loss import Noop as NoopStopLoss
@@ -27,15 +26,7 @@ from juno.strategies import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import strftimestamp, time_ms
-from juno.trading import (
-    CloseReason,
-    Position,
-    PositionMixin,
-    SimulatedPositionMixin,
-    StartMixin,
-    TradingMode,
-    TradingSummary,
-)
+from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
 from juno.typing import Constructor
 
 from .trader import Trader
@@ -119,7 +110,7 @@ class _SymbolState:
         return self.first_candle is not None
 
 
-class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMixin, StartMixin):
+class Multi(Trader[MultiConfig, MultiState], StartMixin):
     @staticmethod
     def config() -> type[MultiConfig]:
         return MultiConfig
@@ -132,42 +123,24 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         self,
         chandler: Chandler,
         informant: Informant,
-        user: Optional[User] = None,
-        broker: Optional[Broker] = None,
+        simulated_positioner: SimulatedPositioner,
+        positioner: Optional[Positioner] = None,
         custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
-        self._user = user
-        self._broker = broker
+        self._positioner = positioner
+        self._simulated_positioner = simulated_positioner
         self._custodians = {type(c).__name__.lower(): c for c in custodians}
         self._events = events
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
     @property
-    def informant(self) -> Informant:
-        return self._informant
-
-    @property
-    def broker(self) -> Broker:
-        assert self._broker
-        return self._broker
-
-    @property
     def chandler(self) -> Chandler:
         return self._chandler
-
-    @property
-    def user(self) -> User:
-        assert self._user
-        return self._user
-
-    @property
-    def custodians(self) -> dict[str, Custodian]:
-        return self._custodians
 
     async def initialize(self, config: MultiConfig) -> MultiState:
         assert config.mode is TradingMode.BACKTEST or self.broker
@@ -731,7 +704,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
-            self.open_simulated_long_position(
+            self._simulated_positioner.open_simulated_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 time=candle.time + config.interval,
@@ -739,7 +712,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 quote=symbol_state.allocated_quote,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.open_long_position(
+            else await self._positioner.open_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 quote=symbol_state.allocated_quote,
@@ -762,14 +735,14 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         assert isinstance(symbol_state.open_position, Position.OpenLong)
 
         position = (
-            self.close_simulated_long_position(
+            self._simulated_positioner.close_simulated_long_position(
                 position=symbol_state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.close_long_position(
+            else await self._positioner.close_long_position(
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,
@@ -794,7 +767,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
-            self.open_simulated_short_position(
+            self._simulated_positioner.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 time=candle.time + config.interval,
@@ -802,7 +775,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 collateral=symbol_state.allocated_quote,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.open_short_position(
+            else await self._positioner.open_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
@@ -825,14 +798,14 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         assert isinstance(symbol_state.open_position, Position.OpenShort)
 
         position = (
-            self.close_simulated_short_position(
+            self._simulated_positioner.close_simulated_short_position(
                 position=symbol_state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.close_short_position(
+            else await self._positioner.close_short_position(
                 position=symbol_state.open_position,
                 mode=config.mode,
                 reason=reason,

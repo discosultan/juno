@@ -7,8 +7,7 @@ from uuid import uuid4
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.asyncio import process_task_on_queue
-from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant, User
+from juno.components import Chandler, Events, Informant, Positioner, SimulatedPositioner
 from juno.custodians import Custodian, Stub
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
@@ -16,15 +15,7 @@ from juno.strategies import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import time_ms
-from juno.trading import (
-    CloseReason,
-    Position,
-    PositionMixin,
-    SimulatedPositionMixin,
-    StartMixin,
-    TradingMode,
-    TradingSummary,
-)
+from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
 from juno.typing import Constructor
 from juno.utils import unpack_assets
 
@@ -93,7 +84,7 @@ class BasicState:
         return [self.open_position] if self.open_position else []
 
 
-class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMixin, StartMixin):
+class Basic(Trader[BasicConfig, BasicState], StartMixin):
     @staticmethod
     def config() -> type[BasicConfig]:
         return BasicConfig
@@ -106,42 +97,24 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         self,
         chandler: Chandler,
         informant: Informant,
-        user: Optional[User] = None,
-        broker: Optional[Broker] = None,  # Only required if not backtesting.
+        simulated_positioner: SimulatedPositioner,
+        positioner: Optional[Positioner] = None,
         custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
-        self._user = user
-        self._broker = broker
+        self._positioner = positioner
+        self._simulated_positioner = simulated_positioner
         self._custodians = {type(c).__name__.lower(): c for c in custodians}
         self._events = events
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
     @property
-    def informant(self) -> Informant:
-        return self._informant
-
-    @property
-    def broker(self) -> Broker:
-        assert self._broker
-        return self._broker
-
-    @property
     def chandler(self) -> Chandler:
         return self._chandler
-
-    @property
-    def user(self) -> User:
-        assert self._user
-        return self._user
-
-    @property
-    def custodians(self) -> dict[str, Custodian]:
-        return self._custodians
 
     async def open_positions(
         self, state: BasicState, symbols: list[str], short: bool
@@ -410,7 +383,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert not state.open_position
 
         position = (
-            self.open_simulated_long_position(
+            self._simulated_positioner.open_simulated_long_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 time=candle.time + config.interval,
@@ -418,7 +391,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 quote=state.quote,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.open_long_position(
+            else await self._positioner.open_long_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 quote=state.quote,
@@ -444,14 +417,14 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert isinstance(state.open_position, Position.OpenLong)
 
         position = (
-            self.close_simulated_long_position(
+            self._simulated_positioner.close_simulated_long_position(
                 position=state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.close_long_position(
+            else await self._positioner.close_long_position(
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,
@@ -472,7 +445,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert not state.open_position
 
         position = (
-            self.open_simulated_short_position(
+            self._simulated_positioner.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 time=candle.time + config.interval,
@@ -480,7 +453,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 collateral=state.quote,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.open_short_position(
+            else await self._positioner.open_short_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 collateral=state.quote,
@@ -506,14 +479,14 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert isinstance(state.open_position, Position.OpenShort)
 
         position = (
-            self.close_simulated_short_position(
+            self._simulated_positioner.close_simulated_short_position(
                 position=state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
             if config.mode is TradingMode.BACKTEST
-            else await self.close_short_position(
+            else await self._positioner.close_short_position(
                 position=state.open_position,
                 mode=config.mode,
                 reason=reason,
