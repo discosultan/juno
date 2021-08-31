@@ -46,10 +46,6 @@ class Position(ModuleType):
         close_reason: CloseReason
 
         @property
-        def quote_delta(self) -> Decimal:
-            return self.gain
-
-        @property
         def cost(self) -> Decimal:
             return Fill.total_quote(self.open_fills)
 
@@ -112,10 +108,6 @@ class Position(ModuleType):
             )
 
         @property
-        def quote_delta(self) -> Decimal:
-            return -self.cost
-
-        @property
         def cost(self) -> Decimal:
             return Fill.total_quote(self.fills)
 
@@ -137,10 +129,6 @@ class Position(ModuleType):
         close_fills: list[Fill]
         close_reason: CloseReason
         interest: Decimal  # base
-
-        @property
-        def quote_delta(self) -> Decimal:
-            return -Fill.total_quote(self.close_fills)
 
         @property
         def cost(self) -> Decimal:
@@ -216,12 +204,6 @@ class Position(ModuleType):
             )
 
         @property
-        def quote_delta(self) -> Decimal:
-            return Fill.total_quote(self.fills) - Fill.total_fee(
-                self.fills, unpack_quote_asset(self.symbol)
-            )
-
-        @property
         def cost(self) -> Decimal:
             return self.collateral
 
@@ -234,8 +216,6 @@ class Position(ModuleType):
     Closed = Union[Long, Short]
 
 
-# TODO: both positions and candles could theoretically grow infinitely
-# TODO: include fees from other than base and quote assets (BNB, for example)
 @dataclass
 class TradingSummary:
     start: Timestamp

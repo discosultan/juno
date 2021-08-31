@@ -692,7 +692,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         )
 
         for (symbol_state, _), position in zip(entries, positions):
-            symbol_state.allocated_quote += position.quote_delta
+            symbol_state.allocated_quote -= position.cost
             symbol_state.open_position = position
 
         await self._events.emit(state.config.channel, "positions_opened", positions, state.summary)
@@ -737,7 +737,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         )
 
         for (symbol_state, _), position in zip(entries, positions):
-            symbol_state.allocated_quote += position.quote_delta
+            symbol_state.allocated_quote += position.gain
             state.quotes.append(symbol_state.allocated_quote)
             symbol_state.allocated_quote = Decimal("0.0")
 

@@ -411,7 +411,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
             )
         )
 
-        state.quote += position.quote_delta
+        state.quote -= position.cost
         state.open_position = position
 
         await self._events.emit(
@@ -443,7 +443,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
             )
         )
 
-        state.quote += position.quote_delta
+        state.quote += position.gain
         state.open_position = None
         state.summary.append_position(position)
 
