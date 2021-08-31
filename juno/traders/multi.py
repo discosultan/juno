@@ -17,7 +17,8 @@ from juno.asyncio import (
     create_task_cancel_owner_on_exception,
     process_task_on_queue,
 )
-from juno.components import Chandler, Events, Informant, Positioner, SimulatedPositioner
+from juno.brokers import Broker
+from juno.components import Chandler, Events, Informant, Positioner, SimulatedPositioner, User
 from juno.custodians import Custodian, Stub
 from juno.math import floor_multiple_offset, rpstdev, split
 from juno.stop_loss import Noop as NoopStopLoss
@@ -123,16 +124,23 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         self,
         chandler: Chandler,
         informant: Informant,
-        simulated_positioner: SimulatedPositioner,
-        positioner: Optional[Positioner] = None,
+        user: Optional[User] = None,
+        broker: Optional[Broker] = None,
         custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
-        self._positioner = positioner
-        self._simulated_positioner = simulated_positioner
+        if user is not None and broker is not None:
+            self._positioner = Positioner(
+                informant=informant,
+                chandler=chandler,
+                broker=broker,
+                user=user,
+                custodians=custodians,
+            )
+        self._simulated_positioner = SimulatedPositioner(informant=informant)
         self._custodians = {type(c).__name__.lower(): c for c in custodians}
         self._events = events
         self._get_time_ms = get_time_ms
@@ -143,7 +151,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         return self._chandler
 
     async def initialize(self, config: MultiConfig) -> MultiState:
-        assert config.mode is TradingMode.BACKTEST or self.broker
+        assert config.mode is TradingMode.BACKTEST or self._positioner
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start

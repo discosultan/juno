@@ -10,6 +10,7 @@ from typing import Iterable, Optional, Sequence, Union
 
 from juno import Fill, Interval, Timestamp
 from juno.asyncio import gather_dict
+from juno.components import Chandler
 from juno.math import annualized, floor_multiple_offset
 from juno.time import strftimestamp
 from juno.utils import unpack_base_asset, unpack_quote_asset
