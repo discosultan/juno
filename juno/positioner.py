@@ -50,6 +50,10 @@ class Positioner:
         mode: TradingMode,
         entries: list[tuple[str, Decimal, bool]],  # [symbol, quote, short]
     ) -> list[Position.Open]:
+        if len(entries) == 0:
+            return []
+
+        _log.info(f"opening position(s): {entries}")
         custodian_instance = self._custodians[custodian]
 
         # Acquire funds from custodian.
@@ -86,6 +90,7 @@ class Positioner:
             )
         )
 
+        _log.info(f"opened position(s): {entries}")
         return result
 
     async def close_positions(
@@ -94,6 +99,11 @@ class Positioner:
         mode: TradingMode,
         entries: list[tuple[Position.Open, CloseReason]],  # [position, reason]
     ) -> list[Position.Closed]:
+        if len(entries) == 0:
+            return []
+
+        log_entries = [(p.symbol, r) for p, r in entries]
+        _log.info(f"closing position(s): {log_entries}")
         custodian_instance = self._custodians[custodian]
 
         # Acquire funds from custodian.
@@ -130,13 +140,14 @@ class Positioner:
             )
         )
 
+        _log.info(f"closed position(s): {log_entries}")
         return result
 
     async def _open_long_position(
         self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
     ) -> Position.Open:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f"opening position {symbol} {mode.name} long with {quote} quote")
+        _log.info(f"opening long position {symbol} {mode.name} with {quote} quote")
 
         res = await self._broker.buy(
             exchange=exchange,
@@ -152,7 +163,7 @@ class Positioner:
             fills=res.fills,
         )
 
-        _log.info(f"opened position {open_position.symbol} {mode.name} long")
+        _log.info(f"opened long position {open_position.symbol} {mode.name}")
         _log.debug(extract_public(open_position))
         return open_position
 
@@ -160,7 +171,7 @@ class Positioner:
         self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Closed:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f"closing position {position.symbol} {mode.name} long")
+        _log.info(f"closing long position {position.symbol} {mode.name}")
 
         res = await self._broker.sell(
             exchange=position.exchange,
@@ -175,7 +186,7 @@ class Positioner:
             reason=reason,
         )
 
-        _log.info(f"closed position {closed_position.symbol} {mode.name} long")
+        _log.info(f"closed long position {closed_position.symbol} {mode.name}")
         _log.debug(extract_public(closed_position))
         return closed_position
 
@@ -183,7 +194,7 @@ class Positioner:
         self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
     ) -> Position.Open:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f"opening position {symbol} {mode.name} short with {collateral} collateral")
+        _log.info(f"opening short position {symbol} {mode.name} with {collateral} collateral")
 
         base_asset, quote_asset = unpack_assets(symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -256,7 +267,7 @@ class Positioner:
             time=res.time,
             fills=res.fills,
         )
-        _log.info(f"opened position {open_position.symbol} {mode.name} short")
+        _log.info(f"opened short position {open_position.symbol} {mode.name}")
         _log.debug(extract_public(open_position))
         return open_position
 
@@ -284,7 +295,7 @@ class Positioner:
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Closed:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f"closing position {position.symbol} {mode.name} short")
+        _log.info(f"closing short position {position.symbol} {mode.name}")
 
         base_asset, quote_asset = unpack_assets(position.symbol)
         asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
@@ -407,7 +418,7 @@ class Positioner:
                 )
             await asyncio.gather(*transfer_tasks)
 
-        _log.info(f"closed position {closed_position.symbol} {mode.name} short")
+        _log.info(f"closed short position {closed_position.symbol} {mode.name}")
         _log.debug(extract_public(closed_position))
         return closed_position
 
@@ -470,7 +481,6 @@ class SimulatedPositioner:
         time: Timestamp,
         price: Decimal,
         quote: Decimal,
-        log: bool = True,
     ) -> Position.OpenLong:
         base_asset, _ = unpack_assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -487,8 +497,7 @@ class SimulatedPositioner:
             time=time,
             fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
         )
-        if log:
-            _log.info(f"{symbol} simulated long position opened at {strftimestamp(time)}")
+        _log.info(f"opened simulated long position {symbol} at {strftimestamp(time)}")
         return open_position
 
     def _close_simulated_long_position(
@@ -497,7 +506,6 @@ class SimulatedPositioner:
         time: Timestamp,
         price: Decimal,
         reason: CloseReason,
-        log: bool = True,
     ) -> Position.Long:
         _, quote_asset = unpack_assets(position.symbol)
         fees, filters = self._informant.get_fees_filters(position.exchange, position.symbol)
@@ -511,11 +519,10 @@ class SimulatedPositioner:
             fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset)],
             reason=reason,
         )
-        if log:
-            _log.info(
-                f"{closed_position.symbol} simulated long position closed at "
-                f"{strftimestamp(time)} due to {reason.name}"
-            )
+        _log.info(
+            f"closed simulated long position {closed_position.symbol} at "
+            f"{strftimestamp(time)} due to {reason.name}"
+        )
         return closed_position
 
     def _open_simulated_short_position(
@@ -525,7 +532,6 @@ class SimulatedPositioner:
         time: Timestamp,
         price: Decimal,
         collateral: Decimal,
-        log: bool = True,
     ) -> Position.OpenShort:
         base_asset, quote_asset = unpack_assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -549,8 +555,7 @@ class SimulatedPositioner:
             time=time,
             fills=[Fill(price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset)],
         )
-        if log:
-            _log.info(f"{symbol} simulated short position opened at {strftimestamp(time)}")
+        _log.info(f"opened simulated short position {symbol} at {strftimestamp(time)}")
         return open_position
 
     def _close_simulated_short_position(
@@ -559,7 +564,6 @@ class SimulatedPositioner:
         time: Timestamp,
         price: Decimal,
         reason: CloseReason,
-        log: bool = True,
     ) -> Position.Short:
         base_asset, _ = unpack_assets(position.symbol)
         fees, filters = self._informant.get_fees_filters(position.exchange, position.symbol)
@@ -586,11 +590,10 @@ class SimulatedPositioner:
             fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
             reason=reason,
         )
-        if log:
-            _log.info(
-                f"{closed_position.symbol} simulated short position closed at "
-                f"{strftimestamp(time)} due to {reason.name}"
-            )
+        _log.info(
+            f"closed simulated short position {closed_position.symbol} at "
+            f"{strftimestamp(time)} due to {reason.name}"
+        )
         return closed_position
 
 
