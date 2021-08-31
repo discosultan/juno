@@ -18,9 +18,10 @@ from juno.asyncio import (
     process_task_on_queue,
 )
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant, Positioner, SimulatedPositioner, User
+from juno.components import Chandler, Events, Informant, User
 from juno.custodians import Custodian, Stub
 from juno.math import floor_multiple_offset, rpstdev, split
+from juno.positioner import Positioner, SimulatedPositioner
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
@@ -132,6 +133,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
     ) -> None:
         self._chandler = chandler
         self._informant = informant
+        self._broker = broker
         if user is not None and broker is not None:
             self._positioner = Positioner(
                 informant=informant,
@@ -149,6 +151,11 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
     @property
     def chandler(self) -> Chandler:
         return self._chandler
+
+    @property
+    def broker(self) -> Broker:
+        assert self._broker
+        return self._broker
 
     async def initialize(self, config: MultiConfig) -> MultiState:
         assert config.mode is TradingMode.BACKTEST or self._positioner
@@ -646,37 +653,6 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             ),
         )
 
-    async def _close_positions(
-        self,
-        state: MultiState,
-        entries: list[tuple[_SymbolState, CloseReason]],
-    ) -> list[Position.Closed]:
-        if len(entries) == 0:
-            return []
-
-        _log.info(f"closing {len(entries)} open position(s)")
-        positions = await asyncio.gather(
-            *(self._close_position(state, ss, reason) for ss, reason in entries)
-        )
-        await self._events.emit(state.config.channel, "positions_closed", positions, state.summary)
-        return positions
-
-    async def _close_position(
-        self, state: MultiState, symbol_state: _SymbolState, reason: CloseReason
-    ) -> Position.Closed:
-        assert symbol_state.open_position
-        assert symbol_state.last_candle
-        if isinstance(symbol_state.open_position, Position.OpenLong):
-            _log.info(f"{symbol_state.symbol} long position open; closing")
-            return await self._close_long_position(
-                state, symbol_state, symbol_state.last_candle, reason
-            )
-        elif isinstance(symbol_state.open_position, Position.OpenShort):
-            _log.info(f"{symbol_state.symbol} short position open; closing")
-            return await self._close_short_position(
-                state, symbol_state, symbol_state.last_candle, reason
-            )
-
     async def _open_positions(
         self,
         state: MultiState,
@@ -685,147 +661,88 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         if len(entries) == 0:
             return []
 
+        config = state.config
         _log.info(f"opening {len(entries)} position(s)")
-        positions = await asyncio.gather(
-            *(self._open_position(state, ss, short) for ss, short in entries)
+
+        for symbol_state, _ in entries:
+            assert symbol_state.last_candle
+            symbol_state.allocated_quote = state.quotes.pop(0)
+
+        positions = (
+            self._simulated_positioner.open_simulated_positions(
+                exchange=config.exchange,
+                entries=[
+                    (
+                        ss.symbol,
+                        ss.allocated_quote,
+                        short,
+                        ss.last_candle.time + config.interval,  # type: ignore
+                        ss.last_candle.close,  # type: ignore
+                    )
+                    for ss, short in entries
+                ],
+            )
+            if config.mode is TradingMode.BACKTEST
+            else await self._positioner.open_positions(
+                exchange=config.exchange,
+                custodian=config.custodian,
+                mode=config.mode,
+                entries=[(ss.symbol, ss.allocated_quote, short) for ss, short in entries],
+            )
         )
+
+        for (symbol_state, _), position in zip(entries, positions):
+            symbol_state.allocated_quote += position.quote_delta
+            symbol_state.open_position = position
+
         await self._events.emit(state.config.channel, "positions_opened", positions, state.summary)
         return positions
 
-    async def _open_position(
-        self, state: MultiState, symbol_state: _SymbolState, short: bool
-    ) -> Position.Open:
-        assert not symbol_state.open_position
-        assert symbol_state.last_candle
-        if short:
-            _log.info(f"opening {symbol_state.symbol} short position")
-            return await self._open_short_position(state, symbol_state, symbol_state.last_candle)
-        else:
-            _log.info(f"opening {symbol_state.symbol} short position open")
-            return await self._open_long_position(state, symbol_state, symbol_state.last_candle)
+    async def _close_positions(
+        self,
+        state: MultiState,
+        entries: list[tuple[_SymbolState, CloseReason]],
+    ) -> list[Position.Closed]:
+        if len(entries) == 0:
+            return []
 
-    async def _open_long_position(
-        self, state: MultiState, symbol_state: _SymbolState, candle: Candle
-    ) -> Position.OpenLong:
-        config = state.config
-        assert state.quotes
-        symbol_state.allocated_quote = state.quotes.pop(0)
-
-        position = (
-            self._simulated_positioner.open_simulated_long_position(
-                exchange=config.exchange,
-                symbol=symbol_state.symbol,
-                time=candle.time + config.interval,
-                price=candle.close,
-                quote=symbol_state.allocated_quote,
-            )
-            if config.mode is TradingMode.BACKTEST
-            else await self._positioner.open_long_position(
-                exchange=config.exchange,
-                symbol=symbol_state.symbol,
-                quote=symbol_state.allocated_quote,
-                mode=config.mode,
-                custodian=config.custodian,
-            )
-        )
-
-        symbol_state.allocated_quote += position.quote_delta
-        symbol_state.open_position = position
-
-        return position
-
-    async def _close_long_position(
-        self, state: MultiState, symbol_state: _SymbolState, candle: Candle, reason: CloseReason
-    ) -> Position.Long:
-        config = state.config
         assert state.summary
         assert state.quotes is not None
-        assert isinstance(symbol_state.open_position, Position.OpenLong)
 
-        position = (
-            self._simulated_positioner.close_simulated_long_position(
-                position=symbol_state.open_position,
-                time=candle.time + config.interval,
-                price=candle.close,
-                reason=reason,
-            )
-            if config.mode is TradingMode.BACKTEST
-            else await self._positioner.close_long_position(
-                position=symbol_state.open_position,
-                mode=config.mode,
-                reason=reason,
-                custodian=config.custodian,
-            )
-        )
-
-        symbol_state.allocated_quote += position.quote_delta
-        state.quotes.append(symbol_state.allocated_quote)
-        symbol_state.allocated_quote = Decimal("0.0")
-
-        state.summary.append_position(position)
-        symbol_state.open_position = None
-
-        return position
-
-    async def _open_short_position(
-        self, state: MultiState, symbol_state: _SymbolState, candle: Candle
-    ) -> Position.OpenShort:
         config = state.config
-        assert state.quotes
-        symbol_state.allocated_quote = state.quotes.pop(0)
+        _log.info(f"closing {len(entries)} open position(s)")
 
-        position = (
-            self._simulated_positioner.open_simulated_short_position(
-                exchange=config.exchange,
-                symbol=symbol_state.symbol,
-                time=candle.time + config.interval,
-                price=candle.close,
-                collateral=symbol_state.allocated_quote,
+        for symbol_state, _ in entries:
+            assert symbol_state.open_position
+            assert symbol_state.last_candle
+
+        positions = (
+            self._simulated_positioner.close_simulated_positions(
+                entries=[
+                    (
+                        ss.open_position,
+                        reason,
+                        ss.last_candle.time + config.interval,  # type: ignore
+                        ss.last_candle.close,  # type: ignore
+                    )
+                    for ss, reason in entries
+                ],
             )
             if config.mode is TradingMode.BACKTEST
-            else await self._positioner.open_short_position(
-                exchange=config.exchange,
-                symbol=symbol_state.symbol,
-                collateral=symbol_state.allocated_quote,
-                mode=config.mode,
+            else await self._positioner.close_positions(
                 custodian=config.custodian,
+                mode=config.mode,
+                entries=[(ss.open_position, reason) for ss, reason in entries],  # type: ignore
             )
         )
 
-        symbol_state.allocated_quote += position.quote_delta
-        symbol_state.open_position = position
+        for (symbol_state, _), position in zip(entries, positions):
+            symbol_state.allocated_quote += position.quote_delta
+            state.quotes.append(symbol_state.allocated_quote)
+            symbol_state.allocated_quote = Decimal("0.0")
 
-        return position
+            state.summary.append_position(position)
+            symbol_state.open_position = None
 
-    async def _close_short_position(
-        self, state: MultiState, symbol_state: _SymbolState, candle: Candle, reason: CloseReason
-    ) -> Position.Short:
-        config = state.config
-        assert state.summary
-        assert state.quotes is not None
-        assert isinstance(symbol_state.open_position, Position.OpenShort)
-
-        position = (
-            self._simulated_positioner.close_simulated_short_position(
-                position=symbol_state.open_position,
-                time=candle.time + config.interval,
-                price=candle.close,
-                reason=reason,
-            )
-            if config.mode is TradingMode.BACKTEST
-            else await self._positioner.close_short_position(
-                position=symbol_state.open_position,
-                mode=config.mode,
-                reason=reason,
-                custodian=config.custodian,
-            )
-        )
-
-        symbol_state.allocated_quote += position.quote_delta
-        state.quotes.append(symbol_state.allocated_quote)
-        symbol_state.allocated_quote = Decimal("0.0")
-
-        state.summary.append_position(position)
-        symbol_state.open_position = None
-
-        return position
+        await self._events.emit(state.config.channel, "positions_closed", positions, state.summary)
+        return positions

@@ -6,10 +6,11 @@ import logging
 from decimal import Decimal
 
 from juno.brokers import Limit
-from juno.components import Chandler, Informant, Orderbook, Positioner, User
+from juno.components import Chandler, Informant, Orderbook, User
 from juno.config import from_env, init_instance
 from juno.custodians import Savings, Spot, Stub
 from juno.exchanges import Binance
+from juno.positioner import Positioner
 from juno.storages import SQLite
 from juno.trading import CloseReason, TradingMode
 
@@ -61,7 +62,6 @@ async def main() -> None:
                 f"closing {'short' if args.short else 'long'} position(s) for {args.symbols}"
             )
             positioner.close_positions(
-                exchange="binance",
                 custodian=args.custodian,
                 mode=TradingMode.LIVE,
                 entries=[(p, CloseReason.STRATEGY) for p in positions],
