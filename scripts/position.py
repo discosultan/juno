@@ -5,14 +5,14 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno.brokers import Broker, Limit
+from juno.brokers import Limit
 from juno.components import Chandler, Informant, Orderbook, User
 from juno.config import from_env, init_instance
-from juno.custodians import Custodian, Savings, Spot, Stub
-from juno.exchanges import Binance, Exchange
+from juno.custodians import Savings, Spot, Stub
+from juno.exchanges import Binance
+from juno.positioner import Positioner
 from juno.storages import SQLite
-from juno.trading import CloseReason, PositionMixin, TradingMode
-from juno.typing import ExcType, ExcValue, Traceback
+from juno.trading import CloseReason, TradingMode
 
 parser = argparse.ArgumentParser()
 parser.add_argument("symbols", type=lambda s: s.split(","))
@@ -22,126 +22,57 @@ parser.add_argument(
     "--short",
     action="store_true",
     default=False,
-    help="if set, open short; otherwise long position",
+    help="if set, open short; otherwise long positions",
 )
 parser.add_argument("--cycles", type=int, default=1)
 parser.add_argument("--custodian", default="spot", help="either savings, spot or stub")
+parser.add_argument(
+    "--sleep", type=float, default=0.0, help="seconds to sleep before closing positions"
+)
 args = parser.parse_args()
 
 
-class PositionHandler(PositionMixin):
-    async def __aenter__(self) -> PositionHandler:
-        exchange = init_instance(Binance, from_env())
-        self._exchanges = {"binance": exchange}
-        storage = SQLite()
-        self._informant = Informant(storage=storage, exchanges=[exchange])
-        self._chandler = Chandler(storage=storage, exchanges=[exchange])
-        self._user = User(exchanges=[exchange])
-        self._orderbook = Orderbook(exchanges=[exchange])
-        self._broker = Limit(informant=self._informant, orderbook=self._orderbook, user=self._user)
-        self._custodians = {
-            type(c).__name__.lower(): c for c in [Savings(self._user), Spot(self._user), Stub()]
-        }
-        await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
-        await asyncio.gather(
-            self._informant.__aenter__(),
-            self._orderbook.__aenter__(),
-            self._user.__aenter__(),
-        )
-        return self
-
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await asyncio.gather(
-            self._user.__aexit__(exc_type, exc, tb),
-            self._orderbook.__aexit__(exc_type, exc, tb),
-            self._informant.__aexit__(exc_type, exc, tb),
-        )
-        await asyncio.gather(*(e.__aexit__(exc_type, exc, tb) for e in self._exchanges.values()))
-
-    @property
-    def informant(self) -> Informant:
-        return self._informant
-
-    @property
-    def chandler(self) -> Chandler:
-        return self._chandler
-
-    @property
-    def broker(self) -> Broker:
-        return self._broker
-
-    @property
-    def exchanges(self) -> dict[str, Exchange]:
-        return self._exchanges
-
-    @property
-    def user(self) -> User:
-        return self._user
-
-    @property
-    def custodians(self) -> dict[str, Custodian]:
-        return self._custodians
-
-
 async def main() -> None:
-    async with PositionHandler() as handler:
+    exchange = init_instance(Binance, from_env())
+    storage = SQLite()
+    informant = Informant(storage=storage, exchanges=[exchange])
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+    user = User(exchanges=[exchange])
+    orderbook = Orderbook(exchanges=[exchange])
+    broker = Limit(informant=informant, orderbook=orderbook, user=user)
+    positioner = Positioner(
+        informant=informant,
+        chandler=chandler,
+        broker=broker,
+        user=user,
+        custodians=[Savings(user), Spot(user), Stub()],
+    )
+    async with exchange, informant, chandler, user, orderbook:
         for i in range(args.cycles):
             logging.info(f"cycle {i}")
 
-            if args.short:
-                logging.info(f"opening short position(s) for {args.symbols}")
-                positions = await asyncio.gather(
-                    *(
-                        handler.open_short_position(
-                            exchange="binance",
-                            symbol=s,
-                            collateral=args.quote,
-                            mode=TradingMode.LIVE,
-                            custodian=args.custodian,
-                        )
-                        for s in args.symbols
-                    )
-                )
+            logging.info(
+                f"opening {'short' if args.short else 'long'} position(s) for {args.symbols}"
+            )
+            positions = await positioner.open_positions(
+                exchange="binance",
+                custodian=args.custodian,
+                mode=TradingMode.LIVE,
+                entries=[(s, args.quote, args.short) for s in args.symbols],
+            )
 
-                logging.info(f"closing short position(s) for {args.symbols}")
-                await asyncio.gather(
-                    *(
-                        handler.close_short_position(
-                            position=p,
-                            mode=TradingMode.LIVE,
-                            reason=CloseReason.STRATEGY,
-                            custodian=args.custodian,
-                        )
-                        for p in positions
-                    )
-                )
-            else:
-                logging.info(f"opening long position(s) for {args.symbols}")
-                positions = await asyncio.gather(
-                    *(
-                        handler.open_long_position(
-                            exchange="binance",
-                            symbol=s,
-                            quote=args.quote,
-                            mode=TradingMode.LIVE,
-                            custodian=args.custodian,
-                        )
-                        for s in args.symbols
-                    )
-                )
+            if args.sleep > 0:
+                logging.info(f"sleeping for {args.sleep} seconds")
+                await asyncio.sleep(args.sleep)
 
-                logging.info(f"closing long position(s) for {args.symbols}")
-                await asyncio.gather(
-                    *(
-                        handler.close_long_position(
-                            position=p,
-                            mode=TradingMode.LIVE,
-                            reason=CloseReason.STRATEGY,
-                            custodian=args.custodian,
-                        )
-                        for p in positions
-                    )
-                )
+            logging.info(
+                f"closing {'short' if args.short else 'long'} position(s) for {args.symbols}"
+            )
+            await positioner.close_positions(
+                custodian=args.custodian,
+                mode=TradingMode.LIVE,
+                entries=[(p, CloseReason.STRATEGY) for p in positions],
+            )
 
 
 asyncio.run(main())

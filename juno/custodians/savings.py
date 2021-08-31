@@ -37,6 +37,7 @@ class Savings(Custodian):
         return quote
 
     async def acquire(self, exchange: str, asset: str, quote: Decimal) -> None:
+        _log.info(f"redeeming {quote} worth of {asset} flexible savings product")
         products = await self._user.map_savings_products(exchange)
 
         if asset not in products:
@@ -52,6 +53,7 @@ class Savings(Custodian):
         _log.info(f"redeemed {quote} worth of {asset} flexible savings product")
 
     async def release(self, exchange: str, asset: str, quote: Decimal) -> None:
+        _log.info(f"purchasing {quote} worth of {asset} flexible savings product")
         products = await self._user.map_savings_products(exchange)
 
         if asset not in products:

@@ -12,9 +12,10 @@ from more_itertools import sliced
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
 from juno.config import format_as_config
+from juno.positioner import SimulatedPositioner
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader
-from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
+from juno.trading import CloseReason, Position, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public
 
@@ -30,7 +31,7 @@ class _TraderContext:
 
 
 # We use simulated position mixin to provide info for the `.status` command.
-class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
+class Discord(commands.Bot, Plugin):
     def __init__(
         self, chandler: Chandler, informant: Informant, events: Events, config: dict[str, Any]
     ) -> None:
@@ -52,6 +53,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         self._events = events
         self._token = token
         self._channel_ids = channel_ids
+        self._simulated_positioner = SimulatedPositioner(informant=informant)
 
     async def __aenter__(self) -> Discord:
         self._start_task = create_task_sigint_on_exception(self.start(self._token))
@@ -268,14 +270,9 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
     ) -> None:
         last_candle = await self._chandler.get_last_candle(pos.exchange, pos.symbol, MIN_MS)
         closed_pos: Position.Closed
-        if isinstance(pos, Position.OpenLong):
-            closed_pos = self.close_simulated_long_position(
-                pos, time_ms(), last_candle.close, CloseReason.CANCELLED
-            )
-        else:
-            closed_pos = self.close_simulated_short_position(
-                pos, time_ms(), last_candle.close, CloseReason.CANCELLED
-            )
+        (closed_pos,) = self._simulated_positioner.close_simulated_positions(
+            [(pos, CloseReason.CANCELLED, time_ms(), last_candle.close)]
+        )
         await self._send_message(
             channel_id,
             _format_message(

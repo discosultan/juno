@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
 from juno.brokers import Broker
-from juno.components import User
 from juno.trading import CloseReason, Position, TradingSummary
 
 TC = TypeVar("TC")
@@ -23,11 +22,6 @@ class Trader(ABC, Generic[TC, TS]):
     @property
     @abstractmethod
     def broker(self) -> Broker:
-        pass
-
-    @property
-    @abstractmethod
-    def user(self) -> User:
         pass
 
     @abstractmethod
