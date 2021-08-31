@@ -22,10 +22,13 @@ parser.add_argument(
     "--short",
     action="store_true",
     default=False,
-    help="if set, open short; otherwise long position",
+    help="if set, open short; otherwise long positions",
 )
 parser.add_argument("--cycles", type=int, default=1)
 parser.add_argument("--custodian", default="spot", help="either savings, spot or stub")
+parser.add_argument(
+    "--sleep", type=float, default=0.0, help="seconds to sleep before closing positions"
+)
 args = parser.parse_args()
 
 
@@ -58,10 +61,14 @@ async def main() -> None:
                 entries=[(s, args.quote, args.short) for s in args.symbols],
             )
 
+            if args.sleep > 0:
+                logging.info(f"sleeping for {args.sleep} seconds")
+                await asyncio.sleep(args.sleep)
+
             logging.info(
                 f"closing {'short' if args.short else 'long'} position(s) for {args.symbols}"
             )
-            positioner.close_positions(
+            await positioner.close_positions(
                 custodian=args.custodian,
                 mode=TradingMode.LIVE,
                 entries=[(p, CloseReason.STRATEGY) for p in positions],

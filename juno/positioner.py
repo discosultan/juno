@@ -74,9 +74,9 @@ class Positioner:
         )
 
         # Release funds to custodian.
-        # ONLY RELEASE FOR LONG POSITIONS.
+        # ONLY RELEASE FOR OPEN LONG POSITIONS.
         releases: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
-        for pos in result:
+        for pos in (p for p in result if isinstance(p, Position.OpenLong)):
             base_asset = unpack_base_asset(pos.symbol)
             releases[(pos.exchange, base_asset)] += pos.base_gain
         await asyncio.gather(
@@ -97,9 +97,9 @@ class Positioner:
         custodian_instance = self._custodians[custodian]
 
         # Acquire funds from custodian.
-        # ONLY ACQUIRE FOR LONG POSITIONS.
+        # ONLY ACQUIRE FOR OPEN LONG POSITIONS.
         acquires: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
-        for pos in (p for p, _ in entries if isinstance(p, Position.Long)):
+        for pos in (p for p, _ in entries if isinstance(p, Position.OpenLong)):
             base_asset = unpack_base_asset(pos.symbol)
             acquires[(pos.exchange, base_asset)] += pos.base_gain
         await asyncio.gather(
