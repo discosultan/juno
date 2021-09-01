@@ -132,7 +132,7 @@ async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, Kraken])  # TODO: Add gateio.
+@parametrize_exchange([Binance, Coinbase, Kraken, KuCoin])  # TODO: Add gateio.
 async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 

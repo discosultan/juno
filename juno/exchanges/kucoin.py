@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import hmac
+import time
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from types import TracebackType
@@ -31,7 +35,12 @@ _BASE_URL = "https://api.kucoin.com"
 class KuCoin(Exchange):
     """https://docs.kucoin.com"""
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
+        self._api_key = api_key
+        self._secret_key_bytes = secret_key.encode("utf-8")
+        self._passphrase = base64.b64encode(
+            hmac.new(self._secret_key_bytes, passphrase.encode("utf-8"), hashlib.sha256).digest()
+        ).decode("ascii")
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
 
     async def __aenter__(self) -> KuCoin:
@@ -71,9 +80,8 @@ class KuCoin(Exchange):
 
         assets = {
             # TODO: Maybe we should use "name" instead of "currency".
-            _from_asset(c["currency"]): AssetInfo(
-                precision=c["precision"]
-            ) for c in currencies["data"]
+            _from_asset(c["currency"]): AssetInfo(precision=c["precision"])
+            for c in currencies["data"]
         }
         fees = {
             # TODO: This is for LVL 0 only.
@@ -90,8 +98,9 @@ class KuCoin(Exchange):
                     min=Decimal(s["baseMinSize"]),
                     max=Decimal(s["baseMaxSize"]),
                     step=Decimal(s["baseIncrement"]),
-                )
-            ) for s in symbols["data"]
+                ),
+            )
+            for s in symbols["data"]
         }
 
         return ExchangeInfo(
@@ -104,7 +113,17 @@ class KuCoin(Exchange):
         if account != "spot":
             raise NotImplementedError()
 
-        raise NotImplementedError()
+        balances = await self._private_request_json("GET", "/api/v1/accounts")
+        return {
+            "spot": {
+                _from_asset(b["currency"]): Balance(
+                    available=Decimal(b["available"]),
+                    hold=Decimal(b["holds"]),
+                )
+                for b in balances["data"]
+                if b["type"] == "trade"
+            }
+        }
 
     @asynccontextmanager
     async def connect_stream_balances(
@@ -168,7 +187,19 @@ class KuCoin(Exchange):
         return await response.json()
 
     async def _private_request_json(self, method: str, url: str) -> Any:
-        response = await self._request(method, url)
+        timestamp = str(int(time.time() * 1000))
+        str_to_sign_bytes = f"{timestamp}{method}{url}".encode("utf-8")
+        signature = base64.b64encode(
+            hmac.new(self._secret_key_bytes, str_to_sign_bytes, hashlib.sha256).digest()
+        ).decode("ascii")
+        headers: dict[str, str] = {
+            "KC-API-KEY": self._api_key,
+            "KC-API-SIGN": signature,
+            "KC-API-TIMESTAMP": timestamp,
+            "KC-API-PASSPHRASE": self._passphrase,
+            "KC-API-KEY-VERSION": "2",
+        }
+        response = await self._request(method, url, headers)
         response.raise_for_status()
         return await response.json()
 
@@ -176,14 +207,12 @@ class KuCoin(Exchange):
         self,
         method: str,
         url: str,
-        # headers: Optional[dict[str, str]] = None,
-        # **kwargs,
+        headers: Optional[dict[str, str]] = None,
     ) -> ClientResponse:
         async with self._session.request(
             method=method,
             url=_BASE_URL + url,
-            # headers=headers,
-            # **kwargs,
+            headers=headers,
         ) as response:
             if response.status >= 500:
                 raise ExchangeException(await response.text())
