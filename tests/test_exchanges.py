@@ -22,7 +22,7 @@ from juno import (
 )
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
-from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
+from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken, KuCoin
 from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
 from juno.utils import list_concretes_from_module
@@ -71,9 +71,15 @@ async def kraken(loop, config):
         yield exchange
 
 
+@pytest.fixture(scope="session")
+async def kucoin(loop, config):
+    async with try_init_exchange(KuCoin, config) as exchange:
+        yield exchange
+
+
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, GateIO, Kraken])
+@parametrize_exchange([Binance, Coinbase, GateIO, Kraken, KuCoin])
 async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
