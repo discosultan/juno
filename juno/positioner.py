@@ -274,7 +274,7 @@ class Positioner:
     # Even when waiting for wallet update, Binance can still return 0 as borrow amount for base
     # asset. We retry a couple of times as we have nothing else to await on.
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(_UnexpectedExchangeResult),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -425,7 +425,7 @@ class Positioner:
     # After repaying borrowed asset, Binance can still return the old repay balance. We retry
     # until the balance has changed.
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(_UnexpectedExchangeResult),
         before_sleep=before_sleep_log(_log, logging.WARNING),

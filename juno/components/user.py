@@ -100,7 +100,7 @@ class User:
                 await cancel(self._wallet_sync_tasks[key])
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -121,7 +121,7 @@ class User:
         )
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -171,7 +171,7 @@ class User:
                     yield stream
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -202,7 +202,7 @@ class User:
         )
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -221,7 +221,7 @@ class User:
         )
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -234,7 +234,7 @@ class User:
         )
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -243,7 +243,7 @@ class User:
         await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -252,7 +252,7 @@ class User:
         await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -261,7 +261,7 @@ class User:
         return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -270,7 +270,7 @@ class User:
         return await self._exchanges[exchange].map_savings_products()
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
@@ -281,7 +281,7 @@ class User:
         return await self._exchanges[exchange].purchase_savings_product(product_id, size)
 
     @retry(
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
