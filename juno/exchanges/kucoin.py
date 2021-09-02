@@ -10,6 +10,7 @@ from decimal import Decimal
 from types import TracebackType
 from typing import Any, AsyncIterable, AsyncIterator, Optional
 
+import juno.json as json
 from juno import (
     AssetInfo,
     Balance,
@@ -26,6 +27,7 @@ from juno import (
 from juno.filters import Filters, Price, Size
 from juno.http import ClientResponse, ClientSession
 from juno.time import DAY_MS, HOUR_MS, MIN_MS, WEEK_MS
+from juno.utils import AsyncLimiter
 
 from .exchange import Exchange
 
@@ -42,6 +44,9 @@ class KuCoin(Exchange):
             hmac.new(self._secret_key_bytes, passphrase.encode("utf-8"), hashlib.sha256).digest()
         ).decode("ascii")
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
+
+        # Limiters.
+        self._get_depth_limiter = AsyncLimiter(30, 3)
 
     async def __aenter__(self) -> KuCoin:
         await self._session.__aenter__()
@@ -136,7 +141,19 @@ class KuCoin(Exchange):
         yield  # type: ignore
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
-        raise NotImplementedError()
+        await self._get_depth_limiter.acquire()
+        depth = (
+            await self._private_request_json(
+                "GET",
+                "/api/v3/market/orderbook/level2",
+                params={"symbol": _to_symbol(symbol)},
+            )
+        )["data"]
+        return Depth.Snapshot(
+            last_id=int(depth["sequence"]),
+            bids=[(Decimal(p), Decimal(s)) for p, s in depth["bids"]],
+            asks=[(Decimal(p), Decimal(s)) for p, s in depth["asks"]],
+        )
 
     @asynccontextmanager
     async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
@@ -181,16 +198,32 @@ class KuCoin(Exchange):
 
         raise NotImplementedError()
 
-    async def _public_request_json(self, method: str, url: str) -> Any:
-        response = await self._request(method, url)
+    async def _public_request_json(
+        self,
+        method: str,
+        url: str,
+        params: Optional[dict[str, str]] = None,
+    ) -> Any:
+        response = await self._request(method=method, url=url, params=params)
         response.raise_for_status()
         return await response.json()
 
-    async def _private_request_json(self, method: str, url: str) -> Any:
+    async def _private_request_json(
+        self,
+        method: str,
+        url: str,
+        params: Optional[dict[str, str]] = None,
+        body: Any = None,
+    ) -> Any:
         timestamp = str(int(time.time() * 1000))
-        str_to_sign_bytes = f"{timestamp}{method}{url}".encode("utf-8")
+        str_to_sign = timestamp + method + url
+        if params is not None:
+            str_to_sign += "?"
+            str_to_sign += "&".join(f"{k}={v}" for k, v in params.items())
+        if body is not None:
+            str_to_sign += json.dumps(body, separators=(",", ":"))
         signature = base64.b64encode(
-            hmac.new(self._secret_key_bytes, str_to_sign_bytes, hashlib.sha256).digest()
+            hmac.new(self._secret_key_bytes, str_to_sign.encode("utf-8"), hashlib.sha256).digest()
         ).decode("ascii")
         headers: dict[str, str] = {
             "KC-API-KEY": self._api_key,
@@ -199,7 +232,13 @@ class KuCoin(Exchange):
             "KC-API-PASSPHRASE": self._passphrase,
             "KC-API-KEY-VERSION": "2",
         }
-        response = await self._request(method, url, headers)
+        response = await self._request(
+            method=method,
+            url=url,
+            headers=headers,
+            params=params,
+            body=body,
+        )
         response.raise_for_status()
         return await response.json()
 
@@ -208,11 +247,15 @@ class KuCoin(Exchange):
         method: str,
         url: str,
         headers: Optional[dict[str, str]] = None,
+        params: Optional[dict[str, str]] = None,
+        body: Any = None,
     ) -> ClientResponse:
         async with self._session.request(
             method=method,
             url=_BASE_URL + url,
             headers=headers,
+            params=params,
+            json=body,
         ) as response:
             if response.status >= 500:
                 raise ExchangeException(await response.text())
