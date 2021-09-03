@@ -4,11 +4,14 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import logging
 import time
+import uuid
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from types import TracebackType
-from typing import Any, AsyncIterable, AsyncIterator, Optional
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 import juno.json as json
 from juno import (
@@ -24,14 +27,17 @@ from juno import (
     Side,
     TimeInForce,
 )
+from juno.asyncio import cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, Price, Size
-from juno.http import ClientResponse, ClientSession
+from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
 from juno.time import DAY_MS, HOUR_MS, MIN_MS, WEEK_MS
 from juno.utils import AsyncLimiter
 
 from .exchange import Exchange
 
 _BASE_URL = "https://api.kucoin.com"
+
+_log = logging.getLogger(__name__)
 
 
 class KuCoin(Exchange):
@@ -44,12 +50,14 @@ class KuCoin(Exchange):
             hmac.new(self._secret_key_bytes, passphrase.encode("utf-8"), hashlib.sha256).digest()
         ).decode("ascii")
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
+        self._ws = KuCoinFeed(self)
 
         # Limiters.
         self._get_depth_limiter = AsyncLimiter(30, 3)
 
     async def __aenter__(self) -> KuCoin:
         await self._session.__aenter__()
+        await self._ws.__aenter__()
         return self
 
     async def __aexit__(
@@ -58,6 +66,7 @@ class KuCoin(Exchange):
         exc: Optional[BaseException],
         tb: Optional[TracebackType],
     ) -> None:
+        await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
     def map_candle_intervals(self) -> dict[int, int]:
@@ -157,8 +166,28 @@ class KuCoin(Exchange):
 
     @asynccontextmanager
     async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
-        raise NotImplementedError()
-        yield  # type: ignore
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
+            async for msg in ws:
+                subject = msg["subject"]
+                if subject == "trade.l2update":
+                    data = msg["data"]
+
+                    data_symbol = _from_symbol(data["symbol"])
+                    if data_symbol != symbol:
+                        raise NotImplementedError(f"received depth for symbol {data_symbol}")
+
+                    changes = data["changes"]
+                    yield Depth.Update(
+                        bids=[(Decimal(p), Decimal(s)) for p, s, _ in changes["bids"]],
+                        asks=[(Decimal(p), Decimal(s)) for p, s, _ in changes["asks"]],
+                        first_id=data["sequenceStart"],
+                        last_id=data["sequenceEnd"],
+                    )
+                else:
+                    raise NotImplementedError(f"unhandled depth subject {subject}")
+
+        async with self._ws.subscribe(f"/market/level2:{_to_symbol(symbol)}") as ws:
+            yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_orders(
@@ -260,6 +289,90 @@ class KuCoin(Exchange):
             if response.status >= 500:
                 raise ExchangeException(await response.text())
             return response
+
+
+class KuCoinFeed:
+    def __init__(self, client: KuCoin) -> None:
+        self._client = client
+        self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
+
+        self._ws_lock = asyncio.Lock()
+        self._ws_ctx: Optional[AsyncContextManager[ClientWebSocketResponse]] = None
+        self._ws: Optional[ClientWebSocketResponse] = None
+
+        self._process_task: Optional[asyncio.Task] = None
+
+        self._queues: dict[str, dict[str, asyncio.Queue]] = defaultdict(
+            lambda: defaultdict(asyncio.Queue)
+        )
+
+    async def __aenter__(self) -> KuCoinFeed:
+        await self._session.__aenter__()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
+        await cancel(self._process_task)
+        if self._ws:
+            await self._ws.close()
+        if self._ws_ctx:
+            await self._ws_ctx.__aexit__(exc_type, exc, tb)
+        await self._session.__aexit__(exc_type, exc, tb)
+
+    @asynccontextmanager
+    async def subscribe(self, topic: str) -> AsyncIterator[AsyncIterable[Any]]:
+        queue_id = str(uuid.uuid4())
+        _log.info(f"subscribing to {topic} with queue id {queue_id}")
+        ws = await self._ensure_connection()
+        await ws.send_json(
+            {
+                "type": "subscribe",
+                "topic": topic,
+            }
+        )
+        _log.info(f"subscribed to {topic} with queue id {queue_id}")
+
+        event_queues = self._queues[topic]
+        try:
+            yield stream_queue(event_queues[queue_id], raise_on_exc=True)
+        finally:
+            del event_queues[queue_id]
+            # TODO: unsubscribe
+            # TODO: Cancel WS if no subscriptions left.
+
+    async def _ensure_connection(self) -> ClientWebSocketResponse:
+        if self._ws:
+            return self._ws
+        async with self._ws_lock:
+            if self._ws:
+                return self._ws
+
+            res = (await self._client._private_request_json("POST", "/api/v1/bullet-private"))[
+                "data"
+            ]
+            instance = res["instanceServers"][0]
+            self._ws_ctx = self._session.ws_connect(
+                url=instance["endpoint"] + "?token=" + res["token"],
+                heartbeat=instance["pingInterval"] / 1000,
+                # TODO: Can we also use pingTimeout?
+            )
+            self._ws = await self._ws_ctx.__aenter__()
+            self._process_task = create_task_sigint_on_exception(self._stream_messages(self._ws))
+            return self._ws
+
+    async def _stream_messages(self, ws: ClientWebSocketResponse) -> None:
+        async for msg in ws:
+            data = json.loads(msg.data)
+            if data["type"] == "welcome":
+                _log.info("received ws welcome")
+                continue
+            event_queues = self._queues[data["topic"]]
+            for queue in event_queues.values():
+                queue.put_nowait(data)
 
 
 def _from_asset(asset: str) -> str:

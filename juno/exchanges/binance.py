@@ -1285,6 +1285,8 @@ class UserDataStream:
         await cancel(*to_cancel)
 
     async def _ensure_listen_key(self) -> None:
+        if self._listen_key:
+            return
         async with self._listen_key_lock:
             if not self._listen_key:
                 content = await self._create_listen_key()

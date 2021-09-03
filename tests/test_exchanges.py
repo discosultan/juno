@@ -216,7 +216,7 @@ async def test_get_depth(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, GateIO, Kraken])
+@parametrize_exchange([Binance, Coinbase, GateIO, Kraken, KuCoin])
 async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 

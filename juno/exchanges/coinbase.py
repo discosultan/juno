@@ -500,7 +500,7 @@ class CoinbaseFeed:
         for type_ in types:
             self.type_to_channel[type_] = channel
 
-        await self._ensure_connection()
+        ws = await self._ensure_connection()
 
         # TODO: Skip subscription if already subscribed. Maybe not a good idea because we may need
         # messages such as depth snapshot again.
@@ -518,8 +518,7 @@ class CoinbaseFeed:
             "timestamp": timestamp,
         }
 
-        assert self.ws
-        await self.ws.send_json(msg)
+        await ws.send_json(msg)
 
         while True:
             if _is_subscribed(self.subscriptions, [channel], symbols):
@@ -532,17 +531,19 @@ class CoinbaseFeed:
             # TODO: unsubscribe
             pass
 
-    async def _ensure_connection(self) -> None:
+    async def _ensure_connection(self) -> ClientWebSocketResponse:
+        if self.ws:
+            return self.ws
         async with self.ws_lock:
             if self.ws:
-                return
+                return self.ws
             self.ws_ctx = self.session.ws_connect(_BASE_WS_URL)
             self.ws = await self.ws_ctx.__aenter__()
-            self.process_task = create_task_sigint_on_exception(self._stream_messages())
+            self.process_task = create_task_sigint_on_exception(self._stream_messages(self.ws))
+            return self.ws
 
-    async def _stream_messages(self) -> None:
-        assert self.ws
-        async for msg in self.ws:
+    async def _stream_messages(self, ws: ClientWebSocketResponse) -> None:
+        async for msg in ws:
             data = json.loads(msg.data)
             type_ = data["type"]
             if type_ == "subscriptions":
