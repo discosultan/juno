@@ -174,7 +174,7 @@ class KuCoin(Exchange):
                 else:
                     raise NotImplementedError(f"unhandled balance subject {subject}")
 
-        async with self._ws.subscribe("/account/balance") as ws:
+        async with self._ws.subscribe("/account/balance", private_channel=True) as ws:
             yield inner(ws)
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
@@ -233,6 +233,7 @@ class KuCoin(Exchange):
 
                     data_symbol = _from_symbol(data["symbol"])
                     if data_symbol != symbol:
+                        _log.debug(f"symbol {data_symbol} does not match expected {symbol}")
                         continue
 
                     type_ = data["type"]
@@ -271,7 +272,7 @@ class KuCoin(Exchange):
                 else:
                     raise NotImplementedError(f"unhandled order subject {subject}")
 
-        async with self._ws.subscribe("/spotMarket/tradeOrders") as ws:
+        async with self._ws.subscribe("/spotMarket/tradeOrders", private_channel=True) as ws:
             yield inner(ws)
 
     async def place_order(
@@ -437,7 +438,11 @@ class KuCoinFeed:
         await self._session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
-    async def subscribe(self, topic: str) -> AsyncIterator[AsyncIterable[Any]]:
+    async def subscribe(
+        self,
+        topic: str,
+        private_channel: bool = False,
+    ) -> AsyncIterator[AsyncIterable[Any]]:
         queue_id = str(uuid.uuid4())
         _log.info(f"subscribing to {topic} with queue id {queue_id}")
         ws = await self._ensure_connection()
@@ -445,6 +450,7 @@ class KuCoinFeed:
             {
                 "type": "subscribe",
                 "topic": topic,
+                "privateChannel": private_channel,
             }
         )
         _log.info(f"subscribed to {topic} with queue id {queue_id}")
@@ -480,12 +486,16 @@ class KuCoinFeed:
     async def _stream_messages(self, ws: ClientWebSocketResponse) -> None:
         async for msg in ws:
             data = json.loads(msg.data)
-            if data["type"] == "welcome":
+            type_ = data["type"]
+
+            if type_ == "welcome":
                 _log.info("received ws welcome")
-                continue
-            event_queues = self._queues[data["topic"]]
-            for queue in event_queues.values():
-                queue.put_nowait(data)
+            elif type_ == "message":
+                event_queues = self._queues[data["topic"]]
+                for queue in event_queues.values():
+                    queue.put_nowait(data)
+            else:
+                raise Exception(f"Unhandled ws message type {type_}")
 
 
 def _raise_for_kucoin_status(res: Any) -> None:
