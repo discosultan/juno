@@ -30,7 +30,7 @@ from juno import (
     TimeInForce,
 )
 from juno.asyncio import cancel, create_task_sigint_on_exception, stream_queue
-from juno.errors import OrderMissing
+from juno.errors import BadOrder, OrderMissing
 from juno.filters import Filters, Price, Size
 from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
 from juno.math import round_down
@@ -93,15 +93,19 @@ class KuCoin(Exchange):
         }
 
     async def get_exchange_info(self) -> ExchangeInfo:
-        currencies, symbols = await asyncio.gather(
+        currencies_res, symbols_res = await asyncio.gather(
             self._public_request_json("GET", "/api/v1/currencies"),
             self._public_request_json("GET", "/api/v1/symbols"),
         )
+        _raise_for_kucoin_status(currencies_res)
+        _raise_for_kucoin_status(symbols_res)
 
+        currencies = currencies_res["data"]
+        symbols = symbols_res["data"]
         assets = {
             # TODO: Maybe we should use "name" instead of "currency".
             _from_asset(c["currency"]): AssetInfo(precision=c["precision"])
-            for c in currencies["data"]
+            for c in currencies
         }
         fees = {
             # TODO: This is for LVL 0 only.
@@ -120,7 +124,7 @@ class KuCoin(Exchange):
                     step=Decimal(s["baseIncrement"]),
                 ),
             )
-            for s in symbols["data"]
+            for s in symbols
         }
 
         return ExchangeInfo(
@@ -133,14 +137,17 @@ class KuCoin(Exchange):
         if account != "spot":
             raise NotImplementedError()
 
-        balances = await self._private_request_json("GET", "/api/v1/accounts")
+        res = await self._private_request_json("GET", "/api/v1/accounts")
+        _raise_for_kucoin_status(res)
+
+        balances = res["data"]
         return {
             "spot": {
                 _from_asset(b["currency"]): Balance(
                     available=Decimal(b["available"]),
                     hold=Decimal(b["holds"]),
                 )
-                for b in balances["data"]
+                for b in balances
                 if b["type"] == "trade"
             }
         }
@@ -172,13 +179,14 @@ class KuCoin(Exchange):
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
         await self._get_depth_limiter.acquire()
-        depth = (
-            await self._private_request_json(
-                "GET",
-                "/api/v3/market/orderbook/level2",
-                params={"symbol": _to_symbol(symbol)},
-            )
-        )["data"]
+        res = await self._private_request_json(
+            "GET",
+            "/api/v3/market/orderbook/level2",
+            params={"symbol": _to_symbol(symbol)},
+        )
+        _raise_for_kucoin_status(res)
+
+        depth = res["data"]
         return Depth.Snapshot(
             last_id=int(depth["sequence"]),
             bids=[(Decimal(p), Decimal(s)) for p, s in depth["bids"]],
@@ -290,23 +298,25 @@ class KuCoin(Exchange):
             "type": "market" if type_ is OrderType.MARKET else "limit",
         }
         if price is not None:
-            body["price"] = str(price)
+            body["price"] = _to_decimal(price)
         if size is not None:
-            body["size"] = str(size)
+            body["size"] = _to_decimal(size)
         if quote is not None:
-            body["funds"] = str(quote)
+            body["funds"] = _to_decimal(quote)
         if time_in_force is not None:
             body["timeInForce"] = _to_time_in_force(time_in_force)
             if time_in_force not in {TimeInForce.IOC, TimeInForce.FOK}:
                 body["postOnly"] = True
 
-        await self._private_request_json(
+        res = await self._private_request_json(
             method="POST",
             url="/api/v1/orders",
             body=body,
         )
 
-        # TODO: raise bad order if bad order
+        if res["code"] == "300000":  # Size invalid.
+            raise BadOrder(res["msg"])
+        _raise_for_kucoin_status(res)
 
         return OrderResult(time=0, status=OrderStatus.NEW)
 
@@ -325,8 +335,10 @@ class KuCoin(Exchange):
             method="DELETE",
             url=f"/api/v1/order/client-order/{client_id}",
         )
-        if res["code"] == "400100":
-            raise OrderMissing()
+
+        if res["code"] == "400100":  # Order does not exist or not allowed to cancel.
+            raise OrderMissing(res["msg"])
+        _raise_for_kucoin_status(res)
 
     async def _public_request_json(
         self,
@@ -351,7 +363,7 @@ class KuCoin(Exchange):
             str_to_sign += "?"
             str_to_sign += "&".join(f"{k}={v}" for k, v in params.items())
         if body is not None:
-            str_to_sign += json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+            str_to_sign += json.dumps(body)
         signature = base64.b64encode(
             hmac.new(self._secret_key_bytes, str_to_sign.encode("utf-8"), hashlib.sha256).digest()
         ).decode("ascii")
@@ -378,7 +390,7 @@ class KuCoin(Exchange):
         url: str,
         headers: Optional[dict[str, str]] = None,
         params: Optional[dict[str, str]] = None,
-        body: Any = None,
+        body: Optional[Any] = None,
     ) -> ClientResponse:
         async with self._session.request(
             method=method,
@@ -476,6 +488,17 @@ class KuCoinFeed:
                 queue.put_nowait(data)
 
 
+def _raise_for_kucoin_status(res: Any) -> None:
+    code = res.get("code")
+    if code is None:
+        raise Exception(f"Expected to find 'code' in response: {res}")
+    if code != "200000":
+        msg = res.get("msg")
+        if msg is None:
+            raise Exception(f"Expected to find 'msg' in response: {res}")
+        raise Exception(res["msg"])
+
+
 def _from_asset(asset: str) -> str:
     return asset.lower()
 
@@ -497,3 +520,9 @@ def _to_time_in_force(time_in_force: TimeInForce) -> str:
         return "IOC"
     # They also support GTT but we don't.
     raise NotImplementedError()
+
+
+def _to_decimal(value: Decimal) -> str:
+    # Converts from scientific notation.
+    # 6.4E-7 -> 0.0000_0064
+    return f"{value:f}"
