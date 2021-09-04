@@ -22,7 +22,7 @@ from juno import (
 )
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
-from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
+from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken, KuCoin
 from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
 from juno.utils import list_concretes_from_module
@@ -71,9 +71,15 @@ async def kraken(loop, config):
         yield exchange
 
 
+@pytest.fixture(scope="session")
+async def kucoin(loop, config):
+    async with try_init_exchange(KuCoin, config) as exchange:
+        yield exchange
+
+
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, GateIO, Kraken])
+@parametrize_exchange([Binance, Coinbase, GateIO, Kraken, KuCoin])
 async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -126,7 +132,7 @@ async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, Kraken])  # TODO: Add gateio.
+@parametrize_exchange([Binance, Coinbase, Kraken, KuCoin])  # TODO: Add gateio.
 async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -199,7 +205,7 @@ async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, GateIO, Kraken])
+@parametrize_exchange([Binance, GateIO, Kraken, KuCoin])
 async def test_get_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -210,7 +216,7 @@ async def test_get_depth(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, GateIO, Kraken])
+@parametrize_exchange([Binance, Coinbase, GateIO, Kraken, KuCoin])
 async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -262,7 +268,7 @@ async def test_connect_stream_trades(loop, request, exchange: Exchange) -> None:
 @pytest.mark.exchange
 @pytest.mark.manual
 # TODO: Add kraken and gateio (if find out how to place market order)
-@parametrize_exchange([Binance, Coinbase])
+@parametrize_exchange([Binance, Coinbase, KuCoin])
 async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -278,7 +284,7 @@ async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, GateIO])  # TODO: Add kraken
+@parametrize_exchange([Binance, Coinbase, GateIO, KuCoin])  # TODO: Add kraken
 async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
