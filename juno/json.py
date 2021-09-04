@@ -26,6 +26,7 @@ def dumps(
     obj: Any,
     indent: Optional[int] = None,
     separators: Optional[tuple[str, str]] = None,
+    ensure_ascii: bool = True,
 ) -> str:
     return json.dumps(
         obj,
@@ -33,6 +34,7 @@ def dumps(
         allow_nan=True,
         indent=indent,
         separators=separators,
+        ensure_ascii=ensure_ascii,
     )
 
 

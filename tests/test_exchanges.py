@@ -268,7 +268,7 @@ async def test_connect_stream_trades(loop, request, exchange: Exchange) -> None:
 @pytest.mark.exchange
 @pytest.mark.manual
 # TODO: Add kraken and gateio (if find out how to place market order)
-@parametrize_exchange([Binance, Coinbase])
+@parametrize_exchange([Binance, Coinbase, KuCoin])
 async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -284,7 +284,7 @@ async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, GateIO])  # TODO: Add kraken
+@parametrize_exchange([Binance, Coinbase, GateIO, KuCoin])  # TODO: Add kraken
 async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 

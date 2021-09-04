@@ -21,17 +21,21 @@ from juno import (
     ExchangeException,
     ExchangeInfo,
     Fees,
+    Fill,
     OrderResult,
+    OrderStatus,
     OrderType,
     OrderUpdate,
     Side,
     TimeInForce,
 )
 from juno.asyncio import cancel, create_task_sigint_on_exception, stream_queue
+from juno.errors import OrderMissing
 from juno.filters import Filters, Price, Size
 from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
+from juno.math import round_down
 from juno.time import DAY_MS, HOUR_MS, MIN_MS, WEEK_MS
-from juno.utils import AsyncLimiter
+from juno.utils import AsyncLimiter, unpack_quote_asset
 
 from .exchange import Exchange
 
@@ -54,6 +58,8 @@ class KuCoin(Exchange):
 
         # Limiters.
         self._get_depth_limiter = AsyncLimiter(30, 3)
+        self._place_order_limiter = AsyncLimiter(45, 3)
+        self._cancel_order_limiter = AsyncLimiter(60, 3)
 
     async def __aenter__(self) -> KuCoin:
         await self._session.__aenter__()
@@ -146,8 +152,23 @@ class KuCoin(Exchange):
         if account != "spot":
             raise NotImplementedError()
 
-        raise NotImplementedError()
-        yield  # type: ignore
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[dict[str, Balance]]:
+            async for msg in ws:
+                subject = msg["subject"]
+                if subject == "trade.balance":
+                    data = msg["data"]
+
+                    yield {
+                        _from_symbol(data["symbol"]): Balance(
+                            available=data["available"],
+                            hold=data["hold"],
+                        )
+                    }
+                else:
+                    raise NotImplementedError(f"unhandled balance subject {subject}")
+
+        async with self._ws.subscribe("/account/balance") as ws:
+            yield inner(ws)
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
         await self._get_depth_limiter.acquire()
@@ -196,8 +217,54 @@ class KuCoin(Exchange):
         if account != "spot":
             raise NotImplementedError()
 
-        raise NotImplementedError()
-        yield  # type: ignore
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
+            async for msg in ws:
+                subject = msg["subject"]
+                if subject == "orderChange":
+                    data = msg["data"]
+
+                    data_symbol = _from_symbol(data["symbol"])
+                    if data_symbol != symbol:
+                        continue
+
+                    type_ = data["type"]
+                    if type_ == "open":
+                        yield OrderUpdate.New(
+                            client_id=data["clientOid"],
+                        )
+                    elif type_ == "match":
+                        price = Decimal(data["matchPrice"])
+                        size = Decimal(data["matchSize"])
+                        quote_asset = unpack_quote_asset(data_symbol)
+                        yield OrderUpdate.Match(
+                            client_id=data["clientOid"],
+                            fill=Fill.with_computed_quote(
+                                price=price,
+                                size=size,
+                                # TODO: 8 for most assets, but can also be 6 or 4!
+                                precision=8,
+                                fee_asset=quote_asset,
+                                # TODO: 0.1% maker/taker by default but can be different as well!
+                                fee=round_down(price * size * Decimal("0.001"), 8),
+                            ),
+                        )
+                    elif type_ == "filled":
+                        yield OrderUpdate.Done(
+                            client_id=data["clientOid"],
+                            time=data["ts"],
+                        )
+                    elif type_ == "canceled":
+                        yield OrderUpdate.Cancelled(
+                            client_id=data["clientOid"],
+                            time=data["ts"],
+                        )
+                    else:
+                        raise NotImplementedError(f"unhandled order type {type_}")
+                else:
+                    raise NotImplementedError(f"unhandled order subject {subject}")
+
+        async with self._ws.subscribe("/spotMarket/tradeOrders") as ws:
+            yield inner(ws)
 
     async def place_order(
         self,
@@ -214,7 +281,34 @@ class KuCoin(Exchange):
         if account != "spot":
             raise NotImplementedError()
 
-        raise NotImplementedError()
+        await self._place_order_limiter.acquire()
+
+        body: dict[str, Any] = {
+            "clientOid": self.generate_client_id() if client_id is None else client_id,
+            "side": "buy" if side is Side.BUY else "sell",
+            "symbol": _to_symbol(symbol),
+            "type": "market" if type_ is OrderType.MARKET else "limit",
+        }
+        if price is not None:
+            body["price"] = str(price)
+        if size is not None:
+            body["size"] = str(size)
+        if quote is not None:
+            body["funds"] = str(quote)
+        if time_in_force is not None:
+            body["timeInForce"] = _to_time_in_force(time_in_force)
+            if time_in_force not in {TimeInForce.IOC, TimeInForce.FOK}:
+                body["postOnly"] = True
+
+        await self._private_request_json(
+            method="POST",
+            url="/api/v1/orders",
+            body=body,
+        )
+
+        # TODO: raise bad order if bad order
+
+        return OrderResult(time=0, status=OrderStatus.NEW)
 
     async def cancel_order(
         self,
@@ -225,7 +319,14 @@ class KuCoin(Exchange):
         if account != "spot":
             raise NotImplementedError()
 
-        raise NotImplementedError()
+        await self._cancel_order_limiter.acquire()
+
+        res = await self._private_request_json(
+            method="DELETE",
+            url=f"/api/v1/order/client-order/{client_id}",
+        )
+        if res["code"] == "400100":
+            raise OrderMissing()
 
     async def _public_request_json(
         self,
@@ -242,7 +343,7 @@ class KuCoin(Exchange):
         method: str,
         url: str,
         params: Optional[dict[str, str]] = None,
-        body: Any = None,
+        body: Optional[Any] = None,
     ) -> Any:
         timestamp = str(int(time.time() * 1000))
         str_to_sign = timestamp + method + url
@@ -250,7 +351,7 @@ class KuCoin(Exchange):
             str_to_sign += "?"
             str_to_sign += "&".join(f"{k}={v}" for k, v in params.items())
         if body is not None:
-            str_to_sign += json.dumps(body, separators=(",", ":"))
+            str_to_sign += json.dumps(body, separators=(",", ":"), ensure_ascii=False)
         signature = base64.b64encode(
             hmac.new(self._secret_key_bytes, str_to_sign.encode("utf-8"), hashlib.sha256).digest()
         ).decode("ascii")
@@ -385,3 +486,14 @@ def _from_symbol(symbol: str) -> str:
 
 def _to_symbol(symbol: str) -> str:
     return symbol.upper()
+
+
+def _to_time_in_force(time_in_force: TimeInForce) -> str:
+    if time_in_force is TimeInForce.FOK:
+        return "FOK"
+    if time_in_force is TimeInForce.GTC:
+        return "GTC"
+    if time_in_force is TimeInForce.IOC:
+        return "IOC"
+    # They also support GTT but we don't.
+    raise NotImplementedError()
