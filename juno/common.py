@@ -281,6 +281,8 @@ class Trade(NamedTuple):
 
 @dataclass
 class ExchangeInfo:
+    # Note that we use the "__all__" key convention and a regular dict instead of defaultdict for
+    # easier (de)serialization.
     # Key: asset
     assets: dict[str, AssetInfo] = field(default_factory=lambda: {"__all__": AssetInfo()})
     # Key: symbol

@@ -117,37 +117,34 @@ class KuCoin(Exchange):
         currencies = currencies_res["data"]
         symbols = symbols_res["data"]
         fees = fees_res["data"]
-        assets = {
-            # TODO: Maybe we should use "name" instead of "currency".
-            _from_asset(c["currency"]): AssetInfo(precision=c["precision"])
-            for c in currencies
-        }
-        fees = {
-            "__all__": Fees(
-                maker=Decimal(fees["makerFeeRate"]),
-                taker=Decimal(fees["takerFeeRate"]),
-            )
-        }
-        filters = {
-            _from_symbol(s["symbol"]): Filters(
-                price=Price(
-                    min=Decimal(s["quoteMinSize"]),
-                    max=Decimal(s["quoteMaxSize"]),
-                    step=Decimal(s["quoteIncrement"]),
-                ),
-                size=Size(
-                    min=Decimal(s["baseMinSize"]),
-                    max=Decimal(s["baseMaxSize"]),
-                    step=Decimal(s["baseIncrement"]),
-                ),
-            )
-            for s in symbols
-        }
 
         return ExchangeInfo(
-            assets=assets,
-            fees=fees,
-            filters=filters,
+            assets={
+                # TODO: Maybe we should use "name" instead of "currency".
+                _from_asset(c["currency"]): AssetInfo(precision=c["precision"])
+                for c in currencies
+            },
+            fees={
+                "__all__": Fees(
+                    maker=Decimal(fees["makerFeeRate"]),
+                    taker=Decimal(fees["takerFeeRate"]),
+                )
+            },
+            filters={
+                _from_symbol(s["symbol"]): Filters(
+                    price=Price(
+                        min=Decimal(s["quoteMinSize"]),
+                        max=Decimal(s["quoteMaxSize"]),
+                        step=Decimal(s["quoteIncrement"]),
+                    ),
+                    size=Size(
+                        min=Decimal(s["baseMinSize"]),
+                        max=Decimal(s["baseMaxSize"]),
+                        step=Decimal(s["baseIncrement"]),
+                    ),
+                )
+                for s in symbols
+            },
         )
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
