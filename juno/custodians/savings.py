@@ -40,12 +40,13 @@ class Savings(Custodian):
         _log.info(f"redeeming {quote} worth of {asset} flexible savings product")
         products = await self._user.map_savings_products(exchange)
 
-        if asset not in products:
+        product = products.get(asset)
+        if product is None:
             _log.info(f"{asset} savings product not available; skipping")
             return
 
         async with self._user.sync_wallet(exchange, "spot") as wallet:
-            await self._user.redeem_savings_product(exchange, products[asset].product_id, quote)
+            await self._user.redeem_savings_product(exchange, product.product_id, quote)
             await asyncio.wait_for(
                 _wait_for_wallet_updated_with(wallet, asset, quote),
                 timeout=_TIMEOUT,
@@ -56,12 +57,13 @@ class Savings(Custodian):
         _log.info(f"purchasing {quote} worth of {asset} flexible savings product")
         products = await self._user.map_savings_products(exchange)
 
-        if asset not in products:
+        product = products.get(asset)
+        if product is None:
             _log.info(f"{asset} savings product not available; skipping")
             return
 
         async with self._user.sync_wallet(exchange, "spot") as wallet:
-            await self._user.purchase_savings_product(exchange, products[asset].product_id, quote)
+            await self._user.purchase_savings_product(exchange, product.product_id, quote)
             savings_asset = f"ld{asset}"
             await asyncio.wait_for(
                 _wait_for_wallet_updated_with(wallet, savings_asset, quote),
