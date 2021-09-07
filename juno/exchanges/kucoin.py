@@ -47,6 +47,16 @@ _log = logging.getLogger(__name__)
 class KuCoin(Exchange):
     """https://docs.kucoin.com"""
 
+    can_stream_balances: bool = True
+    can_stream_depth_snapshot: bool = False
+    # can_stream_historical_candles: bool = False
+    # can_stream_historical_earliest_candle: bool = False
+    # can_stream_candles: bool = False
+    # can_list_all_tickers: bool = False
+    # can_margin_trade: bool = False
+    can_place_market_order: bool = True
+    can_place_market_order_quote: bool = True
+
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode("utf-8")
@@ -93,23 +103,30 @@ class KuCoin(Exchange):
         }
 
     async def get_exchange_info(self) -> ExchangeInfo:
-        currencies_res, symbols_res = await asyncio.gather(
+        currencies_res, symbols_res, fees_res = await asyncio.gather(
             self._public_request_json("GET", "/api/v1/currencies"),
             self._public_request_json("GET", "/api/v1/symbols"),
+            # TODO: There is also an endpoint for ACTUAL FEES per symbol.
+            # https://docs.kucoin.com/#actual-fee-rate-of-the-trading-pair
+            self._private_request_json("GET", "/api/v1/base-fee"),
         )
         _raise_for_kucoin_status(currencies_res)
         _raise_for_kucoin_status(symbols_res)
+        _raise_for_kucoin_status(fees_res)
 
         currencies = currencies_res["data"]
         symbols = symbols_res["data"]
+        fees = fees_res["data"]
         assets = {
             # TODO: Maybe we should use "name" instead of "currency".
             _from_asset(c["currency"]): AssetInfo(precision=c["precision"])
             for c in currencies
         }
         fees = {
-            # TODO: This is for LVL 0 only.
-            "__all__": Fees(maker=Decimal("0.001"), taker=Decimal("0.001"))
+            "__all__": Fees(
+                maker=Decimal(fees["makerFeeRate"]),
+                taker=Decimal(fees["takerFeeRate"]),
+            )
         }
         filters = {
             _from_symbol(s["symbol"]): Filters(

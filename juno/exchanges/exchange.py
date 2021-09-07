@@ -36,6 +36,7 @@ class Exchange(AbstractAsyncContextManager, ABC):
     can_margin_trade: bool = False
     can_place_market_order: bool = False
     can_place_market_order_quote: bool = False  # Whether market order accepts quote param.
+    # TODO: Add can_receive_market_order_result_sync
 
     def generate_client_id(self) -> str:
         return str(uuid4())
