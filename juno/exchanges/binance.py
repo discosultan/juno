@@ -949,6 +949,7 @@ class Binance(Exchange):
             asset = _from_asset(product["asset"])
             result[asset] = SavingsProduct(
                 product_id=product["productId"],
+                status=product["status"],
                 asset=asset,
                 can_purchase=product["canPurchase"],
                 can_redeem=product["canRedeem"],

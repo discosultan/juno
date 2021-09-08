@@ -303,6 +303,7 @@ class AssetInfo:
 @dataclass
 class SavingsProduct:
     product_id: str
+    status: str  # "PREHEATING" | "PURCHASING"
     asset: str
     can_purchase: bool
     can_redeem: bool
