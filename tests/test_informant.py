@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 from pytest_mock import MockerFixture
 
-from juno import BorrowInfo, ExchangeInfo, Fees, Filters, Ticker
+from juno import AssetInfo, ExchangeInfo, Fees, Filters, Ticker
 from juno.components import Informant
 from juno.exchanges import Exchange
 from juno.filters import Price, Size
@@ -27,37 +27,6 @@ async def test_get_fees_filters(storage, exchange_key: str) -> None:
 
         assert out_fees == fees
         assert out_filters == filters
-
-
-@pytest.mark.parametrize(
-    "patterns,borrow,expected_output",
-    [
-        (None, False, ["eth", "btc", "ltc"]),
-        (None, True, ["eth", "btc"]),
-        (["*"], False, ["eth", "btc", "ltc"]),
-        (["btc"], False, ["btc"]),
-    ],
-)
-async def test_list_assets(storage, patterns, borrow, expected_output) -> None:
-    exchange = fakes.Exchange(
-        exchange_info=ExchangeInfo(
-            borrow_info={
-                "__all__": {
-                    "btc": BorrowInfo(),
-                    "eth": BorrowInfo(),
-                }
-            },
-            filters={
-                "eth-btc": Filters(),
-                "ltc-btc": Filters(),
-            },
-        )
-    )
-
-    async with Informant(storage=storage, exchanges=[exchange]) as informant:
-        assert (
-            informant.list_assets("exchange", patterns=patterns, borrow=borrow) == expected_output
-        )
 
 
 @pytest.mark.parametrize(
@@ -149,3 +118,18 @@ async def test_map_tickers_exclude_symbol_patterns(mocker: MockerFixture, storag
         assert informant.map_tickers("magicmock", exclude_symbol_patterns=["btc", "eth"]) == {
             "ltc": ticker,
         }
+
+
+async def test_get_asset_info(storage) -> None:
+    exchange = fakes.Exchange(
+        exchange_info=ExchangeInfo(
+            assets={
+                "__all__": AssetInfo(precision=1),
+                "btc": AssetInfo(precision=2),
+            }
+        )
+    )
+
+    async with Informant(storage=storage, exchanges=[exchange]) as informant:
+        assert informant.get_asset_info("exchange", "btc").precision == 2
+        assert informant.get_asset_info("exchange", "eth").precision == 1

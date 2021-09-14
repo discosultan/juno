@@ -272,9 +272,6 @@ class Informant(components.Informant):
     def get_fees_filters(self, exchange, symbol):
         return self.fees, self.filters
 
-    def list_assets(self, exchange, borrow=False):
-        return self.assets
-
     def list_symbols(
         self, exchange, patterns=None, spot=True, cross_margin=False, isolated_margin=False
     ):

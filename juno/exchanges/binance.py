@@ -1423,7 +1423,6 @@ def _from_symbol(symbol: str) -> str:
         "ETH",
         "XRP",
         "USDT",
-        "PAX",
         "TUSD",
         "USDC",
         "USDS",
@@ -1445,6 +1444,7 @@ def _from_symbol(symbol: str) -> str:
         "BVND",
         "VAI",
         "GYEN",
+        "USDP",
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):

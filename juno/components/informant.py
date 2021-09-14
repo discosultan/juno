@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
-import itertools
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -26,7 +25,6 @@ from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import HOUR_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
-from juno.utils import unpack_assets
 
 _log = logging.getLogger(__name__)
 
@@ -93,42 +91,20 @@ class Informant:
         await cancel(self._exchange_info_sync_task, self._tickers_sync_task)
 
     def get_asset_info(self, exchange: str, asset: str) -> AssetInfo:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        return exchange_info.assets.get("__all__") or exchange_info.assets[asset]
+        exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        return _get_or_default(exchange_info.assets, asset)
 
     def get_fees_filters(self, exchange: str, symbol: str) -> tuple[Fees, Filters]:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        fees = exchange_info.fees.get("__all__") or exchange_info.fees[symbol]
-        filters = exchange_info.filters.get("__all__") or exchange_info.filters[symbol]
+        exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        fees = _get_or_default(exchange_info.fees, symbol)
+        filters = _get_or_default(exchange_info.filters, symbol)
         return fees, filters
 
     def get_borrow_info(self, exchange: str, asset: str, account: str) -> BorrowInfo:
         assert account != "spot"
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        borrow_info = (
-            exchange_info.borrow_info.get("__all__") or exchange_info.borrow_info[account]
-        )
-        return borrow_info.get("__all__") or borrow_info[asset]
-
-    # TODO: Do we need this? And the borrow param?
-    def list_assets(
-        self, exchange: str, patterns: Optional[list[str]] = None, borrow: bool = False
-    ) -> list[str]:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_assets = {
-            a: None for a in itertools.chain(*(map(unpack_assets, exchange_info.filters.keys())))
-        }
-
-        result = (a for a in all_assets.keys())
-
-        if patterns is not None:
-            matching_assets = {a for p in patterns for a in fnmatch.filter(all_assets.keys(), p)}
-            result = (a for a in result if a in matching_assets)
-        if borrow:
-            borrowable_assets = {a for bi in exchange_info.borrow_info.values() for a in bi.keys()}
-            result = (a for a in result if a in borrowable_assets)
-
-        return list(result)
+        exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        borrow_info = _get_or_default(exchange_info.borrow_info, account)
+        return _get_or_default(borrow_info, asset)
 
     def list_symbols(
         self,
@@ -138,7 +114,7 @@ class Informant:
         cross_margin: Optional[bool] = None,
         isolated_margin: Optional[bool] = None,
     ) -> list[str]:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         all_symbols = exchange_info.filters.keys()
 
         result = (s for s in all_symbols)
@@ -147,16 +123,12 @@ class Informant:
             matching_symbols = {s for p in patterns for s in fnmatch.filter(all_symbols, p)}
             result = (s for s in result if s in matching_symbols)
         if spot is not None:
-            result = (t for t in result if exchange_info.filters[t.symbol].spot == spot)
+            result = (s for s in result if exchange_info.filters[s].spot == spot)
         if cross_margin is not None:
-            result = (
-                t for t in result if exchange_info.filters[t.symbol].cross_margin == cross_margin
-            )
+            result = (s for s in result if exchange_info.filters[s].cross_margin == cross_margin)
         if isolated_margin is not None:
             result = (
-                t
-                for t in result
-                if exchange_info.filters[t.symbol].isolated_margin == isolated_margin
+                s for s in result if exchange_info.filters[s].isolated_margin == isolated_margin
             )
 
         return list(result)
@@ -171,8 +143,10 @@ class Informant:
         cross_margin: Optional[bool] = None,
         isolated_margin: Optional[bool] = None,
     ) -> dict[str, Ticker]:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_tickers = self._synced_data[exchange][_Timestamped[dict[str, Ticker]]].item
+        exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        all_tickers: dict[str, Ticker] = self._synced_data[exchange][
+            _Timestamped[dict[str, Ticker]]
+        ].item
 
         result = ((s, t) for s, t in all_tickers.items())
 
@@ -274,3 +248,10 @@ class Informant:
             item=item,
         )
         return item
+
+
+def _get_or_default(dictionary: dict[str, T], key: str) -> T:
+    value = dictionary.get(key)
+    if value is None:
+        value = dictionary["__all__"]
+    return value

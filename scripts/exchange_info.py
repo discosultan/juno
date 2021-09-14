@@ -22,9 +22,9 @@ async def main() -> None:
     async with Exchange.from_env(args.exchange) as exchange:
         exchange_info = await exchange.get_exchange_info()
 
-        logging.info(exchange_info.fees.get("__all__") or exchange_info.fees[args.symbol])
+        logging.info(exchange_info.fees.get(args.symbol) or exchange_info.fees["__all__"])
         logging.info(list(map(strfinterval, exchange.map_candle_intervals().keys())))
-        logging.info(exchange_info.filters.get("__all__") or exchange_info.filters[args.symbol])
+        logging.info(exchange_info.filters.get(args.symbol) or exchange_info.filters["__all__"])
 
         if args.dump:
             with open("exchange_info.json", "w") as file:
