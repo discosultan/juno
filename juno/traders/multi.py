@@ -395,8 +395,6 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                 break
 
     async def _try_close_existing_positions(self, state: MultiState) -> None:
-        config = state.config
-
         queue = self._queues[state.id]
         await queue.join()
 
@@ -414,11 +412,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             ]:
                 to_process.append((ss, ss.reason))
         if len(to_process) > 0:
-            positions = await process_task_on_queue(
-                queue, self._close_positions(state, to_process)
-            )
-
-            await self._events.emit(config.channel, "positions_closed", positions, state.summary)
+            await process_task_on_queue(queue, self._close_positions(state, to_process))
 
     async def _try_open_new_positions(self, state: MultiState) -> None:
         config = state.config
@@ -450,8 +444,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                     available -= 1
 
         if len(to_process) > 0:
-            positions = await process_task_on_queue(queue, self._open_positions(state, to_process))
-            await self._events.emit(config.channel, "positions_opened", positions, state.summary)
+            await process_task_on_queue(queue, self._open_positions(state, to_process))
 
     async def _track_advice(
         self,
