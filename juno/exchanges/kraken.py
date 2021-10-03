@@ -154,18 +154,12 @@ class Kraken(Exchange):
         if account == "spot":
             res = await self._request_private("/0/private/Balance")
             result["spot"] = {
-                a[1:].lower(): Balance(available=Decimal(v), hold=Decimal("0.0"))
+                _from_asset(a): Balance(available=Decimal(v), hold=Decimal("0.0"))
                 for a, v in res["result"].items()
-                if len(a) == 4 and a[0] in ["X", "Z"]
             }
         else:
             raise NotImplementedError()
         return result
-
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
-        yield  # type: ignore
 
     @asynccontextmanager
     async def connect_stream_candles(
@@ -232,8 +226,15 @@ class Kraken(Exchange):
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for o in ws:
-                # TODO: map
                 yield o
+                # updates = o[0]
+                # for update in updates.values():
+                #     client_id = update["refid"]
+                #     status = update["status"]
+                #     if status == ""
+                #     yield OrderUpdate.New(
+                #         client_id=client_id,
+                #     )
 
         async with self._private_ws.subscribe({"name": "openOrders"}) as ws:
             yield inner(ws)
@@ -525,6 +526,11 @@ ASSET_ALIAS_MAP = {
     "doge": "xdg",
 }
 REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
+
+
+def _from_asset(asset: str) -> str:
+    # Kraken prefixes 3 character crypto assets with X and fiat assets with Z.
+    return (asset[1:] if len(asset) == 4 and asset[0] in {"X", "Z"} else asset).lower()
 
 
 def _to_http_symbol(symbol: str) -> str:
