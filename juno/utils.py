@@ -180,8 +180,8 @@ class AsyncLimiter(aiolimiter.AsyncLimiter):
         if amount > self.max_rate:
             raise ValueError("Can't acquire more than the maximum capacity")
 
-        loop = aiolimiter.compat.get_running_loop()
-        task = aiolimiter.compat.current_task(loop)
+        loop = asyncio.get_event_loop()
+        task = asyncio.current_task(loop)
         assert task is not None
         while not self.has_capacity(amount):
             waiting_time = 1 / self._rate_per_sec * amount
@@ -192,7 +192,7 @@ class AsyncLimiter(aiolimiter.AsyncLimiter):
             fut = loop.create_future()
             self._waiters[task] = fut
             try:
-                await asyncio.wait_for(asyncio.shield(fut), waiting_time, loop=loop)
+                await asyncio.wait_for(asyncio.shield(fut), waiting_time)
             except asyncio.TimeoutError:
                 pass
             fut.cancel()

@@ -1444,6 +1444,7 @@ def _from_symbol(symbol: str) -> str:
         "BVND",
         "VAI",
         "GYEN",
+        "USDP",
         "PAX",
     ]
     for asset in known_quote_assets:
