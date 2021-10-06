@@ -116,6 +116,7 @@ async def test_map_tickers(loop, request, exchange: Exchange) -> None:
 
     assert len(tickers) > 0
     assert types_match(tickers, dict[str, Ticker])
+    assert "eth-btc" in tickers
 
 
 @pytest.mark.exchange
@@ -128,6 +129,20 @@ async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
 
     assert len(tickers) == 1
     assert types_match(tickers, dict[str, Ticker])
+    assert "eth-btc" in tickers
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+async def test_kraken_map_one_newer_ticker(loop, kraken: Kraken) -> None:
+    # Kraken uses different notation for older vs newer symbols.
+    # For example: XETHXXBT vs ADAXBT.
+    # Hence the need for this additional test.
+
+    tickers = await kraken.map_tickers(symbols=["ada-btc"])
+
+    assert len(tickers) == 1
+    assert "ada-btc" in tickers
 
 
 @pytest.mark.exchange
@@ -205,7 +220,7 @@ async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, GateIO, Kraken, KuCoin])
+@parametrize_exchange([Binance, GateIO, KuCoin])
 async def test_get_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -319,7 +334,7 @@ async def test_map_savings_products(loop, request, exchange: Exchange) -> None:
 def skip_not_configured(request, exchange):
     markers = ["exchange", "manual"]
     if request.config.option.markexpr not in markers:
-        pytest.skip(f'Specify {"" or "".join(markers)} marker to run!')
+        pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
     if not exchange:
         pytest.skip("Exchange params not configured")
 

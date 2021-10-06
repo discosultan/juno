@@ -109,13 +109,13 @@ class Kraken(Exchange):
         )
 
         assets = {
-            _from_symbol(val["altname"]): AssetInfo(precision=val["decimals"])
-            for val in assets_res["result"].values()
+            _from_asset(key): AssetInfo(precision=val["decimals"])
+            for key, val in assets_res["result"].items()
         }
 
         fees, filters = {}, {}
-        for val in symbols_res["result"].values():
-            name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
+        for key, val in symbols_res["result"].items():
+            name = _from_symbol(key)
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val["fees"][0][1] / 100
             maker_fees = val.get("fees_maker")
@@ -521,23 +521,136 @@ def _to_ws_symbol(symbol: str) -> str:
     return symbol.replace("-", "/").upper()
 
 
-ASSET_ALIAS_MAP = {
-    "btc": "xbt",
-    "doge": "xdg",
+# The asset names we are dealing with can be in three different forms:
+#
+# 1. Kraken old format = xxbt
+# 2. Kraken new format = xbt
+# 3. Juno format       = btc
+#
+# Similarly with symbols:
+#
+# 1. Kraken old format = xethxxbt
+# 2. Kraken new format = ethxbt
+# 3. Juno format       = eth-btc
+#
+# We always go first from 1. -> 2. and then from 2. -> 3..
+
+_OLD_SYMBOL_TO_NEW_SYMBOL = {
+    "xetcxxbt": "etcxbt",
+    "xethxxbt": "ethxbt",
+    "xltcxxbt": "ltcxbt",
+    "xmlnxxbt": "mlnxbt",
+    "xrepxxbt": "repxbt",
+    "xxbtzcad": "xbtcad",
+    "xxbtzeur": "xbteur",
+    "xxbtzgbp": "xbtgbp",
+    "xxbtzjpy": "xbtjpy",
+    "xxbtzusd": "xbtusd",
+    "xxdgxxbt": "xdgxbt",
+    "xxlmxxbt": "xlmxbt",
+    "xxmrxxbt": "xmrxbt",
+    "xxrpxxbt": "xrpxbt",
+    "xzecxxbt": "zecxbt",
+    "xetcxeth": "etceth",
+    "xethzcad": "ethcad",
+    "xethzeur": "etheur",
+    "xethzgbp": "ethgbp",
+    "xethzjpy": "ethjpy",
+    "xethzusd": "ethusd",
+    "xmlnxeth": "mlneth",
+    "xrepxeth": "repeth",
+    "xetczeur": "etceur",
+    "xetczusd": "etcusd",
+    "xltczeur": "ltceur",
+    "xltczjpy": "ltcjpy",
+    "xltczusd": "ltcusd",
+    "xmlnzeur": "mlneur",
+    "xmlnzusd": "mlnusd",
+    "xrepzeur": "repeur",
+    "xrepzusd": "repusd",
+    "xxlmzaud": "xlmaud",
+    "xxlmzeur": "xlmeur",
+    "xxlmzgbp": "xlmgbp",
+    "xxlmzusd": "xlmusd",
+    "xxmrzeur": "xmreur",
+    "xxmrzusd": "xmrusd",
+    "xzeczeur": "zeceur",
+    "xzeczusd": "zecusd",
 }
-REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
+
+_OLD_ASSET_TO_NEW_ASSET = {
+    "xxbt": "xbt",
+    "xxdg": "xdg",
+    "xetc": "etc",
+    "xeth": "eth",
+    "xltc": "ltc",
+    "xmln": "mln",
+    "xxlm": "xlm",
+    "xxmr": "xmr",
+    "xxrp": "xrp",
+    "xzec": "zec",
+    "zaud": "aud",
+    "zcad": "cad",
+    "zeur": "eur",
+    "zgbp": "gbp",
+    "zjpy": "jpy",
+    "zusd": "usd",
+}
+
+_KNOWN_NEW_QUOTE_ASSETS = [
+    "eur",
+    "usd",
+    "aud",
+    "eth",
+    "gbp",
+    "xbt",
+    "jpy",
+    "usdt",
+    "chf",
+    "dai",
+    "usdc",
+    "cad",
+    "dot",
+]
+
+_ASSET_ALIAS_MAP = {
+    "xbt": "btc",
+    "xdg": "doge",
+}
+_REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in _ASSET_ALIAS_MAP.items()}
 
 
 def _from_asset(asset: str) -> str:
-    # Kraken prefixes 3 character crypto assets with X and fiat assets with Z.
-    return (asset[1:] if len(asset) == 4 and asset[0] in {"X", "Z"} else asset).lower()
-
-
-def _to_http_symbol(symbol: str) -> str:
-    base, quote = unpack_assets(symbol)
-    return f"{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}"
+    # 1. Normalize to lowercase.
+    asset = asset.lower()
+    # 2. Go from Kraken old format to new format.
+    asset = _OLD_ASSET_TO_NEW_ASSET.get(asset, asset)
+    # 3. Go from Kraken new format to Juno format.
+    return _ASSET_ALIAS_MAP.get(asset, asset)
 
 
 def _from_symbol(symbol: str) -> str:
+    # 1. Normalize to lowercase.
+    symbol = symbol.lower()
+    # 2. Go from Kraken old format to new format.
+    symbol = _OLD_SYMBOL_TO_NEW_SYMBOL.get(symbol, symbol)
+    # 3. Go from Kraken new format to Juno format.
+    for asset in _KNOWN_NEW_QUOTE_ASSETS:
+        if symbol.endswith(asset):
+            base = symbol[: -len(asset)]
+            base = _ASSET_ALIAS_MAP.get(base, base)
+            quote = _ASSET_ALIAS_MAP.get(asset, asset)
+            break
+    else:
+        raise NotImplementedError(f"unknown quote asset found in symbol: {symbol}")
+
+    return f"{base}-{quote}"
+
+
+def _to_http_symbol(symbol: str) -> str:
+    # 1. Go from Juno format to Kraken new format.
     base, quote = unpack_assets(symbol)
-    return f"{REVERSE_ASSET_ALIAS_MAP.get(base, base)}-{REVERSE_ASSET_ALIAS_MAP.get(quote, quote)}"
+    base = _REVERSE_ASSET_ALIAS_MAP.get(base, base)
+    quote = _REVERSE_ASSET_ALIAS_MAP.get(quote, quote)
+    # 2. Transform to uppercase.
+    return (f"{base}{quote}").upper()

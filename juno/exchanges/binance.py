@@ -1414,40 +1414,42 @@ def _to_ws_symbol(symbol: str) -> str:
     return symbol.replace("-", "")
 
 
+# TODO: May be incorrect! We can't systematically know which part is base and which is quote
+# since there is no separator used. We simply map based on known quote assets.
+_KNOWN_QUOTE_ASSETS = [
+    "BNB",
+    "BTC",
+    "ETH",
+    "XRP",
+    "USDT",
+    "TUSD",
+    "USDC",
+    "USDS",
+    "TRX",
+    "BUSD",
+    "NGN",
+    "RUB",
+    "TRY",
+    "EUR",
+    "ZAR",
+    "BKRW",
+    "IDRT",
+    "GBP",
+    "UAH",
+    "BIDR",
+    "AUD",
+    "DAI",
+    "BRL",
+    "BVND",
+    "VAI",
+    "GYEN",
+    "USDP",
+    "PAX",
+]
+
+
 def _from_symbol(symbol: str) -> str:
-    # TODO: May be incorrect! We can't systematically know which part is base and which is quote
-    # since there is no separator used. We simply map based on known quote assets.
-    known_quote_assets = [
-        "BNB",
-        "BTC",
-        "ETH",
-        "XRP",
-        "USDT",
-        "TUSD",
-        "USDC",
-        "USDS",
-        "TRX",
-        "BUSD",
-        "NGN",
-        "RUB",
-        "TRY",
-        "EUR",
-        "ZAR",
-        "BKRW",
-        "IDRT",
-        "GBP",
-        "UAH",
-        "BIDR",
-        "AUD",
-        "DAI",
-        "BRL",
-        "BVND",
-        "VAI",
-        "GYEN",
-        "USDP",
-        "PAX",
-    ]
-    for asset in known_quote_assets:
+    for asset in _KNOWN_QUOTE_ASSETS:
         if symbol.endswith(asset):
             base = symbol[: -len(asset)]
             quote = asset
