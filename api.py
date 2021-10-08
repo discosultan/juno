@@ -32,31 +32,8 @@ async def hello(request: web.Request) -> web.Response:
     return web.Response(text="Hello, world")
 
 
-# @routes.post('/candles')
-# async def candles_public(request: web.Request) -> web.Response:
-#     chandler: Chandler = request.app['chandler']
-
-#     args = await request.json()
-#     interval = strpinterval(args['interval'])
-#     start = strptimestamp(args['start'])
-#     end = strptimestamp(args['end'])
-
-#     # TODO: type_to_raw
-#     result = await gather_dict(
-#         {s: chandler.list_candles(
-#             exchange=args['exchange'],
-#             symbol=s,
-#             interval=interval,
-#             start=start,
-#             end=end,
-#         ) for s in args['symbols']}
-#     )
-
-#     return web.json_response(result, dumps=json.dumps)
-
-
 @routes.get("/candles")
-async def candles_internal(request: web.Request) -> web.Response:
+async def candles(request: web.Request) -> web.Response:
     chandler: Chandler = request.app["chandler"]
     query = request.query
 
@@ -80,4 +57,4 @@ app = web.Application()
 app.cleanup_ctx.append(juno)
 app.add_routes(routes)
 
-web.run_app(app)
+web.run_app(app, port=4040)
