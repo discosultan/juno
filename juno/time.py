@@ -1,9 +1,11 @@
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import time
 
 from dateutil.parser import isoparse
 from dateutil.tz import UTC
+
+from juno.math import ceil_multiple, ceil_multiple_offset, floor_multiple, floor_multiple_offset
 
 SEC_MS = 1000
 MIN_MS = 60_000
@@ -16,8 +18,12 @@ YEAR_MS = 31_556_952_000
 MIN_SEC = 60
 HOUR_SEC = 3600
 DAY_SEC = 86_400
+WEEK_SEC = 604_800
+MONTH_SEC = 2_629_746
+YEAR_SEC = 31_556_952
 
 MAX_TIME_MS = 3_000_000_000_000  # 2065-01-24 05:20
+WEEK_OFFSET_MS = 345_600_000
 
 
 def time_ms() -> int:
@@ -91,3 +97,25 @@ def strptimestamp(timestamp: str) -> int:
     else:
         dt = dt.replace(tzinfo=UTC)
     return datetime_timestamp_ms(dt)
+
+
+def floor_timestamp(timestamp: int, interval: int) -> int:
+    if interval < WEEK_MS:
+        return floor_multiple(timestamp, interval)
+    if interval == WEEK_MS:
+        return floor_multiple_offset(timestamp, interval, WEEK_OFFSET_MS)
+    if interval == MONTH_MS:
+        dt = datetime_utcfromtimestamp_ms(timestamp)
+        return datetime_timestamp_ms(dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0))
+    raise NotImplementedError()
+
+
+def ceil_timestamp(timestamp: int, interval: int) -> int:
+    if interval < WEEK_MS:
+        return ceil_multiple(timestamp, interval)
+    if interval == WEEK_MS:
+        return ceil_multiple_offset(timestamp, interval, WEEK_OFFSET_MS)
+    if interval == MONTH_MS:
+        dt = datetime_utcfromtimestamp_ms(timestamp)
+        return datetime_timestamp_ms((dt.replace(day=1) + timedelta(days=32)).replace(day=1))
+    raise NotImplementedError()

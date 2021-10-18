@@ -43,6 +43,18 @@ async def candles(request: web.Request) -> web.Response:
         interval=int(query["interval"]),
         start=int(query["start"]),
         end=int(query["end"]),
+        fill_missing_with_last=query.get("fill_missing_with_last") == "true",
+    )
+
+    return web.json_response(type_to_raw(result), dumps=json.dumps)
+
+
+@routes.get("/candles_intervals")
+async def candles_intervals(request: web.Request) -> web.Response:
+    chandler: Chandler = request.app["chandler"]
+
+    result = chandler.list_candle_intervals(
+        exchange=request.query["exchange"],
     )
 
     return web.json_response(type_to_raw(result), dumps=json.dumps)
@@ -57,4 +69,4 @@ app = web.Application()
 app.cleanup_ctx.append(juno)
 app.add_routes(routes)
 
-web.run_app(app, port=4040)
+web.run_app(app, port=3030)

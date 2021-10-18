@@ -85,22 +85,22 @@ class KuCoin(Exchange):
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def map_candle_intervals(self) -> dict[int, int]:
-        return {
-            MIN_MS: 0,
-            3 * MIN_MS: 0,
-            5 * MIN_MS: 0,
-            15 * MIN_MS: 0,
-            30 * MIN_MS: 0,
-            HOUR_MS: 0,
-            2 * HOUR_MS: 0,
-            4 * HOUR_MS: 0,
-            6 * HOUR_MS: 0,
-            8 * HOUR_MS: 0,
-            12 * HOUR_MS: 0,
-            DAY_MS: 0,
-            WEEK_MS: 0,  # TODO: verify
-        }
+    def list_candle_intervals(self) -> list[int]:
+        return [
+            MIN_MS,
+            3 * MIN_MS,
+            5 * MIN_MS,
+            15 * MIN_MS,
+            30 * MIN_MS,
+            HOUR_MS,
+            2 * HOUR_MS,
+            4 * HOUR_MS,
+            6 * HOUR_MS,
+            8 * HOUR_MS,
+            12 * HOUR_MS,
+            DAY_MS,
+            WEEK_MS,
+        ]
 
     async def get_exchange_info(self) -> ExchangeInfo:
         currencies_res, symbols_res, fees_res = await asyncio.gather(

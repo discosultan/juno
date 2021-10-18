@@ -34,7 +34,7 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
-        candle_intervals={},
+        candle_intervals=[],
         exchange_info=ExchangeInfo(),
         tickers={},
         balances={"spot": {}},
@@ -89,7 +89,7 @@ class Exchange(exchanges.Exchange):
     def generate_client_id(self):
         return self.client_id
 
-    def map_candle_intervals(self):
+    def list_candle_intervals(self):
         return self.candle_intervals
 
     async def get_exchange_info(self):
@@ -161,7 +161,7 @@ class Chandler(components.Chandler):
         future_candles={},
         first_candle=Candle(),
         last_candle=Candle(),
-        candle_intervals={},
+        candle_intervals=[],
     ):
         self.candles = candles
         self.future_candle_queues = defaultdict(asyncio.Queue)
@@ -221,7 +221,7 @@ class Chandler(components.Chandler):
     async def get_last_candle(self, exchange, symbol, interval):
         return self.last_candle
 
-    def map_candle_intervals(self, exchange, patterns=None):
+    def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
     def get_interval_offset(self, exchange, interval):

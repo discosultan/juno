@@ -23,7 +23,7 @@ async def main() -> None:
         exchange_info = await exchange.get_exchange_info()
 
         logging.info(exchange_info.fees.get(args.symbol) or exchange_info.fees["__all__"])
-        logging.info(list(map(strfinterval, exchange.map_candle_intervals().keys())))
+        logging.info(list(map(strfinterval, exchange.list_candle_intervals())))
         logging.info(exchange_info.filters.get(args.symbol) or exchange_info.filters["__all__"])
 
         if args.dump:

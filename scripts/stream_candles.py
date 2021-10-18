@@ -8,8 +8,7 @@ from juno import storages
 from juno.asyncio import enumerate_async
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
-from juno.math import floor_multiple_offset
-from juno.time import MIN_MS, strftimestamp, strpinterval, strptimestamp, time_ms
+from juno.time import MIN_MS, floor_timestamp, strftimestamp, strpinterval, strptimestamp, time_ms
 from juno.utils import get_module_type
 
 CLOSED = True
@@ -43,17 +42,13 @@ async def main() -> None:
 
 
 async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None:
-    interval_offset = chandler.get_interval_offset(args.exchange, interval)
-
     start = (
         (await chandler.get_first_candle(args.exchange, symbol, interval)).time
         if args.start is None
-        else floor_multiple_offset(args.start, interval, interval_offset)
+        else floor_timestamp(args.start, interval)
     )
-    current = floor_multiple_offset(now, interval, interval_offset)
-    end = (
-        current if args.end is None else floor_multiple_offset(args.end, interval, interval_offset)
-    )
+    current = floor_timestamp(now, interval)
+    end = current if args.end is None else floor_timestamp(args.end, interval)
 
     logging.info(
         f"start {strftimestamp(start)} current {strftimestamp(current)} end "

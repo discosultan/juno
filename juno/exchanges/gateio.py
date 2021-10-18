@@ -427,7 +427,7 @@ class GateIO(Exchange):
         sign = hmac.new(self._secret_key_bytes, s.encode("utf-8"), hashlib.sha512).hexdigest()
         return {"method": "api_key", "KEY": self._api_key, "SIGN": sign}
 
-    def map_candle_intervals(self) -> dict[int, int]:
+    def list_candle_intervals(self) -> list[int]:
         raise NotImplementedError()
 
     async def stream_historical_candles(

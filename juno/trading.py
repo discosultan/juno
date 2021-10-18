@@ -11,8 +11,8 @@ from typing import Iterable, Optional, Sequence, Union
 from juno import Fill, Interval, Timestamp
 from juno.asyncio import gather_dict
 from juno.components import Chandler
-from juno.math import annualized, floor_multiple_offset
-from juno.time import strftimestamp
+from juno.math import annualized
+from juno.time import floor_timestamp, strftimestamp
 from juno.utils import unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
@@ -302,7 +302,7 @@ class StartMixin(ABC):
             # - 1d candle starts at 2017-07-14
             #
             # Mapping daily prices for statistics would fail if we chose 2017-07-10 as the start.
-            all_intervals = self.chandler.map_candle_intervals(exchange).keys()
+            all_intervals = self.chandler.list_candle_intervals(exchange)
             smallest_interval = next(iter(all_intervals)) if len(all_intervals) > 0 else interval
 
             if interval != smallest_interval:
@@ -312,8 +312,7 @@ class StartMixin(ABC):
                 if smallest_latest_first_candle.time > latest_first_candle.time:
                     result += interval
         else:
-            interval_offset = self.chandler.get_interval_offset(exchange, interval)
-            result = floor_multiple_offset(start, interval, interval_offset)
+            result = floor_timestamp(start, interval)
 
         if start is None:
             _log.info(f"start not specified; start set to {strftimestamp(result)}")

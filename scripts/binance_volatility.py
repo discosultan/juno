@@ -9,9 +9,8 @@ from more_itertools import take
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
-from juno.math import floor_multiple_offset
 from juno.storages import SQLite
-from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
+from juno.time import MONTH_MS, YEAR_MS, floor_timestamp, strfinterval, time_ms
 
 
 async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end):
@@ -37,11 +36,11 @@ async def main() -> None:
     informant = Informant(sqlite, [binance])
     async with binance, informant, trades, chandler:
         symbols = informant.list_symbols(exchange)[:10]
-        interval_offsets = take(3, chandler.map_candle_intervals(exchange).items())
+        intervals = take(3, chandler.list_candle_intervals(exchange))
         now = time_ms()
         tasks = []
-        for interval, interval_offset in interval_offsets:
-            end = floor_multiple_offset(now, interval, interval_offset)
+        for interval in intervals:
+            end = floor_timestamp(now, interval)
             start = end - MONTH_MS
             for symbol in symbols:
                 tasks.append(

@@ -489,10 +489,10 @@ async def test_list_candles(storage) -> None:
 
 async def test_map_symbol_interval_candles(storage, mocker: MockerFixture) -> None:
     exchange = mocker.MagicMock(Exchange, autospec=True)
-    exchange.map_candle_intervals.return_value = {
-        1: 0,
-        2: 0,
-    }
+    exchange.list_candle_intervals.return_value = [
+        1,
+        2,
+    ]
 
     def stream_historical_candles_side_effect(symbol, interval, start, end):
         if interval == 1:
@@ -535,10 +535,10 @@ async def test_list_candles_simulate_open_from_interval(mocker: MockerFixture, s
                 )
 
     exchange = mocker.MagicMock(Exchange, autospec=True)
-    exchange.map_candle_intervals.return_value = {
-        1: 0,
-        2: 0,
-    }
+    exchange.list_candle_intervals.return_value = [
+        1,
+        2,
+    ]
     exchange.stream_historical_candles.side_effect = stream_historical_candles
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
@@ -575,11 +575,11 @@ async def test_list_candles_simulate_open_from_interval(mocker: MockerFixture, s
         ([1, 2, 3], [1, 2], [1, 2]),
     ],
 )
-async def test_map_candle_intervals(storage, intervals, patterns, expected_output) -> None:
-    exchange = fakes.Exchange(candle_intervals={i: 0 for i in intervals})
+async def test_list_candle_intervals(storage, intervals, patterns, expected_output) -> None:
+    exchange = fakes.Exchange(candle_intervals=intervals)
 
     async with Chandler(storage=storage, exchanges=[exchange]) as chandler:
-        output = chandler.map_candle_intervals("exchange", patterns)
+        output = chandler.list_candle_intervals("exchange", patterns)
 
     assert len(output) == len(expected_output)
     assert set(output) == set(expected_output)

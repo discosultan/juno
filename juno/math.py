@@ -70,6 +70,7 @@ def rpstdev(data: Iterable[Decimal]) -> Decimal:
 
 
 # Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
+# TODO: Move outside math module.
 def annualized(duration: int, value: Decimal) -> Decimal:
     assert value >= -1
     n = Decimal(duration) / _YEAR_MS

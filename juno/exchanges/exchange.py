@@ -41,7 +41,7 @@ class Exchange(AbstractAsyncContextManager, ABC):
     def generate_client_id(self) -> str:
         return str(uuid4())
 
-    def map_candle_intervals(self) -> dict[int, int]:  # interval: offset
+    def list_candle_intervals(self) -> list[int]:
         raise NotImplementedError()
 
     async def get_exchange_info(self) -> ExchangeInfo:

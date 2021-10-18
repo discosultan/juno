@@ -48,3 +48,33 @@ def test_strftimestamp():
 
 def test_strptimestamp() -> None:
     assert time.strptimestamp("2019-01-01") == 1546300800000
+
+
+@pytest.mark.parametrize(
+    "timestamp,interval,expected_output",
+    [
+        [1, time.SEC_MS, time.SEC_MS],
+        [1001, time.DAY_MS, time.DAY_MS],
+        # 2020-01-01T00:00:00Z -> 2020-01-06T00:00:00Z
+        [1577836800000, time.WEEK_MS, 1578268800000],
+        # 2020-01-02T00:00:00Z -> 2020-02-01T00:00:00Z
+        [1577923200000, time.MONTH_MS, 1580515200000],
+    ],
+)
+def test_ceil_timestamp(timestamp: int, interval: int, expected_output: int) -> None:
+    assert time.ceil_timestamp(timestamp, interval) == expected_output
+
+
+@pytest.mark.parametrize(
+    "timestamp,interval,expected_output",
+    [
+        [1, time.SEC_MS, 0],
+        [1001, time.DAY_MS, 0],
+        # 2020-01-01T00:00:00Z -> 2019-12-30T00:00:00Z
+        [1577836800000, time.WEEK_MS, 1577664000000],
+        # 2020-01-02T00:00:00Z -> 2020-01-01T00:00:00Z
+        [1577923200000, time.MONTH_MS, 1577836800000],
+    ],
+)
+def test_floor_timestamp(timestamp: int, interval: int, expected_output: int) -> None:
+    assert time.floor_timestamp(timestamp, interval) == expected_output

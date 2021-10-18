@@ -20,14 +20,14 @@ from juno.asyncio import (
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.custodians import Custodian, Stub
-from juno.math import floor_multiple_offset, rpstdev, split
+from juno.math import rpstdev, split
 from juno.positioner import Positioner, SimulatedPositioner
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
-from juno.time import strftimestamp, time_ms
+from juno.time import floor_timestamp, strftimestamp, time_ms
 from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
 from juno.typing import Constructor
 
@@ -326,8 +326,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                 self._track_advice(state, symbol_state, candles_updated, trackers_ready[symbol])
             )
 
-        interval_offset = self._chandler.get_interval_offset(config.exchange, config.interval)
-        end = floor_multiple_offset(config.end, config.interval, interval_offset)
+        end = floor_timestamp(config.end, config.interval)
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
