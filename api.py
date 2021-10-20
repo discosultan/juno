@@ -49,8 +49,8 @@ async def candles(request: web.Request) -> web.Response:
     return web.json_response(type_to_raw(result), dumps=json.dumps)
 
 
-@routes.get("/candles_intervals")
-async def candles_intervals(request: web.Request) -> web.Response:
+@routes.get("/candle_intervals")
+async def candle_intervals(request: web.Request) -> web.Response:
     chandler: Chandler = request.app["chandler"]
 
     result = chandler.list_candle_intervals(
