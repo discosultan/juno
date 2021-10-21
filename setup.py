@@ -24,6 +24,10 @@ setup(
         "typing-inspect",
     ],
     extras_require={
+        "api": [
+            "aiohttp",
+            "aiohttp_cors",
+        ],
         "dev": [
             "black",
             "flake8",

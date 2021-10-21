@@ -2,6 +2,7 @@ import logging
 import os
 from typing import AsyncIterator
 
+import aiohttp_cors
 from aiohttp import web
 
 import juno.json as json
@@ -46,7 +47,11 @@ async def candles(request: web.Request) -> web.Response:
         fill_missing_with_last=query.get("fill_missing_with_last") == "true",
     )
 
-    return web.json_response(type_to_raw(result), dumps=json.dumps)
+    # return web.json_response(type_to_raw(result), dumps=json.dumps)
+    # TODO: Remove the candle closed attribute. Then we can remove the mapping below.
+    return web.json_response(
+        [[c.time, c.open, c.high, c.low, c.close, c.volume] for c in result], dumps=json.dumps
+    )
 
 
 @routes.get("/candle_intervals")
@@ -68,5 +73,18 @@ logging.basicConfig(
 app = web.Application()
 app.cleanup_ctx.append(juno)
 app.add_routes(routes)
+
+cors = aiohttp_cors.setup(
+    app,
+    defaults={
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    },
+)
+for route in app.router.routes():
+    cors.add(route)
 
 web.run_app(app, port=3030)
