@@ -86,7 +86,7 @@ def strfspan(start: int, end: int) -> str:
 
 
 def strftimestamp(timestamp: int) -> str:
-    return str(datetime_utcfromtimestamp_ms(timestamp))
+    return datetime_utcfromtimestamp_ms(timestamp).isoformat()
 
 
 def strptimestamp(timestamp: str) -> int:

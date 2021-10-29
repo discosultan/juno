@@ -43,11 +43,19 @@ def test_strpinterval(input_, expected_output) -> None:
 
 
 def test_strftimestamp():
-    assert time.strftimestamp(1546300800000) == "2019-01-01 00:00:00+00:00"
+    assert time.strftimestamp(1546300800000) == "2019-01-01T00:00:00+00:00"
 
 
-def test_strptimestamp() -> None:
-    assert time.strptimestamp("2019-01-01") == 1546300800000
+@pytest.mark.parametrize(
+    "input_,expected_output",
+    [
+        ["2019-01-01", 1546300800000],
+        ["2019-01-01T00:00:00Z", 1546300800000],
+        ["2019-01-01T00:00:00+00:00", 1546300800000],
+    ],
+)
+def test_strptimestamp(input_: str, expected_output: int) -> None:
+    assert time.strptimestamp(input_) == expected_output
 
 
 @pytest.mark.parametrize(

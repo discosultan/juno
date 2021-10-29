@@ -16,6 +16,7 @@ use_parentheses = true
 
 [tool.mypy]
 ignore_missing_imports = true
+exclude = ["build"]
 
 [tool.pytest.ini_options]
 log_cli = true

@@ -26,7 +26,7 @@ class Foo(NamedTuple):
 def test_config_to_type_type_to_config() -> None:
     input_: dict[str, Any] = {
         "name": "bar",
-        "timestamp": "2000-01-01 00:00:00+00:00",
+        "timestamp": "2000-01-01T00:00:00+00:00",
         "interval": "1h",
         "optional_interval": "2h",
         "missing_optional_interval": None,
