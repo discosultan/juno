@@ -143,7 +143,7 @@ async def _cancel(task: asyncio.Task) -> None:
     try:
         await task
     except asyncio.CancelledError:
-        qualname = task.get_coro().__qualname__
+        qualname = task.get_coro().__class__.__qualname__
         _log.info(f"{qualname} task cancelled")
 
 
@@ -153,7 +153,7 @@ def create_task_sigint_on_exception(coro: Coroutine) -> asyncio.Task:
     """
 
     def callback(task: asyncio.Task) -> None:
-        task_name = task.get_coro().__qualname__
+        task_name = task.get_coro().__class__.__qualname__
         if not task.cancelled() and (exc := task.exception()):
             msg = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
             _log.error(f"unhandled exception in {task_name} task ({msg})")

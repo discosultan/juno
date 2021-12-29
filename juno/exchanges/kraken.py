@@ -357,14 +357,13 @@ class Kraken(Exchange):
         if cost > 0:
             await limiter.acquire(cost)
 
-        kwargs = {
-            "method": method,
-            "url": _API_URL + url,
-            "headers": headers,
-        }
-        kwargs["params" if method == "GET" else "data"] = data
-
-        async with self._session.request(**kwargs) as res:
+        async with self._session.request(
+            method=method,
+            url=_API_URL + url,
+            headers=headers,
+            params=data if method == "GET" else None,
+            data=None if method == "GET" else data,
+        ) as res:
             result = await res.json()
             errors = result["error"]
             if len(errors) > 0:

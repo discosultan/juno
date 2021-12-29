@@ -80,6 +80,10 @@ class Candle(NamedTuple):
     def mean_hlc(self) -> Decimal:
         return (self.high + self.low + self.close) / 3
 
+    @property
+    def average(self) -> Decimal:
+        return (self.open + self.high + self.low + self.close) / 4
+
     def __repr__(self) -> str:
         return (
             f"{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, "
@@ -92,6 +96,15 @@ class Candle(NamedTuple):
         return {
             "time": "unique",
         }
+
+    @staticmethod
+    def heikin_ashi(previous: Candle, current: Candle) -> Candle:
+        return Candle(
+            open=previous.midpoint,
+            high=max(current.high, current.open, current.close),
+            low=min(current.low, current.open, current.close),
+            close=current.average,
+        )
 
 
 class Depth(ModuleType):
