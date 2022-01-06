@@ -30,7 +30,9 @@ class Slack(Plugin):
 
         channel_ids = slack_config.get("channel_id", {})
         if not isinstance(channel_ids, dict):
-            raise ValueError("Channel IDs should be a map")
+            raise ValueError(
+                f"Channel IDs should be a map but was a {type(channel_ids).__name__} instead"
+            )
 
         self._slack_client = AsyncWebClient(token=token)
         self._events = events

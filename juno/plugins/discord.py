@@ -5,9 +5,9 @@ import logging
 from functools import partial
 from typing import Any, Optional
 
-from discord import File
-from discord.ext import commands
 from more_itertools import sliced
+from nextcord import File
+from nextcord.ext.commands.bot import Bot, Context
 
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
@@ -31,7 +31,7 @@ class _TraderContext:
 
 
 # We use simulated position mixin to provide info for the `.status` command.
-class Discord(commands.Bot, Plugin):
+class Discord(Bot, Plugin):
     def __init__(
         self, chandler: Chandler, informant: Informant, events: Events, config: dict[str, Any]
     ) -> None:
@@ -46,7 +46,9 @@ class Discord(commands.Bot, Plugin):
 
         channel_ids = discord_config.get("channel_id", {})
         if not isinstance(channel_ids, dict):
-            raise ValueError("Channel IDs should be a map")
+            raise ValueError(
+                f"Channel IDs should be a map but was a {type(channel_ids).__name__} instead"
+            )
 
         self._chandler = chandler
         self._informant = informant
@@ -150,7 +152,7 @@ class Discord(commands.Bot, Plugin):
         async def on_message(message: str) -> None:
             await send_message(format_message("received message", message))
 
-        async def open_positions(ctx: commands.Context, value: str, short: bool) -> None:
+        async def open_positions(ctx: Context, value: str, short: bool) -> None:
             if ctx.channel.name != channel_name:
                 return
             assert trader_ctx
@@ -173,15 +175,15 @@ class Discord(commands.Bot, Plugin):
                 raise
 
         @self.command(help="Opens new long positions by specified comma-separated symbols")
-        async def open_long_positions(ctx: commands.Context, value: str) -> None:
+        async def open_long_positions(ctx: Context, value: str) -> None:
             await open_positions(ctx, value, False)
 
         @self.command(help="Opens new short positions by specified comma-separated symbols")
-        async def open_short_positions(ctx: commands.Context, value: str) -> None:
+        async def open_short_positions(ctx: Context, value: str) -> None:
             await open_positions(ctx, value, True)
 
         @self.command(help="Closes open positions by specified comma-separated symbols")
-        async def close_positions(ctx: commands.Context, value: str) -> None:
+        async def close_positions(ctx: Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
             assert trader_ctx
@@ -204,7 +206,7 @@ class Discord(commands.Bot, Plugin):
                 raise
 
         @self.command(help="Sets whether trader closes positions on exit")
-        async def close_on_exit(ctx: commands.Context, value: str) -> None:
+        async def close_on_exit(ctx: Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
             if value not in ["true", "false"]:
@@ -224,7 +226,7 @@ class Discord(commands.Bot, Plugin):
             await send_message(msg)
 
         @self.command(help="Sets whether trader opens new positions")
-        async def open_new_positions(ctx: commands.Context, value: str) -> None:
+        async def open_new_positions(ctx: Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
             if value not in ["true", "false"]:
@@ -244,7 +246,7 @@ class Discord(commands.Bot, Plugin):
             await send_message(msg)
 
         @self.command(help="Gets trading summary if all open positions were closed right now")
-        async def status(ctx: commands.Context) -> None:
+        async def status(ctx: Context) -> None:
             if ctx.channel.name != channel_name:
                 return
             assert trader_ctx

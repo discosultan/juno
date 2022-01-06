@@ -47,7 +47,7 @@ setup(
             "types-pyyaml",
         ],
         "discord": [
-            "discord.py",
+            "nextcord",
         ],
         "plotly": [
             "plotly",
