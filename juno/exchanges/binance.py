@@ -1443,6 +1443,7 @@ _KNOWN_QUOTE_ASSETS = [
     "USDP",
     "USDS",
     "USDT",
+    "UST",
     "VAI",
     "XRP",
     "ZAR",
