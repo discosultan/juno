@@ -99,10 +99,12 @@ class Candle(NamedTuple):
     @staticmethod
     def heikin_ashi(previous: Candle, current: Candle) -> Candle:
         return Candle(
+            time=current.time,
             open=previous.midpoint,
             high=max(current.high, current.open, current.close),
             low=min(current.low, current.open, current.close),
             close=current.average,
+            volume=current.volume,
         )
 
 

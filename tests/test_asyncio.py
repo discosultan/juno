@@ -14,6 +14,7 @@ from juno.asyncio import (
     list_async,
     map_async,
     merge_async,
+    pairwise_async,
     repeat_async,
     resolved_stream,
     zip_async,
@@ -137,6 +138,24 @@ async def test_map_async() -> None:
     expected_values = [2, 4]
     async for x in map_async(lambda x: x * 2, gen()):
         assert x == expected_values.pop(0)
+
+
+@pytest.mark.parametrize(
+    "input_,expected_output",
+    [
+        ([], []),
+        ([1], []),
+        ([1, 2], [(1, 2)]),
+        ([1, 2, 3], [(1, 2), (2, 3)]),
+    ],
+)
+async def test_pairwise_async(input_: list[int], expected_output: list[tuple[int, int]]) -> None:
+    async def gen():
+        for val in input_:
+            yield val
+
+    async for x in pairwise_async(gen()):
+        assert x == expected_output.pop(0)
 
 
 async def test_barrier() -> None:

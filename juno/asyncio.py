@@ -123,6 +123,16 @@ async def map_async(func: Callable[[T], U], async_iter: AsyncIterable[T]) -> Asy
         yield func(item)
 
 
+async def pairwise_async(async_iter: AsyncIterable[T]) -> AsyncIterable[tuple[T, T]]:
+    has_previous = False
+    previous = None
+    async for current in async_iter:
+        if has_previous:
+            yield (previous, current)  # type: ignore
+        has_previous = True
+        previous = current
+
+
 async def gather_dict(tasks: dict):
     async def mark(key, coro):
         return key, await coro
