@@ -674,13 +674,12 @@ class Binance(Exchange):
                 # interval. For example, the second candle of the following query has bad time:
                 # https://api.binance.com/api/v3/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
                 yield Candle(
-                    c[0],
-                    Decimal(c[1]),
-                    Decimal(c[2]),
-                    Decimal(c[3]),
-                    Decimal(c[4]),
-                    Decimal(c[5]),
-                    True,
+                    time=c[0],
+                    open=Decimal(c[1]),
+                    high=Decimal(c[2]),
+                    low=Decimal(c[3]),
+                    close=Decimal(c[4]),
+                    volume=Decimal(c[5]),
                 )
 
     @asynccontextmanager
@@ -695,15 +694,15 @@ class Binance(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for data in ws:
                 c = data["k"]
-                yield Candle(
-                    c["t"],
-                    Decimal(c["o"]),
-                    Decimal(c["h"]),
-                    Decimal(c["l"]),
-                    Decimal(c["c"]),
-                    Decimal(c["v"]),
-                    c["x"],
-                )
+                if c["x"]:  # Closed.
+                    yield Candle(
+                        time=c["t"],
+                        open=Decimal(c["o"]),
+                        high=Decimal(c["h"]),
+                        low=Decimal(c["l"]),
+                        close=Decimal(c["c"]),
+                        volume=Decimal(c["v"]),
+                    )
 
         async with self._connect_refreshing_stream(
             url=f"/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}",

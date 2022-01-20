@@ -191,13 +191,12 @@ class Coinbase(Exchange):
                 if None in c:
                     raise Exception(f"missing data for candle {c}; please re-run the command")
                 yield Candle(
-                    c[0] * 1000,
-                    Decimal(c[3]),
-                    Decimal(c[2]),
-                    Decimal(c[1]),
-                    Decimal(c[4]),
-                    Decimal(c[5]),
-                    True,
+                    time=c[0] * 1000,
+                    open=Decimal(c[3]),
+                    high=Decimal(c[2]),
+                    low=Decimal(c[1]),
+                    close=Decimal(c[4]),
+                    volume=Decimal(c[5]),
                 )
 
     @asynccontextmanager

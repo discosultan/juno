@@ -179,7 +179,6 @@ class Kraken(Exchange):
                     low=Decimal(c[4]),
                     close=Decimal(c[5]),
                     volume=Decimal(c[7]),
-                    closed=True,
                 )
 
         async with self._public_ws.subscribe(

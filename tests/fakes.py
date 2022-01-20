@@ -180,7 +180,6 @@ class Chandler(components.Chandler):
         interval,
         start,
         end,
-        closed=True,
         fill_missing_with_last=False,
         simulate_open_from_interval=None,
         exchange_timeout=None,
@@ -201,10 +200,8 @@ class Chandler(components.Chandler):
                                 low=last_c.low,
                                 close=last_c.close,
                                 volume=last_c.volume,
-                                closed=True,
                             )
-                if not closed or c.closed:
-                    yield c
+                yield c
                 last_c = c
 
         if future_candles := self.future_candle_queues.get((exchange, symbol, interval)):

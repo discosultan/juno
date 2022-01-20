@@ -11,7 +11,6 @@ from juno.exchanges import Exchange
 from juno.time import MIN_MS, floor_timestamp, strftimestamp, strpinterval, strptimestamp, time_ms
 from juno.utils import get_module_type
 
-CLOSED = True
 FILL_MISSING_WITH_LAST = False
 DUMP_AS_JSON = False
 LOG_CANDLES = False
@@ -63,12 +62,10 @@ async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None
             interval,
             start,
             end,
-            closed=CLOSED,
             fill_missing_with_last=FILL_MISSING_WITH_LAST,
         )
     ):
         assert not FILL_MISSING_WITH_LAST or candle.time == start + i * interval
-        assert not CLOSED or candle.closed
 
         if DUMP_AS_JSON:
             candles.append(candle)

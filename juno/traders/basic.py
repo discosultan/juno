@@ -271,7 +271,6 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                                 low=last_candle.close,
                                 close=last_candle.close,
                                 volume=Decimal("0.0"),
-                                closed=True,
                             )
                             await self._tick(state, missed_candle)
 
