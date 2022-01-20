@@ -47,11 +47,7 @@ async def candles(request: web.Request) -> web.Response:
         fill_missing_with_last=query.get("fill_missing_with_last") == "true",
     )
 
-    # return web.json_response(type_to_raw(result), dumps=json.dumps)
-    # TODO: Remove the candle closed attribute. Then we can remove the mapping below.
-    return web.json_response(
-        [[c.time, c.open, c.high, c.low, c.close, c.volume] for c in result], dumps=json.dumps
-    )
+    return web.json_response(type_to_raw(result), dumps=json.dumps)
 
 
 @routes.get("/candle_intervals")
