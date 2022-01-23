@@ -6,9 +6,9 @@ from decimal import Decimal
 from typing import Any, NamedTuple, Optional, Union
 
 import pytest
+from asyncstdlib import list as list_async
 
 from juno import Candle, ExchangeInfo, Fees, Fill, Filters, Ticker, Trade, storages
-from juno.asyncio import list_async
 from juno.trading import CloseReason, Position, TradingSummary
 from juno.typing import types_match
 
@@ -16,7 +16,7 @@ DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal("0.1234567890123456789012345678901234567
 
 
 @pytest.fixture
-async def memory(loop):
+async def memory():
     async with storages.Memory() as storage:
         yield storage
 

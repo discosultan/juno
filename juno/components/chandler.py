@@ -4,14 +4,15 @@ import asyncio
 import itertools
 import logging
 import sys
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, aclosing
 from decimal import Decimal
-from typing import AsyncIterable, Callable, Iterable, Optional
+from typing import AsyncGenerator, AsyncIterable, Callable, Iterable, Optional
 
+from asyncstdlib import list as list_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
-from juno.asyncio import first_async, list_async, stream_with_timeout
+from juno.asyncio import aclose, first_async, stream_with_timeout
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
@@ -83,9 +84,9 @@ class Chandler(AbstractAsyncContextManager):
         symbol: str,
         interval: int,
         start: int,
-        end: int,
-        fill_missing_with_last: bool,
-        exchange_timeout: Optional[float],
+        end: int = MAX_TIME_MS,
+        fill_missing_with_last: bool = False,
+        exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
@@ -132,37 +133,43 @@ class Chandler(AbstractAsyncContextManager):
                     end=span_end,
                     exchange_timeout=exchange_timeout,
                 )
-            async for candle in stream:
-                if not last_candle and (num_missed := (candle.time - start) // interval) > 0:
-                    _log.warning(
-                        f"missed {num_missed} {candle_msg} from the start "
-                        f"{strftimestamp(start)}; current candle {candle}"
-                    )
+            try:
+                async for candle in stream:
+                    if not last_candle and (num_missed := (candle.time - start) // interval) > 0:
+                        _log.warning(
+                            f"missed {num_missed} {candle_msg} from the start "
+                            f"{strftimestamp(start)}; current candle {candle}"
+                        )
 
-                if last_candle and (time_diff := candle.time - last_candle.time) >= interval * 2:
-                    num_missed = time_diff // interval - 1
-                    _log.warning(
-                        f"missed {num_missed} {candle_msg}; last closed candle "
-                        f"{last_candle}; current candle {candle}"
-                    )
-                    if fill_missing_with_last:
-                        _log.info(f"filling {num_missed} missed {candle_msg} with last values")
-                        for i in range(1, num_missed + 1):
-                            yield Candle(
-                                time=last_candle.time + i * interval,
-                                # open=last_closed_candle.open,
-                                # high=last_closed_candle.high,
-                                # low=last_closed_candle.low,
-                                # close=last_closed_candle.close,
-                                # volume=last_closed_candle.volume,
-                                open=last_candle.close,
-                                high=last_candle.close,
-                                low=last_candle.close,
-                                close=last_candle.close,
-                                volume=Decimal("0.0"),
-                            )
-                yield candle
-                last_candle = candle
+                    if (
+                        last_candle
+                        and (time_diff := candle.time - last_candle.time) >= interval * 2
+                    ):
+                        num_missed = time_diff // interval - 1
+                        _log.warning(
+                            f"missed {num_missed} {candle_msg}; last closed candle "
+                            f"{last_candle}; current candle {candle}"
+                        )
+                        if fill_missing_with_last:
+                            _log.info(f"filling {num_missed} missed {candle_msg} with last values")
+                            for i in range(1, num_missed + 1):
+                                yield Candle(
+                                    time=last_candle.time + i * interval,
+                                    # open=last_closed_candle.open,
+                                    # high=last_closed_candle.high,
+                                    # low=last_closed_candle.low,
+                                    # close=last_closed_candle.close,
+                                    # volume=last_closed_candle.volume,
+                                    open=last_candle.close,
+                                    high=last_candle.close,
+                                    low=last_candle.close,
+                                    close=last_candle.close,
+                                    volume=Decimal("0.0"),
+                                )
+                    yield candle
+                    last_candle = candle
+            finally:
+                await aclose(stream)
 
         if last_candle and (time_diff := end - last_candle.time) >= interval * 2:
             num_missed = time_diff // interval - 1
@@ -181,7 +188,7 @@ class Chandler(AbstractAsyncContextManager):
         start: int,
         end: int,
         exchange_timeout: Optional[float],
-    ) -> AsyncIterable[Candle]:
+    ) -> AsyncGenerator[Candle, None]:
         shard = key(exchange, symbol, interval)
         # Note that we need to use a context manager based retrying because retry decorators do not
         # work with async generator functions.
@@ -201,30 +208,33 @@ class Chandler(AbstractAsyncContextManager):
                 current = floor_timestamp(self._get_time_ms(), interval)
 
                 try:
-                    async for candle in self._stream_exchange_candles(
-                        exchange=exchange,
-                        symbol=symbol,
-                        interval=interval,
-                        start=start,
-                        end=end,
-                        current=current,
-                        timeout=exchange_timeout,
-                    ):
-                        batch.append(candle)
-                        if len(batch) == self._storage_batch_size:
-                            del swap_batch[:]
-                            batch_start = start
-                            batch_end = batch[-1].time + interval
-                            start = batch_end
-                            swap_batch, batch = batch, swap_batch
-                            await self._storage.store_time_series_and_span(
-                                shard=shard,
-                                key=CANDLE_KEY,
-                                items=swap_batch,
-                                start=batch_start,
-                                end=batch_end,
-                            )
-                        yield candle
+                    async with aclosing(
+                        self._stream_exchange_candles(
+                            exchange=exchange,
+                            symbol=symbol,
+                            interval=interval,
+                            start=start,
+                            end=end,
+                            current=current,
+                            timeout=exchange_timeout,
+                        )
+                    ) as stream:
+                        async for candle in stream:
+                            batch.append(candle)
+                            if len(batch) == self._storage_batch_size:
+                                del swap_batch[:]
+                                batch_start = start
+                                batch_end = batch[-1].time + interval
+                                start = batch_end
+                                swap_batch, batch = batch, swap_batch
+                                await self._storage.store_time_series_and_span(
+                                    shard=shard,
+                                    key=CANDLE_KEY,
+                                    items=swap_batch,
+                                    start=batch_start,
+                                    end=batch_end,
+                                )
+                            yield candle
                 except (asyncio.CancelledError, ExchangeException):
                     if len(batch) > 0:
                         batch_start = start
@@ -257,7 +267,7 @@ class Chandler(AbstractAsyncContextManager):
         end: int,
         current: int,
         timeout: Optional[float],
-    ) -> AsyncIterable[Candle]:
+    ) -> AsyncGenerator[Candle, None]:
         exchange_instance = self._exchanges[exchange]
         intervals = exchange_instance.list_candle_intervals()
         is_candle_interval_supported = interval in intervals
@@ -269,30 +279,36 @@ class Chandler(AbstractAsyncContextManager):
                     exchange_instance.can_stream_historical_candles
                     and is_candle_interval_supported
                 ):
-                    async for candle in exchange_instance.stream_historical_candles(
+                    historical_stream = exchange_instance.stream_historical_candles(
                         symbol, interval, start, historical_end
-                    ):
-                        yield candle
+                    )
                 else:
-                    async for candle in self._stream_construct_candles(
+                    historical_stream = self._stream_construct_candles(
                         exchange, symbol, interval, start, historical_end
-                    ):
+                    )
+                try:
+                    async for candle in historical_stream:
                         yield candle
+                finally:
+                    await aclose(historical_stream)
             if stream:  # Future.
-                async for candle in stream:
-                    # If we start the websocket connection while candle is closing, we can also
-                    # receive the same candle from here that we already got from historical.
-                    # Ignore such candles.
-                    if candle.time < current:
-                        continue
+                try:
+                    async for candle in stream:
+                        # If we start the websocket connection while candle is closing, we can also
+                        # receive the same candle from here that we already got from historical.
+                        # Ignore such candles.
+                        if candle.time < current:
+                            continue
 
-                    if candle.time >= end:
-                        break
+                        if candle.time >= end:
+                            break
 
-                    yield candle
+                        yield candle
 
-                    if candle.time == end - interval:
-                        break
+                        if candle.time == end - interval:
+                            break
+                finally:
+                    await aclose(stream)
 
         async with AsyncExitStack() as stack:
             stream = None
@@ -307,43 +323,47 @@ class Chandler(AbstractAsyncContextManager):
                     )
 
             last_candle_time = -1
-            async for candle in stream_with_timeout(
+            outer_stream = stream_with_timeout(
                 inner(stream),
                 None if timeout is None else timeout / 1000,
-            ):
-                if interval < WEEK_MS and (candle.time % interval) != 0:
-                    adjusted_time = floor_timestamp(candle.time, interval)
-                    _log.warning(
-                        f"candle with bad time {candle} for interval {strfinterval(interval)}; "
-                        f"trying to adjust back in time to {strftimestamp(adjusted_time)} or skip "
-                        "if volume zero"
-                    )
-                    if last_candle_time == adjusted_time:
-                        if candle.volume > 0:
-                            raise RuntimeError(
-                                f"Received {symbol} {strfinterval(interval)} candle {candle} with "
-                                "a time that does not fall into the interval. Cannot adjust back "
-                                "in time because time coincides with last candle time "
-                                f"{strftimestamp(last_candle_time)}. Cannot skip because volume "
-                                "not zero"
-                            )
-                        else:
-                            continue
-                    candle = Candle(
-                        time=adjusted_time,
-                        open=candle.open,
-                        high=candle.high,
-                        low=candle.low,
-                        close=candle.close,
-                        volume=candle.volume,
-                    )
+            )
+            try:
+                async for candle in outer_stream:
+                    if interval < WEEK_MS and (candle.time % interval) != 0:
+                        adjusted_time = floor_timestamp(candle.time, interval)
+                        _log.warning(
+                            f"candle with bad time {candle} for interval "
+                            f"{strfinterval(interval)}; trying to adjust back in time to "
+                            f"{strftimestamp(adjusted_time)} or skip if volume zero"
+                        )
+                        if last_candle_time == adjusted_time:
+                            if candle.volume > 0:
+                                raise RuntimeError(
+                                    f"Received {symbol} {strfinterval(interval)} candle {candle} "
+                                    "with a time that does not fall into the interval. Cannot "
+                                    "adjust back in time because time coincides with last candle "
+                                    f"time {strftimestamp(last_candle_time)}. Cannot skip because "
+                                    "volume not zero"
+                                )
+                            else:
+                                continue
+                        candle = Candle(
+                            time=adjusted_time,
+                            open=candle.open,
+                            high=candle.high,
+                            low=candle.low,
+                            close=candle.close,
+                            volume=candle.volume,
+                        )
 
-                yield candle
-                last_candle_time = candle.time
+                    yield candle
+                    last_candle_time = candle.time
+            finally:
+                await aclose(outer_stream)
 
     async def _stream_construct_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
+    ) -> AsyncGenerator[Candle, None]:
         if not self._trades:
             raise ValueError("Trades component not configured. Unable to construct candles")
 
@@ -397,7 +417,7 @@ class Chandler(AbstractAsyncContextManager):
 
     async def _stream_construct_candles_by_volume(
         self, exchange: str, symbol: str, volume: Decimal, start: int, end: int
-    ) -> AsyncIterable[Candle]:
+    ) -> AsyncGenerator[Candle, None]:
         if not self._trades:
             raise ValueError("Trades component not configured. Unable to construct candles")
 

@@ -2,7 +2,8 @@ import asyncio
 from decimal import Decimal
 from typing import Iterable, Optional
 
-from juno.asyncio import enumerate_async
+from asyncstdlib import enumerate as enumerate_async
+
 from juno.components import Chandler
 from juno.math import floor_multiple
 from juno.time import DAY_MS, strftimestamp

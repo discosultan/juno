@@ -5,10 +5,10 @@ import logging
 from collections import deque
 from typing import AsyncIterable, Callable, Optional
 
+from asyncstdlib import list as list_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import ExchangeException, Trade
-from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage

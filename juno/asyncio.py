@@ -1,5 +1,4 @@
 import asyncio
-import itertools
 import logging
 import os
 import signal
@@ -7,6 +6,7 @@ import traceback
 from dataclasses import dataclass, field
 from typing import (
     Any,
+    AsyncGenerator,
     AsyncIterable,
     AsyncIterator,
     Awaitable,
@@ -39,49 +39,12 @@ async def resolved_stream(*results: T) -> AsyncIterable[T]:
 async def stream_with_timeout(
     async_iter: AsyncIterable[T], timeout: Optional[float]
 ) -> AsyncIterable[T]:
-    iterator = async_iter.__aiter__()
+    iterator = aiter(async_iter)
     try:
         while True:
-            yield await asyncio.wait_for(iterator.__anext__(), timeout=timeout)
+            yield await asyncio.wait_for(anext(iterator), timeout=timeout)
     except StopAsyncIteration:
         pass
-
-
-async def repeat_async(value: T) -> AsyncIterable[T]:
-    for val in itertools.repeat(value):
-        yield val
-
-
-async def chain_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
-    for async_iter in async_iters:
-        async for val in async_iter:
-            yield val
-
-
-async def zip_async(
-    async_iter1: AsyncIterable[T], async_iter2: AsyncIterable[U]
-) -> AsyncIterable[tuple[T, U]]:
-    iter1 = async_iter1.__aiter__()
-    iter2 = async_iter2.__aiter__()
-    while True:
-        try:
-            yield await asyncio.gather(iter1.__anext__(), iter2.__anext__())
-        except StopAsyncIteration:
-            break
-
-
-async def enumerate_async(
-    iterable: AsyncIterable[T], start: int = 0, step: int = 1
-) -> AsyncIterable[tuple[int, T]]:
-    i = start
-    async for item in iterable:
-        yield i, item
-        i += step
-
-
-async def list_async(async_iter: AsyncIterable[T]) -> list[T]:
-    """Async equivalent to `list(iter)`."""
-    return [item async for item in async_iter]
 
 
 async def dict_async(async_iter: AsyncIterable[tuple[T, U]]) -> dict[T, U]:
@@ -90,6 +53,7 @@ async def dict_async(async_iter: AsyncIterable[tuple[T, U]]) -> dict[T, U]:
 
 async def first_async(async_iter: AsyncIterable[T]) -> T:
     async for item in async_iter:
+        await aclose(async_iter)
         return item
     raise ValueError("First not found. No elements in sequence")
 
@@ -121,16 +85,6 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
 async def map_async(func: Callable[[T], U], async_iter: AsyncIterable[T]) -> AsyncIterable[U]:
     async for item in async_iter:
         yield func(item)
-
-
-async def pairwise_async(async_iter: AsyncIterable[T]) -> AsyncIterable[tuple[T, T]]:
-    has_previous = False
-    previous = None
-    async for current in async_iter:
-        if has_previous:
-            yield (previous, current)  # type: ignore
-        has_previous = True
-        previous = current
 
 
 async def gather_dict(tasks: dict):
@@ -344,3 +298,8 @@ class Event(Generic[T]):
 
     def is_set(self) -> bool:
         return self._event.is_set()
+
+
+async def aclose(async_iterable: Any) -> None:
+    if isinstance(async_iterable, AsyncGenerator):
+        await async_iterable.aclose()

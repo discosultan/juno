@@ -2,10 +2,11 @@ import asyncio
 from decimal import Decimal
 
 import pytest
+from asyncstdlib import list as list_async
 from pytest_mock import MockerFixture
 
 from juno import Candle, ExchangeException, Trade
-from juno.asyncio import cancel, list_async, resolved_stream
+from juno.asyncio import cancel, resolved_stream
 from juno.components import Chandler
 from juno.exchanges import Exchange
 from juno.storages import Storage

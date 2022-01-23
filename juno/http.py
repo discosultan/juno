@@ -16,12 +16,13 @@ from typing import (
 )
 
 import aiohttp
+from asyncstdlib import chain as chain_async
 from multidict import CIMultiDictProxy
 
 import juno.json as json
 from juno.utils import generate_random_words
 
-from .asyncio import cancel, chain_async, resolved_stream
+from .asyncio import cancel, resolved_stream
 from .typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)

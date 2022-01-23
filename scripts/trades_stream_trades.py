@@ -1,8 +1,9 @@
 import asyncio
 import logging
 
+from asyncstdlib import enumerate as enumerate_async
+
 from juno import storages
-from juno.asyncio import enumerate_async
 from juno.components import Trades
 from juno.exchanges import Exchange
 from juno.time import strptimestamp

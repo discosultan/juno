@@ -2,9 +2,10 @@ import asyncio
 from decimal import Decimal
 
 import pytest
+from asyncstdlib import list as list_async
 
 from juno import Trade
-from juno.asyncio import cancel, list_async
+from juno.asyncio import cancel
 from juno.components import Trades
 from juno.storages import Storage
 from juno.utils import key

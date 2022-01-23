@@ -8,16 +8,11 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Optional
 
+from asyncstdlib import chain as chain_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import Depth, ExchangeException, Fill, Filters, Side
-from juno.asyncio import (
-    Event,
-    cancel,
-    chain_async,
-    create_task_sigint_on_exception,
-    resolved_stream,
-)
+from juno.asyncio import Event, cancel, create_task_sigint_on_exception, resolved_stream
 from juno.exchanges import Exchange
 from juno.math import round_half_up
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential

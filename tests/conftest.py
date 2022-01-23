@@ -11,6 +11,6 @@ def config():
 
 
 @pytest.fixture
-async def storage(loop):
+async def storage():
     async with fakes.Storage() as storage:
         yield storage

@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator, Optional, TypedDict
 
 import aiohttp
-from multidict import MultiDict
+from multidict import MultiDict, istr
 from tenacity import (
     before_sleep_log,
     retry,
@@ -1078,7 +1078,7 @@ class Binance(Exchange):
             elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
                 raise BadOrder(error_msg)
             elif error_code == _ERR_TOO_MANY_REQUESTS:
-                if retry_after := response.headers.get("Retry-After"):
+                if retry_after := response.headers.get(istr("Retry-After")):
                     _log.info(f"server provided retry-after {retry_after}; sleeping")
                     await asyncio.sleep(float(retry_after))
                 raise ExchangeException(error_msg)

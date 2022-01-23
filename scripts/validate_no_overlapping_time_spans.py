@@ -2,7 +2,8 @@ import asyncio
 import itertools
 import logging
 
-from juno.asyncio import list_async
+from asyncstdlib import list as list_async
+
 from juno.math import spans_overlap
 from juno.storages import SQLite
 from juno.time import strfspan

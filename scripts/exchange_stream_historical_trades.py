@@ -1,8 +1,9 @@
 import asyncio
 import logging
 
+from asyncstdlib import enumerate as enumerate_async
+
 from juno import time
-from juno.asyncio import enumerate_async
 from juno.exchanges import Exchange
 
 # EXCHANGE = 'kraken'

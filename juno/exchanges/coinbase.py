@@ -14,6 +14,7 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optio
 
 import aiohttp
 from dateutil.tz import UTC
+from multidict import istr
 
 from juno import (
     AssetInfo,
@@ -408,7 +409,7 @@ class Coinbase(Exchange):
             response = await self._public_request(method=method, url=url, data=data)
             await ExchangeException.raise_for_status(response)
             yield await response.json()
-            page_after = response.headers.get("CB-AFTER")
+            page_after = response.headers.get(istr("CB-AFTER"))
             if page_after is None:
                 break
 

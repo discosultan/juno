@@ -1,61 +1,18 @@
 import asyncio
 
 import pytest
+from asyncstdlib.itertools import pairwise as pairwise_async
 
 from juno.asyncio import (
     Barrier,
     Event,
     SlotBarrier,
     cancel,
-    chain_async,
     dict_async,
-    enumerate_async,
     first_async,
-    list_async,
     map_async,
     merge_async,
-    pairwise_async,
-    repeat_async,
-    resolved_stream,
-    zip_async,
 )
-
-
-async def test_chain_async() -> None:
-    async def gen():
-        yield 1
-        yield 2
-
-    expected_output = [0, 1, 2]
-
-    target = chain_async(resolved_stream(0), gen())
-
-    async for result in target:
-        assert result == expected_output.pop(0)
-
-
-async def test_enumerate_async() -> None:
-    async def gen():
-        yield "a"
-        yield "b"
-
-    expected_output = [
-        (1, "a"),
-        (2, "b"),
-    ]
-
-    target = enumerate_async(gen(), start=1)
-
-    async for result in target:
-        assert result == expected_output.pop(0)
-
-
-async def test_list_async() -> None:
-    async def gen():
-        for i in range(3):
-            yield i
-
-    assert await list_async(gen()) == [0, 1, 2]
 
 
 async def test_dict_async() -> None:
@@ -101,32 +58,6 @@ async def test_merge_async() -> None:
     async for val in merge_async(gen1(), gen2()):
         assert val == counter
         counter += 1
-    assert counter == 4
-
-
-async def test_repeat_async() -> None:
-    counter = 0
-    async for value in repeat_async(1):
-        assert value == 1
-        counter += 1
-        if counter == 3:
-            break
-
-
-async def test_zip_async() -> None:
-    async def gen1():
-        yield 0
-        yield 2
-
-    async def gen2():
-        yield 1
-        yield 3
-
-    counter = 0
-    async for a, b in zip_async(gen1(), gen2()):
-        assert a == counter
-        assert b == counter + 1
-        counter += 2
     assert counter == 4
 
 
