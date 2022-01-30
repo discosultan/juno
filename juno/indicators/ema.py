@@ -46,7 +46,7 @@ class Ema:
         if self._adjust:
             self._prices.append(price)
             numerator = sum(
-                (self._a_inv ** i * p for i, p in enumerate(reversed(self._prices))),
+                (self._a_inv**i * p for i, p in enumerate(reversed(self._prices))),
                 Decimal("0.0"),
             )
             # self._denominator = sum(

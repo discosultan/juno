@@ -108,7 +108,7 @@ def _assert(indicator, data, precision: int) -> None:
         if i >= offset:
             assert indicator.mature
             for j in range(0, len(outputs)):
-                assert pytest.approx(outputs[j], abs=10 ** -precision) == Decimal(
+                assert pytest.approx(outputs[j], abs=10**-precision) == Decimal(
                     expected_outputs[j][i - offset]
                 )
         else:
