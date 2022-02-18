@@ -1426,6 +1426,7 @@ _KNOWN_QUOTE_ASSETS = [
     "BVND",
     "DAI",
     "DOGE",
+    "DOT",
     "ETH",
     "EUR",
     "GBP",
