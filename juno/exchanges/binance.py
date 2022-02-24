@@ -48,7 +48,7 @@ from juno import (
     json,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
-from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
+from juno.filters import Filters, MinNotional, PercentPrice, PercentPriceBySide, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page, page_limit
 from juno.time import (
@@ -268,6 +268,8 @@ class Binance(Exchange):
                     price = f
                 elif t == "PERCENT_PRICE":
                     percent_price = f
+                elif t == "PERCENT_PRICE_BY_SIDE":
+                    percent_price_by_side = f
                 elif t == "LOT_SIZE":
                     lot_size = f
                 elif t == "MIN_NOTIONAL":
@@ -285,6 +287,13 @@ class Binance(Exchange):
                     multiplier_up=Decimal(percent_price["multiplierUp"]),
                     multiplier_down=Decimal(percent_price["multiplierDown"]),
                     avg_price_period=percent_price["avgPriceMins"] * MIN_MS,
+                ),
+                percent_price_by_side=PercentPriceBySide(
+                    bid_multiplier_up=Decimal(percent_price_by_side["bidMultiplierUp"]),
+                    bid_multiplier_down=Decimal(percent_price_by_side["bidMultiplierDown"]),
+                    ask_multiplier_up=Decimal(percent_price_by_side["askMultiplierUp"]),
+                    ask_multiplier_down=Decimal(percent_price_by_side["askMultiplierDown"]),
+                    avg_price_period=percent_price_by_side["avgPriceMins"] * MIN_MS,
                 ),
                 size=Size(
                     min=Decimal(lot_size["minQty"]),

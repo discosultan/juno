@@ -29,7 +29,7 @@ class Price:
         return (
             price >= self.min
             and (not self.max or price <= self.max)
-            and (not self.step or (price - self.min) % self.step == 0)
+            and (not self.step or price % self.step == 0)
         )
 
 
@@ -43,6 +43,27 @@ class PercentPrice:
         return (
             price <= weighted_average_price * self.multiplier_up
             and price >= weighted_average_price * self.multiplier_down
+        )
+
+
+@dataclass
+class PercentPriceBySide:
+    bid_multiplier_up: Decimal = Decimal("Inf")
+    bid_multiplier_down: Decimal = Decimal("0.0")
+    ask_multiplier_up: Decimal = Decimal("Inf")
+    ask_multiplier_down: Decimal = Decimal("0.0")
+    avg_price_period: int = 0  # 0 means the last price is used.
+
+    def valid_bid(self, price: Decimal, weighted_average_price: Decimal) -> bool:
+        return (
+            price <= weighted_average_price * self.bid_multiplier_up
+            and price >= weighted_average_price * self.bid_multiplier_down
+        )
+
+    def valid_ask(self, price: Decimal, weighted_average_price: Decimal) -> bool:
+        return (
+            price <= weighted_average_price * self.ask_multiplier_up
+            and price >= weighted_average_price * self.ask_multiplier_down
         )
 
 
@@ -112,6 +133,7 @@ class MinNotional:
 class Filters:
     price: Price = field(default_factory=Price)
     percent_price: PercentPrice = field(default_factory=PercentPrice)
+    percent_price_by_side: PercentPriceBySide = field(default_factory=PercentPriceBySide)
     size: Size = field(default_factory=Size)
     min_notional: MinNotional = field(default_factory=MinNotional)
 
