@@ -262,49 +262,56 @@ class Binance(Exchange):
         isolated_pairs_set = set(isolated_pairs)
         filters = {}
         for symbol_info in filters_res["symbols"]:
+            price = None
+            percent_price = None
+            percent_price_by_side = None
+            lot_size = None
+            min_notional = None
             for f in symbol_info["filters"]:
                 t = f["filterType"]
                 if t == "PRICE_FILTER":
-                    price = f
+                    price = Price(
+                        min=Decimal(f["minPrice"]),
+                        max=Decimal(f["maxPrice"]),
+                        step=Decimal(f["tickSize"]),
+                    )
                 elif t == "PERCENT_PRICE":
-                    percent_price = f
+                    percent_price = PercentPrice(
+                        multiplier_up=Decimal(f["multiplierUp"]),
+                        multiplier_down=Decimal(f["multiplierDown"]),
+                        avg_price_period=f["avgPriceMins"] * MIN_MS,
+                    )
                 elif t == "PERCENT_PRICE_BY_SIDE":
-                    percent_price_by_side = f
+                    percent_price_by_side = PercentPriceBySide(
+                        bid_multiplier_up=Decimal(f["bidMultiplierUp"]),
+                        bid_multiplier_down=Decimal(f["bidMultiplierDown"]),
+                        ask_multiplier_up=Decimal(f["askMultiplierUp"]),
+                        ask_multiplier_down=Decimal(f["askMultiplierDown"]),
+                        avg_price_period=f["avgPriceMins"] * MIN_MS,
+                    )
                 elif t == "LOT_SIZE":
-                    lot_size = f
+                    lot_size = Size(
+                        min=Decimal(f["minQty"]),
+                        max=Decimal(f["maxQty"]),
+                        step=Decimal(f["stepSize"]),
+                    )
                 elif t == "MIN_NOTIONAL":
-                    min_notional = f
+                    min_notional = MinNotional(
+                        min_notional=Decimal(f["minNotional"]),
+                        apply_to_market=f["applyToMarket"],
+                        avg_price_period=f["avgPriceMins"] * MIN_MS,
+                    )
+            # TODO: Looks like `percent_price_by_side` is not available yet. Update the assertion
+            # once that has changed.
             assert all((price, percent_price, lot_size, min_notional))
 
             symbol = f"{symbol_info['baseAsset'].lower()}-{symbol_info['quoteAsset'].lower()}"
             filters[symbol] = Filters(
-                price=Price(
-                    min=Decimal(price["minPrice"]),
-                    max=Decimal(price["maxPrice"]),
-                    step=Decimal(price["tickSize"]),
-                ),
-                percent_price=PercentPrice(
-                    multiplier_up=Decimal(percent_price["multiplierUp"]),
-                    multiplier_down=Decimal(percent_price["multiplierDown"]),
-                    avg_price_period=percent_price["avgPriceMins"] * MIN_MS,
-                ),
-                percent_price_by_side=PercentPriceBySide(
-                    bid_multiplier_up=Decimal(percent_price_by_side["bidMultiplierUp"]),
-                    bid_multiplier_down=Decimal(percent_price_by_side["bidMultiplierDown"]),
-                    ask_multiplier_up=Decimal(percent_price_by_side["askMultiplierUp"]),
-                    ask_multiplier_down=Decimal(percent_price_by_side["askMultiplierDown"]),
-                    avg_price_period=percent_price_by_side["avgPriceMins"] * MIN_MS,
-                ),
-                size=Size(
-                    min=Decimal(lot_size["minQty"]),
-                    max=Decimal(lot_size["maxQty"]),
-                    step=Decimal(lot_size["stepSize"]),
-                ),
-                min_notional=MinNotional(
-                    min_notional=Decimal(min_notional["minNotional"]),
-                    apply_to_market=min_notional["applyToMarket"],
-                    avg_price_period=percent_price["avgPriceMins"] * MIN_MS,
-                ),
+                price=price or Price(),
+                percent_price=percent_price or PercentPrice(),
+                percent_price_by_side=percent_price_by_side or PercentPriceBySide(),
+                size=lot_size or Size(),
+                min_notional=min_notional or MinNotional(),
                 base_precision=symbol_info["baseAssetPrecision"],
                 quote_precision=symbol_info["quoteAssetPrecision"],
                 spot="SPOT" in symbol_info["permissions"],
