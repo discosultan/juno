@@ -89,9 +89,9 @@ def _get(collection: Any, key: Any) -> Optional[Any]:
 
 def init_instances_mentioned_in_config(type_: type, config: dict[str, Any]) -> list[Any]:
     result = []
-    name = type_.__name__.lower()
+    type_name = type_.__name__.lower()
     module_types = _map_type_parent_module_types(type_)
-    for name in list_names(config, name):
+    for name in list_names(config, type_name):
         type_ = module_types[name]
         if not inspect.isabstract(type_):
             result.append(init_instance(type_, config))
@@ -100,11 +100,11 @@ def init_instances_mentioned_in_config(type_: type, config: dict[str, Any]) -> l
 
 def try_init_all_instances(type_: type, config: dict[str, Any]) -> list[Any]:
     result = []
-    for type_ in _map_type_parent_module_types(type_).values():
-        if inspect.isabstract(type_):
+    for parent_type in _map_type_parent_module_types(type_).values():
+        if inspect.isabstract(parent_type):
             continue
         try:
-            result.append(init_instance(type_, config))
+            result.append(init_instance(parent_type, config))
         except TypeError:
             pass
     return result

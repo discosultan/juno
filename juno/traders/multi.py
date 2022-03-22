@@ -398,18 +398,22 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         await queue.join()
 
         to_process: list[tuple[_SymbolState, CloseReason]] = []
-        for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-            assert ss.last_candle
-            if isinstance(ss.open_position, Position.OpenLong) and ss.advice in [
+        for symbol_state in (ss for ss in state.symbol_states.values() if ss.ready):
+            assert symbol_state.last_candle
+            if isinstance(
+                symbol_state.open_position, Position.OpenLong
+            ) and symbol_state.advice in [
                 Advice.LIQUIDATE,
                 Advice.SHORT,
             ]:
-                to_process.append((ss, ss.reason))
-            elif isinstance(ss.open_position, Position.OpenShort) and ss.advice in [
+                to_process.append((symbol_state, symbol_state.reason))
+            elif isinstance(
+                symbol_state.open_position, Position.OpenShort
+            ) and symbol_state.advice in [
                 Advice.LIQUIDATE,
                 Advice.LONG,
             ]:
-                to_process.append((ss, ss.reason))
+                to_process.append((symbol_state, symbol_state.reason))
         if len(to_process) > 0:
             await process_task_on_queue(queue, self._close_positions(state, to_process))
 
@@ -424,22 +428,22 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         assert count <= config.position_count
         available = config.position_count - count
         if state.open_new_positions:
-            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+            for symbol_state in (ss for ss in state.symbol_states.values() if ss.ready):
                 if available == 0:
                     break
 
-                if ss.open_position:
+                if symbol_state.open_position:
                     continue
 
-                assert ss.last_candle
+                assert symbol_state.last_candle
                 advice_age_valid = (
-                    ss.changed.prevailing_advice_age - 1
+                    symbol_state.changed.prevailing_advice_age - 1
                 ) <= config.allowed_age_drift
-                if config.long and ss.advice is Advice.LONG and advice_age_valid:
-                    to_process.append((ss, False))
+                if config.long and symbol_state.advice is Advice.LONG and advice_age_valid:
+                    to_process.append((symbol_state, False))
                     available -= 1
-                elif config.short and ss.advice is Advice.SHORT and advice_age_valid:
-                    to_process.append((ss, True))
+                elif config.short and symbol_state.advice is Advice.SHORT and advice_age_valid:
+                    to_process.append((symbol_state, True))
                     available -= 1
 
         if len(to_process) > 0:

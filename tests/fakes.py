@@ -108,8 +108,8 @@ class Exchange(exchanges.Exchange):
         yield _stream_queue(self.balance_queue)
 
     async def stream_historical_candles(self, symbol, interval, start, end):
-        for c in (c for c in self.historical_candles if c.time >= start and c.time < end):
-            yield c
+        for candle in (c for c in self.historical_candles if c.time >= start and c.time < end):
+            yield candle
 
     @asynccontextmanager
     async def connect_stream_candles(self, symbol, interval):
@@ -137,8 +137,8 @@ class Exchange(exchanges.Exchange):
         self.cancel_order_calls.append(kwargs)
 
     async def stream_historical_trades(self, symbol, start, end):
-        for t in (t for t in self.historical_trades if t.time >= start and t.time < end):
-            yield t
+        for trade in (t for t in self.historical_trades if t.time >= start and t.time < end):
+            yield trade
 
     @asynccontextmanager
     async def connect_stream_trades(self, symbol):
@@ -186,23 +186,23 @@ class Chandler(components.Chandler):
     ):
         # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):
-            last_c = None
-            for c in (c for c in candles if c.time >= start and c.time < end):
-                time_diff = c.time - last_c.time if last_c else 0
+            last_candle = None
+            for candle in (c for c in candles if c.time >= start and c.time < end):
+                time_diff = candle.time - last_candle.time if last_candle else 0
                 if time_diff >= interval * 2:
                     num_missed = time_diff // interval - 1
                     if fill_missing_with_last:
                         for i in range(1, num_missed + 1):
                             yield Candle(
-                                time=last_c.time + i * interval,
-                                open=last_c.open,
-                                high=last_c.high,
-                                low=last_c.low,
-                                close=last_c.close,
-                                volume=last_c.volume,
+                                time=last_candle.time + i * interval,
+                                open=last_candle.open,
+                                high=last_candle.high,
+                                low=last_candle.low,
+                                close=last_candle.close,
+                                volume=last_candle.volume,
                             )
-                yield c
-                last_c = c
+                yield candle
+                last_candle = candle
 
         if future_candles := self.future_candle_queues.get((exchange, symbol, interval)):
             while True:
@@ -230,8 +230,8 @@ class Trades(components.Trades):
         self.trades = trades
 
     async def stream_trades(self, exchange, symbol, start, end):
-        for t in (t for t in self.trades if t.time >= start and t.time < end):
-            yield t
+        for trade in (t for t in self.trades if t.time >= start and t.time < end):
+            yield trade
 
 
 class Informant(components.Informant):

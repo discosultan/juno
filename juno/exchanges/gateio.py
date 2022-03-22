@@ -235,9 +235,9 @@ class GateIO(Exchange):
                 if data["channel"] != channel or data["event"] != "update":
                     continue
 
-                for data in data["result"]:
-                    client_id = data["text"][2:]
-                    event = data["event"]
+                for order in data["result"]:
+                    client_id = order["text"][2:]
+                    event = order["event"]
                     if event == "put":
                         track_orders[client_id] = {
                             "acc_size": Decimal("0.0"),  # Base.
@@ -248,14 +248,14 @@ class GateIO(Exchange):
                     elif event == "update":
                         yield OrderUpdate.Match(
                             client_id=client_id,
-                            fill=_acc_order_fill(track_orders[client_id], data),
+                            fill=_acc_order_fill(track_orders[client_id], order),
                         )
                     elif event == "finish":
-                        time = _from_timestamp(data["update_time"])
-                        if data["left"] == "0":
+                        time = _from_timestamp(order["update_time"])
+                        if order["left"] == "0":
                             yield OrderUpdate.Match(
                                 client_id=client_id,
-                                fill=_acc_order_fill(track_orders[client_id], data),
+                                fill=_acc_order_fill(track_orders[client_id], order),
                             )
                             yield OrderUpdate.Done(
                                 client_id=client_id,
