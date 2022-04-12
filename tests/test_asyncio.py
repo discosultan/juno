@@ -1,30 +1,8 @@
 import asyncio
 
 import pytest
-from asyncstdlib.itertools import pairwise as pairwise_async
 
-from juno.asyncio import (
-    Barrier,
-    Event,
-    SlotBarrier,
-    cancel,
-    dict_async,
-    first_async,
-    map_async,
-    merge_async,
-)
-
-
-async def test_dict_async() -> None:
-    async def gen():
-        for k, v in zip(["a", "b", "c"], [0, 1, 2]):
-            yield k, v
-
-    assert await dict_async(gen()) == {
-        "a": 0,
-        "b": 1,
-        "c": 2,
-    }
+from juno.asyncio import Barrier, Event, SlotBarrier, cancel, first_async, merge_async
 
 
 async def test_first_async() -> None:
@@ -59,34 +37,6 @@ async def test_merge_async() -> None:
         assert val == counter
         counter += 1
     assert counter == 4
-
-
-async def test_map_async() -> None:
-    async def gen():
-        yield 1
-        yield 2
-
-    expected_values = [2, 4]
-    async for x in map_async(lambda x: x * 2, gen()):
-        assert x == expected_values.pop(0)
-
-
-@pytest.mark.parametrize(
-    "input_,expected_output",
-    [
-        ([], []),
-        ([1], []),
-        ([1, 2], [(1, 2)]),
-        ([1, 2, 3], [(1, 2), (2, 3)]),
-    ],
-)
-async def test_pairwise_async(input_: list[int], expected_output: list[tuple[int, int]]) -> None:
-    async def gen():
-        for val in input_:
-            yield val
-
-    async for x in pairwise_async(gen()):
-        assert x == expected_output.pop(0)
 
 
 async def test_barrier() -> None:

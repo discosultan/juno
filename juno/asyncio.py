@@ -10,7 +10,6 @@ from typing import (
     AsyncIterable,
     AsyncIterator,
     Awaitable,
-    Callable,
     Coroutine,
     Generic,
     Iterable,
@@ -47,10 +46,6 @@ async def stream_with_timeout(
         pass
 
 
-async def dict_async(async_iter: AsyncIterable[tuple[T, U]]) -> dict[T, U]:
-    return {key: value async for key, value in async_iter}
-
-
 async def first_async(async_iter: AsyncIterable[T]) -> T:
     async for item in async_iter:
         await aclose(async_iter)
@@ -80,11 +75,6 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
                 del iter_next[fut._orig_iter]  # type: ignore
                 continue
             yield ret
-
-
-async def map_async(func: Callable[[T], U], async_iter: AsyncIterable[T]) -> AsyncIterable[U]:
-    async for item in async_iter:
-        yield func(item)
 
 
 async def gather_dict(tasks: dict):
