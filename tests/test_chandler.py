@@ -1,5 +1,6 @@
 import asyncio
 from decimal import Decimal
+from typing import Optional
 
 import pytest
 from asyncstdlib import list as list_async
@@ -226,56 +227,87 @@ async def test_stream_candles_on_exchange_exception_and_cancelled(storage: fakes
     assert end2 == 3
 
 
-async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> None:
-    first_candle = Candle(
-        time=1,
-        open=Decimal("1.0"),
-        high=Decimal("3.0"),
-        low=Decimal("0.0"),
-        close=Decimal("2.0"),
-    )
-    third_candle = Candle(
-        time=3,
-        open=Decimal("2.0"),
-        high=Decimal("4.0"),
-        low=Decimal("1.0"),
-        close=Decimal("3.0"),
-    )
+@pytest.mark.parametrize(
+    "input,expected_output",
+    [
+        (
+            [
+                # Missed candle.
+                Candle(
+                    time=1,
+                    open=Decimal("1.0"),
+                    high=Decimal("3.0"),
+                    low=Decimal("0.0"),
+                    close=Decimal("2.0"),
+                ),
+                # Missed candle.
+                Candle(
+                    time=3,
+                    open=Decimal("2.0"),
+                    high=Decimal("4.0"),
+                    low=Decimal("1.0"),
+                    close=Decimal("3.0"),
+                ),
+                # Missed candle.
+            ],
+            [
+                None,
+                Candle(
+                    time=1,
+                    open=Decimal("1.0"),
+                    high=Decimal("3.0"),
+                    low=Decimal("0.0"),
+                    close=Decimal("2.0"),
+                ),
+                None,
+                Candle(
+                    time=3,
+                    open=Decimal("2.0"),
+                    high=Decimal("4.0"),
+                    low=Decimal("1.0"),
+                    close=Decimal("3.0"),
+                ),
+                None,
+            ],
+        ),
+        (
+            [
+                # Missed candle.
+                # Missed candle.
+                # Missed candle.
+                # Missed candle.
+                # Missed candle.
+            ],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
+        ),
+    ],
+)
+async def test_stream_candles_fill_missing_with_none(
+    storage: fakes.Storage,
+    input: list[Candle],
+    expected_output: list[Optional[Candle]],
+) -> None:
     exchange = fakes.Exchange(
         candle_intervals=[1],
-        historical_candles=[
-            # Missed candle should NOT get filled.
-            first_candle,
-            # Missed candle should get filled.
-            third_candle,
-        ],
+        historical_candles=input,
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
     output = await list_async(
-        chandler.stream_candles(
+        chandler.stream_candles_fill_missing_with_none(
             exchange="exchange",
             symbol="eth-btc",
             interval=1,
             start=0,
-            end=4,
-            fill_missing_with_last=True,
+            end=5,
         )
     )
-    assert output == [
-        first_candle,
-        Candle(
-            time=2,
-            # open=Decimal('1.0'),
-            # high=Decimal('3.0'),
-            # low=Decimal('0.0'),
-            # close=Decimal('2.0'),
-            open=Decimal("2.0"),
-            high=Decimal("2.0"),
-            low=Decimal("2.0"),
-            close=Decimal("2.0"),
-        ),
-        third_candle,
-    ]
+    assert output == expected_output
 
 
 async def test_stream_candles_construct_from_trades_if_interval_not_supported(

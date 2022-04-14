@@ -44,7 +44,6 @@ async def candles(request: web.Request) -> web.Response:
         interval=int(query["interval"]),
         start=int(query["start"]),
         end=int(query["end"]),
-        fill_missing_with_last=query.get("fill_missing_with_last") == "true",
     )
 
     return web.json_response(type_to_raw(result), dumps=json.dumps)

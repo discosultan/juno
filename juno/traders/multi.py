@@ -459,15 +459,25 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         config = state.config
         _log.info(f"tracking {symbol_state.symbol} candles")
 
-        async for candle in self._chandler.stream_candles(
+        last_candle: Optional[Candle] = None
+        async for candle in self._chandler.stream_candles_fill_missing_with_none(
             exchange=config.exchange,
             symbol=symbol_state.symbol,
             interval=config.interval,
             start=symbol_state.next_,
             end=config.end,
-            fill_missing_with_last=True,
             exchange_timeout=config.exchange_candle_timeout,
         ):
+            # Skip initial empty candles.
+            if not last_candle and not candle:
+                continue
+
+            if not candle:
+                assert last_candle
+                # TODO: Not nice. We should proceed a symbol state without updating a strategy with
+                # a previous candle.
+                candle = last_candle
+
             current = symbol_state.next_
             if current < symbol_state.start:
                 # Do not signal position manager during warm-up (adjusted start) period.
@@ -483,6 +493,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                     await self._events.emit(config.channel, "message", msg)
             else:
                 # Perform empty ticks when missing initial candles.
+                assert candle
                 initial_missed = False
                 if (time_diff := candle.time - symbol_state.next_) > 0:
                     assert not initial_missed
@@ -497,6 +508,8 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
 
                 advice, reason = self._process_candle(state, symbol_state, candle)
                 await self._process_advice(symbol_state, candles_updated, ready, advice, reason)
+            if candle:
+                last_candle = candle
 
     def _process_candle(
         self, state: MultiState, symbol_state: _SymbolState, candle: Candle
