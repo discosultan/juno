@@ -3,7 +3,7 @@ import csv
 from decimal import Decimal
 from typing import Any
 
-from juno import Candle, Filters, MissedCandlePolicy, stop_loss, strategies
+from juno import Candle, Filters, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
@@ -51,7 +51,6 @@ async def main() -> None:
                 },
             ),
             stop_loss=GenericConstructor.from_type(stop_loss.Basic, Decimal("0.0827")),
-            missed_candle_policy=MissedCandlePolicy.LAST,
         )
         trader_state = await trader.initialize(trader_config)
 

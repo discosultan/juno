@@ -1,20 +1,9 @@
 import asyncio
 from decimal import Decimal
-from typing import cast
 
 import pytest
 
-from juno import (
-    Advice,
-    BorrowInfo,
-    Candle,
-    Filters,
-    MissedCandlePolicy,
-    stop_loss,
-    strategies,
-    take_profit,
-    traders,
-)
+from juno import Advice, BorrowInfo, Candle, Filters, stop_loss, take_profit, traders
 from juno.asyncio import cancel
 from juno.strategies import Fixed, MidTrendPolicy
 from juno.trading import CloseReason, Position
@@ -228,84 +217,6 @@ async def test_downside_take_profit() -> None:
     short_positions = summary.list_positions(type_=Position.Short)
     assert len(short_positions) == 1
     assert short_positions[0].close_reason is CloseReason.TAKE_PROFIT
-
-
-async def test_restart_on_missed_candle() -> None:
-    chandler = fakes.Chandler(
-        candles={
-            ("dummy", "eth-btc", 1): [
-                Candle(time=0),
-                Candle(time=1),
-                # 1 candle skipped.
-                Candle(time=3),  # Trigger restart.
-                Candle(time=4),
-                Candle(time=5),
-            ]
-        }
-    )
-    trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.BasicConfig(
-        exchange="dummy",
-        symbol="eth-btc",
-        interval=1,
-        start=0,
-        end=6,
-        quote=Decimal("10.0"),
-        strategy=GenericConstructor.from_type(Fixed),
-        missed_candle_policy=MissedCandlePolicy.RESTART,
-    )
-    state = await trader.initialize(config)
-    initial_strategy = cast(strategies.Fixed, state.strategy)
-
-    await trader.run(state)
-
-    assert state.strategy != initial_strategy
-
-    updates = initial_strategy.updates + cast(strategies.Fixed, state.strategy).updates
-    assert len(updates) == 5
-
-    candle_times = [c.time for c in updates]
-    assert candle_times[0] == 0
-    assert candle_times[1] == 1
-    assert candle_times[2] == 3
-    assert candle_times[3] == 4
-    assert candle_times[4] == 5
-
-
-async def test_assume_same_as_last_on_missed_candle() -> None:
-    chandler = fakes.Chandler(
-        candles={
-            ("dummy", "eth-btc", 1): [
-                Candle(time=0),
-                Candle(time=1),
-                # 2 candles skipped.
-                Candle(time=4),  # Generate new candles with previous data.
-            ]
-        }
-    )
-    trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-    config = traders.BasicConfig(
-        exchange="dummy",
-        symbol="eth-btc",
-        interval=1,
-        start=0,
-        end=5,
-        quote=Decimal("10.0"),
-        strategy=GenericConstructor.from_type(Fixed),
-        missed_candle_policy=MissedCandlePolicy.LAST,
-    )
-    state = await trader.initialize(config)
-
-    await trader.run(state)
-
-    candle_times = [c.time for c in state.strategy.updates]  # type: ignore
-    assert len(candle_times) == 5
-    assert candle_times[0] == 0
-    assert candle_times[1] == 1
-    assert candle_times[2] == 2
-    assert candle_times[3] == 3
-    assert candle_times[4] == 4
 
 
 async def test_adjust_start_ignore_mid_trend() -> None:

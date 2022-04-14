@@ -199,12 +199,6 @@ class Fill(NamedTuple):
         )
 
 
-class MissedCandlePolicy(IntEnum):
-    IGNORE = 0
-    RESTART = 1
-    LAST = 2
-
-
 class OrderResult(NamedTuple):
     time: Timestamp
     status: OrderStatus
