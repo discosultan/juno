@@ -63,7 +63,6 @@ class Chandler(AbstractAsyncContextManager):
         interval: int,
         start: int,
         end: int = MAX_TIME_MS,
-        fill_missing_with_last: bool = False,
         exchange_timeout: Optional[float] = None,
     ) -> list[Candle]:
         return await list_async(
@@ -73,10 +72,49 @@ class Chandler(AbstractAsyncContextManager):
                 interval,
                 start,
                 end,
-                fill_missing_with_last,
                 exchange_timeout,
             )
         )
+
+    async def stream_candles_fill_missing_with_none(
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int = MAX_TIME_MS,
+        exchange_timeout: Optional[float] = None,
+    ) -> AsyncIterable[Optional[Candle]]:
+        start = floor_timestamp(start, interval)
+        end = floor_timestamp(end, interval)
+        last_candle: Optional[Candle] = None
+        async for candle in self.stream_candles(
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            start=start,
+            end=end,
+            exchange_timeout=exchange_timeout,
+        ):
+            if last_candle:
+                num_missed = (candle.time - last_candle.time) // interval - 1
+            else:
+                num_missed = (candle.time - start) // interval
+            if num_missed > 0:
+                _log.info(f"filling {num_missed} candle(s) with None")
+                for _ in range(num_missed):
+                    yield None
+            yield candle
+            last_candle = candle
+
+        if last_candle:
+            num_missed = (end - last_candle.time) // interval - 1
+        else:
+            num_missed = (end - start) // interval
+        if num_missed > 0:
+            _log.info(f"filling {num_missed} candle(s) with None")
+            for _ in range(num_missed):
+                yield None
 
     async def stream_candles(
         self,
@@ -85,7 +123,6 @@ class Chandler(AbstractAsyncContextManager):
         interval: int,
         start: int,
         end: int = MAX_TIME_MS,
-        fill_missing_with_last: bool = False,
         exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
@@ -150,22 +187,6 @@ class Chandler(AbstractAsyncContextManager):
                             f"missed {num_missed} {candle_msg}; last closed candle "
                             f"{last_candle}; current candle {candle}"
                         )
-                        if fill_missing_with_last:
-                            _log.info(f"filling {num_missed} missed {candle_msg} with last values")
-                            for i in range(1, num_missed + 1):
-                                yield Candle(
-                                    time=last_candle.time + i * interval,
-                                    # open=last_closed_candle.open,
-                                    # high=last_closed_candle.high,
-                                    # low=last_closed_candle.low,
-                                    # close=last_closed_candle.close,
-                                    # volume=last_closed_candle.volume,
-                                    open=last_candle.close,
-                                    high=last_candle.close,
-                                    low=last_candle.close,
-                                    close=last_candle.close,
-                                    volume=Decimal("0.0"),
-                                )
                     yield candle
                     last_candle = candle
             finally:

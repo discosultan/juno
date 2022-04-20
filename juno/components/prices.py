@@ -4,6 +4,7 @@ from typing import Iterable, Optional
 
 from asyncstdlib import enumerate as enumerate_async
 
+from juno import Candle
 from juno.components import Chandler
 from juno.math import floor_multiple
 from juno.time import DAY_MS, strftimestamp
@@ -51,12 +52,18 @@ class Prices:
             quote_asset, _fiat_asset = unpack_assets(symbol)
             assert quote_asset not in result
             quote_prices: list[Decimal] = []
-            async for candle in self._chandler.stream_candles(
-                fiat_exchange, symbol, interval, start, end, fill_missing_with_last=True
+            last_candle: Optional[Candle] = None
+            async for candle in self._chandler.stream_candles_fill_missing_with_none(
+                fiat_exchange, symbol, interval, start, end
             ):
                 if len(quote_prices) == 0:
+                    if candle is None:
+                        raise ValueError("Candle missing from start")
                     quote_prices.append(candle.open)
-                quote_prices.append(candle.close)
+                price = last_candle.close if candle is None else candle.close  # type: ignore
+                quote_prices.append(price)
+                if candle:
+                    last_candle = candle
             result[quote_asset] = quote_prices
 
         await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
@@ -75,21 +82,31 @@ class Prices:
             assert base_asset not in result
             base_prices: list[Decimal] = []
             quote_prices = result[quote_asset]
+            last_candle: Optional[Candle] = None
             async for price_i, candle in enumerate_async(
-                self._chandler.stream_candles(
-                    exchange, symbol, interval, start, end, fill_missing_with_last=True
+                self._chandler.stream_candles_fill_missing_with_none(
+                    exchange=exchange,
+                    symbol=symbol,
+                    interval=interval,
+                    start=start,
+                    end=end,
                 ),
                 1,
             ):
                 if len(base_prices) == 0:
+                    if candle is None:
+                        raise ValueError("Candle missing from start")
                     base_prices.append(
                         candle.open
                         * (quote_prices[0] if quote_asset != fiat_asset else Decimal("1.0"))
                     )
+                price = last_candle.close if candle is None else candle.close  # type: ignore
                 base_prices.append(
-                    candle.close
+                    price
                     * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal("1.0"))
                 )
+                if candle:
+                    last_candle = candle
             result[base_asset] = base_prices
 
         await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))

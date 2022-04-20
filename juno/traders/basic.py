@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Optional, TypeVar
 from uuid import uuid4
 
-from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
+from juno import Advice, Candle, Interval, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
@@ -41,7 +41,6 @@ class BasicConfig:
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     mode: TradingMode = TradingMode.BACKTEST
     channel: str = "default"
-    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
     adjust_start: bool = True
     long: bool = True  # Take long positions.
     short: bool = False  # Take short positions.
@@ -253,27 +252,6 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 end=config.end,
                 exchange_timeout=config.exchange_candle_timeout,
             ):
-                # Check if we have missed a candle.
-                if (last_candle := state.last_candle) and (
-                    time_diff := (candle.time - last_candle.time)
-                ) >= config.interval * 2:
-                    if config.missed_candle_policy is MissedCandlePolicy.RESTART:
-                        _log.info("restarting strategy due to missed candle(s)")
-                        state.strategy = config.strategy.construct()
-                    elif config.missed_candle_policy is MissedCandlePolicy.LAST:
-                        num_missed = time_diff // config.interval - 1
-                        _log.info(f"filling {num_missed} missed candles with last values")
-                        for i in range(1, num_missed + 1):
-                            missed_candle = Candle(
-                                time=last_candle.time + i * config.interval,
-                                open=last_candle.close,
-                                high=last_candle.close,
-                                low=last_candle.close,
-                                close=last_candle.close,
-                                volume=Decimal("0.0"),
-                            )
-                            await self._tick(state, missed_candle)
-
                 await self._tick(state, candle)
         finally:
             state.running = False

@@ -77,8 +77,8 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
             yield ret
 
 
-async def gather_dict(tasks: dict):
-    async def mark(key, coro):
+async def gather_dict(tasks: dict[T, Awaitable[U]]) -> dict[T, U]:
+    async def mark(key: T, coro: Awaitable[U]) -> tuple[T, U]:
         return key, await coro
 
     return {

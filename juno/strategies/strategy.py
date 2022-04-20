@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, Optional, Union
 
 from juno import Advice, Candle
 from juno.constraints import Choice, Constraint
@@ -151,8 +152,9 @@ class Changed:
 
 
 class Strategy(ABC):
-    class Meta(NamedTuple):
-        constraints: dict[Union[str, tuple[str, ...]], Constraint] = {}
+    @dataclass(frozen=True)
+    class Meta:
+        constraints: dict[Union[str, tuple[str, ...]], Constraint] = field(default_factory=dict)
 
     @staticmethod
     def meta() -> Strategy.Meta:

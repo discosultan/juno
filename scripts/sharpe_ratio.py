@@ -7,7 +7,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from juno import MissedCandlePolicy, stop_loss, strategies
+from juno import stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
@@ -61,7 +61,6 @@ async def main() -> None:
                     },
                 ),
                 stop_loss=GenericConstructor.from_type(stop_loss.Basic, Decimal("0.0827")),
-                missed_candle_policy=MissedCandlePolicy.LAST,
             )
         )
         trading_summary = await trader.run(trader_state)

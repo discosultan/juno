@@ -6,7 +6,7 @@ from typing import Any
 
 # import yaml
 import juno.json as json
-from juno import MissedCandlePolicy, stop_loss, strategies, take_profit
+from juno import stop_loss, strategies, take_profit
 from juno.asyncio import gather_dict
 from juno.components import Chandler, Informant
 from juno.config import format_as_config
@@ -89,7 +89,6 @@ async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreSt
             quote=Decimal("1.0"),
             long=True,
             short=True,
-            missed_candle_policy=MissedCandlePolicy.IGNORE,
             adjust_start=False,
             custodian="stub",
         )
