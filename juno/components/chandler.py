@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import AsyncGenerator, AsyncIterable, Callable, Iterable, Optional
 
 from asyncstdlib import list as list_async
+from asyncstdlib import merge as merge_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
@@ -36,6 +37,8 @@ _log = logging.getLogger(__name__)
 CANDLE_KEY = Candle.__name__.lower()
 FIRST_CANDLE_KEY = f"first_{CANDLE_KEY}"
 
+CandleMeta = tuple[str, int]  # symbol, interval
+
 
 class Chandler(AbstractAsyncContextManager):
     def __init__(
@@ -56,25 +59,45 @@ class Chandler(AbstractAsyncContextManager):
         self._storage_batch_size = storage_batch_size
         self._earliest_exchange_start = earliest_exchange_start
 
-    async def list_candles(
+    async def stream_concurrent_candles(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
+        entries: Iterable[CandleMeta],
         start: int,
         end: int = MAX_TIME_MS,
         exchange_timeout: Optional[float] = None,
-    ) -> list[Candle]:
-        return await list_async(
-            self.stream_candles(
-                exchange,
+    ) -> AsyncIterable[tuple[CandleMeta, Candle]]:
+        # Sort by interval descending.
+        sorted_entries = sorted(entries, key=lambda e: e[1])
+
+        async def attach_candle_meta(
+            symbol: str, interval: int, candles: AsyncIterable[Candle]
+        ) -> AsyncIterable[tuple[CandleMeta, Candle]]:
+            async for candle in candles:
+                yield ((symbol, interval), candle)
+
+        streams = (
+            attach_candle_meta(
                 symbol,
                 interval,
-                start,
-                end,
-                exchange_timeout,
+                self.stream_candles(
+                    exchange=exchange,
+                    symbol=symbol,
+                    interval=interval,
+                    start=start,
+                    end=end,
+                    exchange_timeout=exchange_timeout,
+                ),
             )
+            for symbol, interval in sorted_entries
         )
+
+        # Merge streams.
+        async for candle_meta, candle in merge_async(
+            *streams,
+            key=lambda p: p[1].time,
+        ):
+            yield candle_meta, candle
 
     async def stream_candles_fill_missing_with_none(
         self,
@@ -115,6 +138,26 @@ class Chandler(AbstractAsyncContextManager):
             _log.info(f"filling {num_missed} candle(s) with None")
             for _ in range(num_missed):
                 yield None
+
+    async def list_candles(
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int = MAX_TIME_MS,
+        exchange_timeout: Optional[float] = None,
+    ) -> list[Candle]:
+        return await list_async(
+            self.stream_candles(
+                exchange,
+                symbol,
+                interval,
+                start,
+                end,
+                exchange_timeout,
+            )
+        )
 
     async def stream_candles(
         self,

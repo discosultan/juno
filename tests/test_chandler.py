@@ -557,3 +557,52 @@ async def test_list_candle_intervals(storage, intervals, patterns, expected_outp
 
     assert len(output) == len(expected_output)
     assert set(output) == set(expected_output)
+
+
+async def test_stream_concurrent_historical_candles(
+    storage: fakes.Storage,
+    mocker: MockerFixture,
+) -> None:
+    time = fakes.Time(100, increment=1)
+    exchange = mocker.MagicMock(Exchange, autospec=True)
+    exchange.can_stream_historical_candles.return_value = True
+    exchange.list_candle_intervals.return_value = [1, 2]
+
+    def stream_historical_candles(symbol: str, interval: int, start: int, end: int):
+        if interval == 1:
+            return resolved_stream(
+                Candle(time=0, close=Decimal("1.0")),
+                Candle(time=1, close=Decimal("1.0")),
+                Candle(time=2, close=Decimal("1.0")),
+                Candle(time=3, close=Decimal("1.0")),
+            )
+        else:  # interval == 2
+            return resolved_stream(
+                Candle(time=0, close=Decimal("2.0")),
+                Candle(time=2, close=Decimal("2.0")),
+            )
+
+    exchange.stream_historical_candles.side_effect = stream_historical_candles
+    chandler = Chandler(
+        storage=storage,
+        exchanges=[exchange],
+        get_time_ms=time.get_time,
+    )
+
+    output = await list_async(
+        chandler.stream_concurrent_candles(
+            exchange="magicmock",
+            entries=[("eth-btc", 1), ("eth-btc", 2)],
+            start=0,
+            end=4,
+        )
+    )
+
+    assert output == [
+        (("eth-btc", 2), Candle(time=0, close=Decimal("2.0"))),
+        (("eth-btc", 1), Candle(time=0, close=Decimal("1.0"))),
+        (("eth-btc", 1), Candle(time=1, close=Decimal("1.0"))),
+        (("eth-btc", 2), Candle(time=2, close=Decimal("2.0"))),
+        (("eth-btc", 1), Candle(time=2, close=Decimal("1.0"))),
+        (("eth-btc", 1), Candle(time=3, close=Decimal("1.0"))),
+    ]
