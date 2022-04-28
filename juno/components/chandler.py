@@ -59,6 +59,9 @@ class Chandler(AbstractAsyncContextManager):
         self._storage_batch_size = storage_batch_size
         self._earliest_exchange_start = earliest_exchange_start
 
+    # TODO: Historical candle stream works correctly. However, future ones stall for lower
+    # intervals because the current algorithm always waits for a candle from higher interval first
+    # in order to guarantee ordering.
     async def stream_concurrent_candles(
         self,
         exchange: str,
