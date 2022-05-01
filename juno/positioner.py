@@ -487,7 +487,7 @@ class SimulatedPositioner:
 
         size = filters.size.round_down(quote / price)
         if size == 0:
-            raise BadOrder()
+            raise BadOrder("Insufficient funds")
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
 
@@ -538,6 +538,8 @@ class SimulatedPositioner:
         limit = self._informant.get_borrow_info(
             exchange=exchange, asset=base_asset, account=symbol
         ).limit
+        if limit == 0:
+            raise BadOrder("Borrow limit zero")
         # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
         # lowers multiplier for now for reduced risk.
         margin_multiplier = 2

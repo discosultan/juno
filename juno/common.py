@@ -49,10 +49,16 @@ class Balance(NamedTuple):
         return Balance(available=Decimal("0.0"), hold=Decimal("0.0"))
 
 
-@dataclass
+@dataclass(frozen=True)
 class BorrowInfo:
     daily_interest_rate: Decimal = Decimal("0.0")
     limit: Decimal = Decimal("0.0")
+
+    def __post_init__(self) -> None:
+        if self.daily_interest_rate < 0:
+            raise ValueError("Daily interest rate cannot be negative")
+        if self.limit < 0:
+            raise ValueError("Borrow limit cannot be negative")
 
     @property
     def hourly_interest_rate(self) -> Decimal:
@@ -123,18 +129,35 @@ class Depth(ModuleType):
     Any = Union[Snapshot, Update]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Fees:
     maker: Decimal = Decimal("0.0")
     taker: Decimal = Decimal("0.0")
 
+    def __post_init__(self) -> None:
+        if self.maker < 0:
+            raise ValueError("Maker fee cannot be negative")
+        if self.taker < 0:
+            raise ValueError("Taker fee cannot be negative")
 
-class Fill(NamedTuple):
-    price: Decimal = Decimal("0.0")
-    size: Decimal = Decimal("0.0")
-    quote: Decimal = Decimal("0.0")
+
+@dataclass(frozen=True)
+class Fill:
+    price: Decimal
+    size: Decimal
+    quote: Decimal
     fee: Decimal = Decimal("0.0")
     fee_asset: str = "btc"
+
+    def __post_init__(self) -> None:
+        if self.price <= 0:
+            raise ValueError("Trade price cannot be zero or negative")
+        if self.size <= 0:
+            raise ValueError("Trade size cannot be zero or negative")
+        if self.quote <= 0:
+            raise ValueError("Trade funds cannot be zero or negative")
+        if self.fee < 0:
+            raise ValueError("Trade fee cannot be negative")
 
     @staticmethod
     def with_computed_quote(
@@ -199,10 +222,11 @@ class Fill(NamedTuple):
         )
 
 
-class OrderResult(NamedTuple):
+@dataclass(frozen=True)
+class OrderResult:
     time: Timestamp
     status: OrderStatus
-    fills: list[Fill] = []
+    fills: list[Fill] = field(default_factory=list)
 
 
 class OrderStatus(IntEnum):
@@ -222,11 +246,18 @@ class OrderType(IntEnum):
     LIMIT_MAKER = 6
 
 
-class Order(NamedTuple):
+@dataclass(frozen=True)
+class Order:
     client_id: str
     symbol: str
     price: Decimal
     size: Decimal
+
+    def __post_init__(self) -> None:
+        if self.price <= 0:
+            raise ValueError("Order price cannot be zero or negative")
+        if self.size <= 0:
+            raise ValueError("Order size cannot be zero or negative")
 
 
 class OrderUpdate(ModuleType):
@@ -287,7 +318,7 @@ class Trade(NamedTuple):
         }
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExchangeInfo:
     # Note that we use the "__all__" key convention and a regular dict instead of defaultdict for
     # easier (de)serialization.
@@ -303,12 +334,12 @@ class ExchangeInfo:
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class AssetInfo:
     precision: int = 8
 
 
-@dataclass
+@dataclass(frozen=True)
 class SavingsProduct:
     product_id: str
     status: str  # "PREHEATING" | "PURCHASING"

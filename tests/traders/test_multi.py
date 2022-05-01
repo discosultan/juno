@@ -7,6 +7,7 @@ from pytest_mock import MockerFixture
 from juno import (
     Advice,
     Balance,
+    BorrowInfo,
     Candle,
     Fees,
     Fill,
@@ -51,7 +52,8 @@ async def test_simple() -> None:
                 quote_volume=Decimal("1.0"),
                 price=Decimal("1.0"),
             ),
-        }
+        },
+        borrow_info=BorrowInfo(limit=Decimal("1.0")),
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
@@ -139,7 +141,8 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
                 quote_volume=Decimal("1.0"),
                 price=Decimal("1.0"),
             ),
-        }
+        },
+        borrow_info=BorrowInfo(limit=Decimal("1.0")),
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(

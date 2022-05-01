@@ -131,19 +131,20 @@ def test_trading_summary_end() -> None:
 
 def new_closed_long_position(profit: Decimal) -> Position.Long:
     size = abs(profit)
-    price = Decimal("1.0") if profit >= 0 else Decimal("-1.0")
+    open_price = Decimal("2.0")
+    close_price = Decimal("3.0") if profit >= 0 else Decimal("1.0")
     open_pos = Position.OpenLong(
         exchange="exchange",
         symbol="eth-btc",
         time=0,
         fills=[
-            Fill(price=Decimal("0.0"), size=size, quote=Decimal("0.0"), fee_asset="eth"),
+            Fill.with_computed_quote(price=open_price, size=size, fee_asset="eth"),
         ],
     )
     return open_pos.close(
         time=1,
         fills=[
-            Fill(price=price, size=size, quote=Decimal(price * size), fee_asset="btc"),
+            Fill.with_computed_quote(price=close_price, size=size, fee_asset="btc"),
         ],
         reason=CloseReason.STRATEGY,
     )

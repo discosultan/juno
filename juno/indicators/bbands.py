@@ -39,14 +39,14 @@ class Bbands:
         self._sum2 += price**2
 
         if self._t >= self._t1:
-            sd = (self._sum2 * self._scale - (self._sum * self._scale)**2).sqrt()
+            sd = (self._sum2 * self._scale - (self._sum * self._scale) ** 2).sqrt()
             self.middle = self._sum * self._scale
             self.upper = self.middle + self._stddev * sd
             self.lower = self.middle - self._stddev * sd
 
             old_price = self._prices.pop(0)
             self._sum -= old_price
-            self._sum2 -= old_price ** 2
+            self._sum2 -= old_price**2
 
         self._prices.append(price)
         return self.lower, self.middle, self.upper
