@@ -15,7 +15,7 @@ from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
 from juno.time import strftimestamp, time_ms
 from juno.traders import Trader
-from juno.trading import TradingMode
+from juno.trading import TradingMode, TradingSummary
 from juno.utils import construct
 
 from .agent import Agent, AgentStatus
@@ -105,17 +105,14 @@ class Backtest(Agent):
         _log.info(f"{self.get_name(state)}: running with config {format_as_config(config)}")
         await self._events.emit(state.name, "starting", config, state, trader)
 
-        await trader.run(state.result)
-
-        summary = state.result.summary
-        assert summary
+        summary = await trader.run(state.result)
 
         if not self._prices:
             _log.warning("skipping analysis; prices component not available")
             return
 
         # Fetch necessary market data.
-        symbols = [p.symbol for p in summary.get_positions()] + [
+        symbols = [p.symbol for p in summary.positions] + [
             f"btc-{config.fiat_asset}"
         ]  # Use BTC as benchmark.
         fiat_prices = await self._prices.map_asset_prices(
@@ -131,8 +128,15 @@ class Backtest(Agent):
         stats = ExtendedStatistics.compose(summary=summary, asset_prices=fiat_prices)
         _log.info(format_as_config(stats))
 
-    async def on_finally(self, config: Config, state: State) -> None:
-        assert state.result
-        stats = CoreStatistics.compose(state.result.summary)
+    async def on_finally(self, config: Config, state: State) -> Any:
+        summary = self.build_summary(config, state)
+        stats = CoreStatistics.compose(summary)
         _log.info(f"{self.get_name(state)}: finished with result " f"{format_as_config(stats)}")
-        await self._events.emit(state.name, "finished", state.result.summary)
+        await self._events.emit(state.name, "finished", summary)
+        return summary
+
+    def build_summary(self, config: Config, state: State) -> TradingSummary:
+        assert state.result
+        trader_name, _ = get_type_name_and_kwargs(config.trader)
+        trader = self._traders[trader_name]
+        return trader.build_summary(state.result)

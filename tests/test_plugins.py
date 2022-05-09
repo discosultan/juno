@@ -45,7 +45,14 @@ async def test_slack(request, config: dict[str, Any]) -> None:
 
 
 async def send_test_events(events: Events):
-    trading_summary = TradingSummary(start=0, quote=Decimal("1.0"), quote_asset="btc")
+    trading_summary = TradingSummary(
+        start=0,
+        end=1,
+        starting_assets={
+            "btc": Decimal("1.0"),
+        },
+        positions=[],
+    )
 
     candle = Candle(time=0, close=Decimal("1.0"), volume=Decimal("10.0"))
     open_pos = Position.OpenLong(
@@ -77,8 +84,14 @@ async def send_test_events(events: Events):
         ],
         reason=CloseReason.STRATEGY,
     )
-    trading_summary.append_position(pos)
-    trading_summary.finish(pos.close_time + DAY_MS)
+    trading_summary = TradingSummary(
+        start=0,
+        end=pos.close_time + DAY_MS,
+        starting_assets={
+            "btc": Decimal("1.0"),
+        },
+        positions=[pos],
+    )
     await events.emit("agent", "positions_closed", [pos], trading_summary)
     await events.emit("agent", "finished", trading_summary)
     await events.emit("agent", "image", full_path(__file__, "/data/dummy_img.png"))

@@ -43,3 +43,7 @@ class Trader(ABC, Generic[TC, TS]):
         self, state: TS, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
         pass
+
+    @abstractmethod
+    def build_summary(self, state: TS) -> TradingSummary:
+        pass

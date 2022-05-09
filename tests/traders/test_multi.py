@@ -100,8 +100,8 @@ async def test_simple() -> None:
 
     #     - L L L
     # XMR - L L L
-    long_positions = summary.list_positions(type_=Position.Long)
-    short_positions = summary.list_positions(type_=Position.Short)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
+    short_positions = [p for p in summary.positions if isinstance(p, Position.Short)]
     assert len(long_positions) == 3
     assert len(short_positions) == 1
     lpos = long_positions[0]
@@ -200,8 +200,8 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
 
     #     - L - S
     # LTC - L - S
-    long_positions = summary.list_positions(type_=Position.Long)
-    short_positions = summary.list_positions(type_=Position.Short)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
+    short_positions = [p for p in summary.positions if isinstance(p, Position.Short)]
     assert len(long_positions) == 2
     assert len(short_positions) == 2
     lpos = long_positions[0]
@@ -268,7 +268,7 @@ async def test_historical() -> None:
 
     summary = await trader.run(state)
 
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 2
     pos = long_positions[0]
     assert pos.symbol == "eth-btc"
@@ -332,7 +332,7 @@ async def test_trailing_stop_loss() -> None:
 
     summary = await trader.run(state)
 
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 2
     pos = long_positions[0]
     assert pos.open_time == 1
@@ -431,7 +431,7 @@ async def test_close_on_exit(
     # ETH L L L
     # LTC - - -
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 1
 
     position = positions[0]
@@ -465,7 +465,10 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker: MockerFixtu
             ),
         }
     )
-    trader = traders.Multi(chandler=chandler, informant=informant, user=user, broker=broker)
+    time = fakes.Time(time=0)
+    trader = traders.Multi(
+        chandler=chandler, informant=informant, user=user, broker=broker, get_time_ms=time.get_time
+    )
     config = traders.MultiConfig(
         exchange="dummy",
         interval=1,
@@ -493,6 +496,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker: MockerFixtu
     chandler.future_candle_queues[("dummy", "eth-btc", 1)].put_nowait(
         Candle(time=1, close=Decimal("2.0"))
     )
+    time.time = 2
 
     user.get_balance.return_value = Balance(Decimal("0.0"))
     await trader.run(state)
@@ -531,7 +535,7 @@ async def test_open_new_positions() -> None:
 
     summary = await trader.run(state)
 
-    assert len(summary.list_positions()) == 0
+    assert len(summary.positions) == 0
 
 
 async def test_take_profit() -> None:
@@ -573,7 +577,7 @@ async def test_take_profit() -> None:
 
     summary = await trader.run(state)
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 1
     assert positions[0].close_reason is CloseReason.TAKE_PROFIT
 
@@ -657,7 +661,7 @@ async def test_repick_symbols() -> None:
 
     summary = await asyncio.wait_for(task, timeout=TIMEOUT)
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 2
     assert positions[0].open_time == 1
     assert positions[0].symbol == "eth-btc"
@@ -762,7 +766,7 @@ async def test_repick_symbols_with_adjusted_start() -> None:
 
     summary = await asyncio.wait_for(trader.run(state), timeout=TIMEOUT)
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 1
     assert positions[0].open_time == 3
     assert positions[0].symbol == "ltc-btc"
@@ -839,7 +843,7 @@ async def test_repick_symbols_does_not_repick_when_disabled() -> None:
 
     summary = await asyncio.wait_for(trader.run(state), timeout=TIMEOUT)
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 2
     assert positions[0].open_time == 1
     assert positions[0].symbol == "eth-btc"
@@ -909,7 +913,7 @@ async def test_rebalance_quotes() -> None:
     # 1.0 1.5 2.0
     # 1.0 1.5 2.0
 
-    assert len(summary.list_positions()) == 2
+    assert len(summary.positions) == 2
     assert state.quotes == [Decimal("2.0"), Decimal("2.0"), Decimal("2.0")]
 
 
@@ -968,7 +972,7 @@ async def test_allowed_age_drift() -> None:
 
     summary = await trader.run(state)
 
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 2
     pos = long_positions[0]
     assert pos.symbol == "eth-btc"
@@ -1029,7 +1033,7 @@ async def test_open_positions_on_command() -> None:
 
     summary = await task
 
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 1
     pos = long_positions[0]
     assert pos.symbol == "eth-btc"
@@ -1129,4 +1133,4 @@ async def test_no_positions_when_long_and_short_disabled() -> None:
 
     summary = await trader.run(state)
 
-    assert len(summary.list_positions()) == 0
+    assert len(summary.positions) == 0

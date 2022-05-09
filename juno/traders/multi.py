@@ -74,12 +74,14 @@ class MultiState:
     config: MultiConfig
     close_on_exit: bool
     symbol_states: dict[str, _SymbolState]
+    starting_quote: Decimal
     quotes: list[Decimal]
-    summary: TradingSummary
-    start: Timestamp  # Candle time.
+    candle_start: Timestamp  # Candle time.
+    start: Timestamp  # Trading start, real time.
     next_: Timestamp  # Candle time.
     real_start: Timestamp
     open_new_positions: bool = True  # Whether new positions can be opened.
+    positions: list[Position.Closed] = field(default_factory=list)
 
     id: str = field(default_factory=lambda: str(uuid4()))
     running: bool = False
@@ -187,16 +189,13 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             config=config,
             close_on_exit=config.close_on_exit,
             real_start=real_start,
-            start=start,
+            candle_start=start,
             next_=start,
+            starting_quote=quote,
             quotes=self._split_quote(
                 config.quote_asset, quote, config.position_count, config.exchange
             ),
-            summary=TradingSummary(
-                start=start if config.mode is TradingMode.BACKTEST else real_start,
-                quote=quote,
-                quote_asset=config.quote_asset,
-            ),
+            start=start if config.mode is TradingMode.BACKTEST else real_start,
             symbol_states={s: self._create_symbol_state(s, start, config) for s in symbols},
         )
 
@@ -261,19 +260,9 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                         if ss.open_position
                     ],
                 )
-            if config.end is not None and config.end <= state.real_start:  # Backtest.
-                end = (
-                    max(s.last_candle.time for s in state.symbol_states.values() if s.last_candle)
-                    + config.interval
-                    if any(s.last_candle for s in state.symbol_states.values())
-                    else state.summary.start + config.interval
-                )
-            else:  # Paper or live.
-                end = min(self._get_time_ms(), config.end)
-            state.summary.finish(end)
 
         _log.info("finished")
-        return state.summary
+        return self.build_summary(state)
 
     async def _find_top_symbols(self, config: MultiConfig) -> list[str]:
         symbol_pattern = f"*-{config.quote_asset}"
@@ -335,7 +324,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             await self._try_open_new_positions(state)
 
             # Repick top symbols. Do not repick during adjusted start period.
-            if config.repick_symbols and state.next_ > state.start:
+            if config.repick_symbols and state.next_ > state.candle_start:
                 top_symbols = await self._find_top_symbols(config)
                 leaving_symbols = [
                     s
@@ -704,7 +693,9 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             symbol_state.allocated_quote -= position.cost
             symbol_state.open_position = position
 
-        await self._events.emit(state.config.channel, "positions_opened", positions, state.summary)
+        await self._events.emit(
+            state.config.channel, "positions_opened", positions, self.build_summary(state)
+        )
         return positions
 
     async def _close_positions(
@@ -715,7 +706,6 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         if len(entries) == 0:
             return []
 
-        assert state.summary
         assert state.quotes is not None
 
         config = state.config
@@ -750,8 +740,31 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             state.quotes.append(symbol_state.allocated_quote)
             symbol_state.allocated_quote = Decimal("0.0")
 
-            state.summary.append_position(position)
+            state.positions.append(position)
             symbol_state.open_position = None
 
-        await self._events.emit(state.config.channel, "positions_closed", positions, state.summary)
+        await self._events.emit(
+            state.config.channel, "positions_closed", positions, self.build_summary(state)
+        )
         return positions
+
+    def build_summary(self, state: MultiState) -> TradingSummary:
+        config = state.config
+        if config.end is not None and config.end <= state.real_start:  # Backtest.
+            end = (
+                max(s.last_candle.time for s in state.symbol_states.values() if s.last_candle)
+                + config.interval
+                if any(s.last_candle for s in state.symbol_states.values())
+                else state.start + config.interval
+            )
+        else:  # Paper or live.
+            end = min(self._get_time_ms(), config.end)
+
+        return TradingSummary(
+            start=state.start,
+            end=end,
+            starting_assets={
+                state.config.quote_asset: state.starting_quote,
+            },
+            positions=list(state.positions),
+        )

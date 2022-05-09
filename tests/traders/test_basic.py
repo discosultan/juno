@@ -44,7 +44,7 @@ async def test_upside_stop_loss() -> None:
 
     summary = await trader.run(state)
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 1
     position = positions[0]
     assert isinstance(position, Position.Long)
@@ -84,7 +84,7 @@ async def test_upside_trailing_stop_loss() -> None:
 
     summary = await trader.run(state)
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 1
     position = positions[0]
     assert isinstance(position, Position.Long)
@@ -131,7 +131,7 @@ async def test_downside_trailing_stop_loss() -> None:
 
     assert summary.profit == 4
 
-    short_positions = summary.list_positions(type_=Position.Short)
+    short_positions = [p for p in summary.positions if isinstance(p, Position.Short)]
     assert len(short_positions) == 1
     assert short_positions[0].close_reason is CloseReason.STOP_LOSS
 
@@ -170,7 +170,7 @@ async def test_upside_take_profit() -> None:
 
     assert summary.profit == 10
 
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 1
     assert long_positions[0].close_reason is CloseReason.TAKE_PROFIT
 
@@ -214,7 +214,7 @@ async def test_downside_take_profit() -> None:
 
     assert summary.profit == 6
 
-    short_positions = summary.list_positions(type_=Position.Short)
+    short_positions = [p for p in summary.positions if isinstance(p, Position.Short)]
     assert len(short_positions) == 1
     assert short_positions[0].close_reason is CloseReason.TAKE_PROFIT
 
@@ -251,7 +251,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
 
     summary = await trader.run(state)
 
-    assert len(summary.list_positions()) == 0
+    assert len(summary.positions) == 0
 
 
 async def test_adjust_start_persistence() -> None:
@@ -286,7 +286,7 @@ async def test_adjust_start_persistence() -> None:
 
     summary = await trader.run(state)
 
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 1
     assert long_positions[0].close_reason is CloseReason.CANCELLED
 
@@ -366,9 +366,11 @@ async def test_summary_end_on_cancel() -> None:
     time.time = 5
     await cancel(trader_run_task)
 
-    assert state.summary
-    assert state.summary.start == 0
-    assert state.summary.end == 5
+    summary = trader.build_summary(state)
+
+    assert summary
+    assert summary.start == 0
+    assert summary.end == 5
 
 
 async def test_summary_end_on_historical_cancel() -> None:
@@ -398,9 +400,11 @@ async def test_summary_end_on_historical_cancel() -> None:
 
     await cancel(trader_run_task)
 
-    assert state.summary
-    assert state.summary.start == 0
-    assert state.summary.end == 1
+    summary = trader.build_summary(state)
+
+    assert summary
+    assert summary.start == 0
+    assert summary.end == 1
 
 
 @pytest.mark.parametrize(
@@ -457,7 +461,7 @@ async def test_close_on_exit(
     assert summary.start == 0
     assert summary.end == 4
 
-    positions = summary.list_positions()
+    positions = summary.positions
     assert len(positions) == 1
 
     position = positions[0]
@@ -491,4 +495,4 @@ async def test_open_new_positions() -> None:
 
     summary = await trader.run(state)
 
-    assert len(summary.list_positions()) == 0
+    assert len(summary.positions) == 0

@@ -14,7 +14,7 @@ from juno.config import (
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
-from juno.trading import TradingMode
+from juno.trading import TradingMode, TradingSummary
 from juno.utils import construct, extract_public
 
 from .agent import Agent, AgentStatus
@@ -100,10 +100,17 @@ class Paper(Agent):
 
         await trader.run(state.result)
 
-    async def on_finally(self, config: Config, state: State) -> None:
-        assert state.result
+    async def on_finally(self, config: Config, state: State) -> Any:
+        summary = self.build_summary(config, state)
         _log.info(
             f"{self.get_name(state)}: finished with result "
-            f"{format_as_config(extract_public(state.result.summary))}"
+            f"{format_as_config(extract_public(summary))}"
         )
-        await self._events.emit(state.name, "finished", state.result.summary)
+        await self._events.emit(state.name, "finished", summary)
+        return summary
+
+    def build_summary(self, config: Config, state: State) -> TradingSummary:
+        assert state.result
+        trader_name, _ = get_type_name_and_kwargs(config.trader)
+        trader = self._traders[trader_name]
+        return trader.build_summary(state.result)

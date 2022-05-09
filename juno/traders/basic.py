@@ -64,15 +64,17 @@ class BasicState:
     close_on_exit: bool
 
     strategy: Signal
+    starting_quote: Decimal
     quote: Decimal
-    summary: TradingSummary
     next_: Timestamp  # Candle time.
+    start: Timestamp
     real_start: Timestamp
     stop_loss: StopLoss
     take_profit: TakeProfit
 
     changed: Changed = field(default_factory=lambda: Changed(True))
     open_new_positions: bool = True  # Whether new positions can be opened.
+    positions: list[Position.Closed] = field(default_factory=list)
     open_position: Optional[Position.Open] = None
     first_candle: Optional[Candle] = None
     last_candle: Optional[Candle] = None
@@ -222,13 +224,10 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
             config=config,
             close_on_exit=config.close_on_exit,
             next_=next_,
+            start=start if config.mode is TradingMode.BACKTEST else real_start,
             real_start=real_start,
             quote=quote,
-            summary=TradingSummary(
-                start=start if config.mode is TradingMode.BACKTEST else real_start,
-                quote=quote,
-                quote_asset=config.quote_asset,
-            ),
+            starting_quote=quote,
             strategy=strategy,
             stop_loss=(
                 NoopStopLoss() if config.stop_loss is None else config.stop_loss.construct()
@@ -263,21 +262,11 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 assert state.last_candle
                 await self._close_position(state, CloseReason.CANCELLED, state.last_candle)
 
-            if config.end is not None and config.end <= state.real_start:  # Backtest.
-                end = (
-                    state.last_candle.time + config.interval
-                    if state.last_candle
-                    else state.summary.start + config.interval
-                )
-            else:  # Paper or live.
-                end = min(self._get_time_ms(), config.end)
-            state.summary.finish(end)
-
             if state.last_candle:
                 _log.info(f"last candle: {state.last_candle}")
 
         _log.info("finished")
-        return state.summary
+        return self.build_summary(state)
 
     async def _tick(
         self,
@@ -288,7 +277,6 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
 
         assert state.strategy
         assert state.changed
-        assert state.summary
 
         await self._events.emit(config.channel, "candle", candle)
 
@@ -298,7 +286,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         advice = state.changed.update(state.strategy.advice)
         _log.debug(f"received advice: {advice.name}")
         # Make sure strategy doesn't give advice during "adjusted start" period.
-        if state.next_ < state.summary.start:
+        if state.next_ < state.start:
             assert advice is Advice.NONE
 
         queue = self._queues[state.id]
@@ -392,7 +380,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         state.open_position = position
 
         await self._events.emit(
-            config.channel, "positions_opened", [state.open_position], state.summary
+            config.channel, "positions_opened", [state.open_position], self.build_summary(state)
         )
         return position
 
@@ -406,7 +394,6 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         open_position = state.open_position
 
         assert open_position
-        assert state.summary
 
         (position,) = (
             self._simulated_positioner.close_simulated_positions(
@@ -422,7 +409,29 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
 
         state.quote += position.gain
         state.open_position = None
-        state.summary.append_position(position)
+        state.positions.append(position)
 
-        await self._events.emit(config.channel, "positions_closed", [position], state.summary)
+        await self._events.emit(
+            config.channel, "positions_closed", [position], self.build_summary(state)
+        )
         return position
+
+    def build_summary(self, state: BasicState) -> TradingSummary:
+        config = state.config
+        if config.end is not None and config.end <= state.real_start:  # Backtest.
+            end = (
+                state.last_candle.time + config.interval
+                if state.last_candle
+                else state.start + config.interval
+            )
+        else:  # Paper or live.
+            end = min(self._get_time_ms(), config.end)
+
+        return TradingSummary(
+            start=state.start,
+            end=end,
+            starting_assets={
+                state.config.quote_asset: state.starting_quote,
+            },
+            positions=list(state.positions),
+        )

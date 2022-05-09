@@ -113,7 +113,10 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
             ),
             Position.Long,
         ),
-        (TradingSummary(start=1, quote=Decimal("1.0"), quote_asset="btc"), TradingSummary),
+        (
+            TradingSummary(start=1, end=2, starting_assets={"btc": Decimal("1.0")}, positions=[]),
+            TradingSummary,
+        ),
     ],
 )
 async def test_memory_set_get(memory: storages.Memory, item, type_) -> None:

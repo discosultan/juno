@@ -19,8 +19,8 @@ from juno.filters import Filters, Price, Size
 from juno.statistics import CoreStatistics
 from juno.storages import Memory, Storage
 from juno.time import HOUR_MS
-from juno.traders import Basic, BasicState, Trader
-from juno.trading import Position
+from juno.traders import Basic, Trader
+from juno.trading import Position, TradingSummary
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
@@ -72,14 +72,12 @@ async def test_backtest(mocker: MockerFixture) -> None:
         },
     )
     container = _get_container(exchange)
-    agent = container.resolve(Backtest)
+    agent: Backtest = container.resolve(Backtest)
 
     async with container:
-        res = await agent.run(config)
+        summary = await agent.run(config)
 
-    assert res.summary
-
-    stats = CoreStatistics.compose(res.summary)
+    stats = CoreStatistics.compose(summary)
     assert stats.profit == -50
     assert stats.duration == 6
     assert stats.roi == Decimal("-0.5")
@@ -93,7 +91,7 @@ async def test_backtest(mocker: MockerFixture) -> None:
 
     assert (
         CoreStatistics.calculate_hodl_profit(
-            summary=res.summary,
+            summary=summary,
             first_candle=candles[0],
             last_candle=candles[-1],
             fees=fees,
@@ -220,9 +218,9 @@ async def test_paper(mocker: MockerFixture) -> None:
         await asyncio.wait_for(candles.join(), 1)
         await cancel(task)
 
-    summary = task.result().summary
+    summary = task.result()
     assert summary
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 1
     pos = long_positions[0]
     assert Fill.total_size(pos.open_fills) == 6
@@ -285,9 +283,9 @@ async def test_live(mocker: MockerFixture) -> None:
         await asyncio.wait_for(candles.join(), 1)
         await cancel(task)
 
-    summary = task.result().summary
+    summary = task.result()
     assert summary
-    long_positions = summary.list_positions(type_=Position.Long)
+    long_positions = [p for p in summary.positions if isinstance(p, Position.Long)]
     assert len(long_positions) == 1
     pos = long_positions[0]
     assert pos.open_time == 2
@@ -304,9 +302,10 @@ async def test_live_persist_and_resume(mocker: MockerFixture, strategy: str) -> 
     candles.put_nowait(Candle(time=0, close=Decimal("1.0")))
     exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
     exchange.map_balances.return_value = {"spot": {"btc": Balance(available=Decimal("1.0"))}}
+    time = fakes.Time(time=0)
 
     container = _get_container(exchange)
-    container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
+    container.add_singleton_instance(Callable[[], int], lambda: time.get_time)
     container.add_singleton_type(Broker, lambda: Market)
     container.add_singleton_instance(list[Custodian], lambda: [Spot(container.resolve(User))])
     agent = container.resolve(Live)
@@ -331,15 +330,14 @@ async def test_live_persist_and_resume(mocker: MockerFixture, strategy: str) -> 
         exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(
             candles
         )
+        time.time = 2
         agent_run_task = asyncio.create_task(agent.run(config))
         await asyncio.wait_for(candles.join(), 1)
         await cancel(agent_run_task)
 
-    state: BasicState = agent_run_task.result()
-    assert state.first_candle
-    assert state.first_candle.time == 0
-    assert state.last_candle
-    assert state.last_candle.time == 1
+    summary: TradingSummary = agent_run_task.result()
+    assert summary.start == 0
+    assert summary.end == 2
 
 
 def _get_container(exchange: Exchange) -> Container:

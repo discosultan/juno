@@ -108,6 +108,7 @@ def candle_row(candle: Candle) -> dict[str, Any]:
 
 def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, symbol: str) -> None:
     base_asset, quote_asset = unpack_assets(symbol)
+    quote = summary.starting_assets[quote_asset]
 
     with open("tradesheet.csv", "w", newline="") as csvfile:
         fieldnames = ["Date", "Buy", "Sell", "Units", "Value Per Unit"]
@@ -116,11 +117,9 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, sym
         EUR = Decimal("3347.23")
 
         writer.writeheader()
-        writer.writerow(trade_row(summary.start, "EUR", "", summary.quote * EUR, Decimal("1.0")))
-        writer.writerow(
-            trade_row(summary.start, quote_asset, "EUR", summary.quote, Decimal("3347.23"))
-        )
-        for pos in summary.get_positions():
+        writer.writerow(trade_row(summary.start, "EUR", "", quote * EUR, Decimal("1.0")))
+        writer.writerow(trade_row(summary.start, quote_asset, "EUR", quote, Decimal("3347.23")))
+        for pos in summary.positions:
             buy_size = pos.base_gain
             buy_price = filters.price.round_down(pos.cost / buy_size)
             writer.writerow(trade_row(pos.open_time, base_asset, quote_asset, buy_size, buy_price))

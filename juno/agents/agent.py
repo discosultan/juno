@@ -66,9 +66,9 @@ class Agent:
             raise
         finally:
             await self._try_save_state(config, state)
-            await self.on_finally(config, state)
+            result = await self.on_finally(config, state)
 
-        return state.result
+        return result
 
     async def on_running(self, config: Any, state: Any) -> None:
         _log.info(f"{self.get_name(state)}: running with config {format_as_config(config)}")
@@ -82,7 +82,7 @@ class Agent:
         _log.error(f"{self.get_name(state)}: unhandled exception {exc_traceback(exc)}")
         await self._events.emit(state.name, "errored", exc)
 
-    async def on_finally(self, config: Any, state: Any) -> None:
+    async def on_finally(self, config: Any, state: Any) -> Any:
         _log.info(
             f"{self.get_name(state)}: finished with result "
             f"{format_as_config(extract_public(state.result))}"

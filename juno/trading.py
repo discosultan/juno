@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
-from typing import Iterable, Optional, Sequence, Union
+from typing import Optional, Sequence, Union
 
 from juno import Fill, Interval, Timestamp
 from juno.asyncio import gather_dict
@@ -35,7 +35,7 @@ class Position(ModuleType):
     # TODO: Add support for external token fees (i.e BNB)
     # Note that we cannot set the dataclass as frozen because that would break JSON
     # deserialization.
-    @dataclass
+    @dataclass(frozen=True)
     class Long:
         exchange: str
         symbol: str
@@ -44,6 +44,16 @@ class Position(ModuleType):
         close_time: Timestamp
         close_fills: list[Fill]
         close_reason: CloseReason
+
+        def __post_init__(self) -> None:
+            if self.open_time < 0:
+                raise ValueError("Open time cannot be negative")
+            if self.close_time < self.open_time:
+                raise ValueError("Close time cannot be less than start time")
+            if len(self.open_fills) == 0:
+                raise ValueError("A position must have at least one open fill")
+            # Note that a position can have zero close fills if the position cannot be closed
+            # anymore due to exchange filter requirements. Assume funds lost in this case.
 
         @property
         def cost(self) -> Decimal:
@@ -89,7 +99,7 @@ class Position(ModuleType):
         def duration(self) -> Interval:
             return self.close_time - self.open_time
 
-    @dataclass
+    @dataclass(frozen=True)
     class OpenLong:
         exchange: str
         symbol: str
@@ -117,7 +127,7 @@ class Position(ModuleType):
                 self.fills, unpack_base_asset(self.symbol)
             )
 
-    @dataclass
+    @dataclass(frozen=True)
     class Short:
         exchange: str
         symbol: str
@@ -129,6 +139,16 @@ class Position(ModuleType):
         close_fills: list[Fill]
         close_reason: CloseReason
         interest: Decimal  # base
+
+        def __post_init__(self) -> None:
+            if self.open_time < 0:
+                raise ValueError("Open time cannot be negative")
+            if self.close_time < self.open_time:
+                raise ValueError("Close time cannot be less than start time")
+            if len(self.open_fills) == 0:
+                raise ValueError("A position must have at least one open fill")
+            # Note that a position can have zero close fills if the position cannot be closed
+            # anymore due to exchange filter requirements. Assume funds lost in this case.
 
         @property
         def cost(self) -> Decimal:
@@ -178,7 +198,7 @@ class Position(ModuleType):
         def duration(self) -> Interval:
             return self.close_time - self.open_time
 
-    @dataclass
+    @dataclass(frozen=True)
     class OpenShort:
         exchange: str
         symbol: str
@@ -216,51 +236,26 @@ class Position(ModuleType):
     Closed = Union[Long, Short]
 
 
-@dataclass
+@dataclass(frozen=True)
 class TradingSummary:
     start: Timestamp
-    # TODO: We may want to store a dictionary of quote assets instead to support more pairs.
-    # Make sure to update `_get_asset_performance` in statistics.
-    quote: Decimal
-    quote_asset: str
+    end: Timestamp
+    starting_assets: dict[str, Decimal]
+    positions: list[Position.Closed]
 
-    _positions: list[Position.Closed] = field(default_factory=list)
-
-    end: Timestamp = -1
-
-    def __post_init__(self):
-        if self.end == -1:
-            self.end = self.start
+    def __post_init__(self) -> None:
+        if self.start < 0:
+            raise ValueError("Trading start time cannot be negative")
+        if self.end < self.start:
+            raise ValueError("Trading end time cannot be earlier than start time")
+        if len(self.starting_assets) == 0:
+            raise ValueError("Cannot trade without any starting asset")
+        if any(amount <= 0 for amount in self.starting_assets.values()):
+            raise ValueError("Starting asset value cannot be zero or negative")
 
     @property
     def profit(self) -> Decimal:
-        return sum((p.profit for p in self._positions), Decimal("0.0"))
-
-    def append_position(self, pos: Position.Closed) -> None:
-        self._positions.append(pos)
-        self.finish(pos.close_time)
-
-    def get_positions(
-        self,
-        type_: Optional[type[Position.Closed]] = None,
-        reason: Optional[CloseReason] = None,
-    ) -> Iterable[Position.Closed]:
-        result = (p for p in self._positions)
-        if type_ is not None:
-            result = (p for p in result if isinstance(p, type_))
-        if reason is not None:
-            result = (p for p in result if p.close_reason is reason)
-        return result
-
-    def list_positions(
-        self,
-        type_: Optional[type[Position.Closed]] = None,
-        reason: Optional[CloseReason] = None,
-    ) -> list[Position.Closed]:
-        return list(self.get_positions(type_, reason))
-
-    def finish(self, end: Timestamp) -> None:
-        self.end = max(end, self.end)
+        return sum((p.profit for p in self.positions), Decimal("0.0"))
 
 
 class StartMixin(ABC):

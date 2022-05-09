@@ -61,19 +61,30 @@ def plot(candles: list[Candle], summary: TradingSummary) -> None:
     # Openings.
     traces.extend(
         [
-            trace_position_openings(summary.list_positions(type_=Position.Long), "triangle-up"),
-            trace_position_openings(summary.list_positions(type_=Position.Short), "triangle-down"),
+            trace_position_openings(
+                [p for p in summary.positions if isinstance(p, Position.Long)], "triangle-up"
+            ),
+            trace_position_openings(
+                [p for p in summary.positions if isinstance(p, Position.Short)], "triangle-down"
+            ),
         ]
     )
     # Closings.
     traces.extend(
         [
-            trace_position_closings(summary.list_positions(reason=CloseReason.STRATEGY), "yellow"),
             trace_position_closings(
-                summary.list_positions(reason=CloseReason.TAKE_PROFIT), "purple"
+                [p for p in summary.positions if p.close_reason == CloseReason.STRATEGY], "yellow"
             ),
-            trace_position_closings(summary.list_positions(reason=CloseReason.STOP_LOSS), "red"),
-            trace_position_closings(summary.list_positions(reason=CloseReason.CANCELLED), "gray"),
+            trace_position_closings(
+                [p for p in summary.positions if p.close_reason == CloseReason.TAKE_PROFIT],
+                "purple",
+            ),
+            trace_position_closings(
+                [p for p in summary.positions if p.close_reason == CloseReason.STOP_LOSS], "red"
+            ),
+            trace_position_closings(
+                [p for p in summary.positions if p.close_reason == CloseReason.CANCELLED], "gray"
+            ),
         ]
     )
     # Profit.
@@ -133,8 +144,11 @@ def trace_position_closings(positions: list[Position.Closed], color: str) -> go.
 
 
 def trace_profit_pct_changes(summary: TradingSummary) -> go.Bar:
-    positions = summary.list_positions()
-    balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
+    positions = summary.positions
+    # TODO: assumes only single starting asset. we should use a benchmark asset similar to
+    # extended statistics instead.
+    quote = list(summary.starting_assets.values())[0]
+    balances = list(accumulate(chain([quote], (p.profit for p in positions))))
     profit_pct_changes = [100 * (b - a) / a for a, b in zip(balances[::1], balances[1::1])]
     return go.Bar(
         x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
@@ -144,8 +158,11 @@ def trace_profit_pct_changes(summary: TradingSummary) -> go.Bar:
 
 
 def trace_balance(summary: TradingSummary) -> go.Scatter:
-    positions = summary.list_positions()
-    balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
+    positions = summary.positions
+    # TODO: assumes only single starting asset. we should use a benchmark asset similar to
+    # extended statistics instead.
+    quote = list(summary.starting_assets.values())[0]
+    balances = list(accumulate(chain([quote], (p.profit for p in positions))))
     times = list(
         map(
             datetime_utcfromtimestamp_ms, chain([summary.start], (p.close_time for p in positions))

@@ -66,7 +66,7 @@ def _get_trades_from_summary(
     summary: TradingSummary, interval: int
 ) -> dict[int, list[tuple[str, Decimal]]]:
     trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
-    for pos in summary.get_positions():
+    for pos in summary.positions:
         base_asset, quote_asset = unpack_assets(pos.symbol)
         # Open.
         time = floor_multiple(pos.open_time, interval)
@@ -90,7 +90,7 @@ def _get_asset_performance(
     interval: int,
 ) -> list[dict[str, Decimal]]:
     asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
-    asset_holdings[summary.quote_asset] = summary.quote
+    asset_holdings.update(summary.starting_assets)
 
     asset_performances: list[dict[str, Decimal]] = []
 

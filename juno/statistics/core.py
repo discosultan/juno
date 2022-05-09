@@ -46,15 +46,17 @@ class CoreStatistics:
         start = summary.start
         end = summary.end
         duration = end - start
-        positions = list(summary.get_positions())
+        positions = summary.positions
         long_positions = [p for p in positions if isinstance(p, Position.Long)]
         short_positions = [p for p in positions if isinstance(p, Position.Short)]
         profit = summary.profit
-        cost = summary.quote
+        # TODO: assumes only single starting asset. we should use a benchmark asset similar to
+        # extended statistics instead.
+        cost = list(summary.starting_assets.values())[0]
         roi = profit / cost
 
         # Drawdowns.
-        quote = summary.quote
+        quote = cost
         max_quote = quote
         max_drawdown = Decimal("0.0")
         sum_drawdown = Decimal("0.0")
@@ -129,8 +131,11 @@ class CoreStatistics:
         first_candle: Candle,
         last_candle: Candle,
     ) -> Decimal:
-        base_hodl = filters.size.round_down(summary.quote / first_candle.close)
+        # TODO: assumes only single starting asset. we should use a benchmark asset similar to
+        # extended statistics instead.
+        quote = list(summary.starting_assets.values())[0]
+        base_hodl = filters.size.round_down(quote / first_candle.close)
         base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)
         quote_hodl = filters.size.round_down(base_hodl) * last_candle.close
         quote_hodl -= round_half_up(quote_hodl * fees.taker, filters.quote_precision)
-        return quote_hodl - summary.quote
+        return quote_hodl - quote

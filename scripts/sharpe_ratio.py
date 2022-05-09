@@ -87,7 +87,7 @@ async def main() -> None:
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
         trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
-        for pos in trading_summary.get_positions():
+        for pos in trading_summary.positions:
             # Open.
             time = floor_multiple(pos.open_time, DAY_MS)
             day_trades = trades[time]
@@ -100,7 +100,7 @@ async def main() -> None:
             day_trades.append((quote_asset, +pos.gain))
 
         asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
-        asset_holdings[quote_asset] = trading_summary.quote
+        asset_holdings.update(trading_summary.starting_assets)
 
         asset_performance: dict[int, dict[str, Decimal]] = defaultdict(
             lambda: {k: Decimal("0.0") for k in market_data.keys()}

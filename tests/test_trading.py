@@ -80,18 +80,22 @@ def test_long_position_annualized_roi_overflow() -> None:
 
 
 def test_trading_summary() -> None:
-    summary = TradingSummary(start=0, quote=Decimal("100.0"), quote_asset="btc")
-    # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
-    # Series: 100, 110, 99, 103.95, 93.55, 102.91
-    positions = [
-        new_closed_long_position(Decimal("10.0")),
-        new_closed_long_position(Decimal("-11.0")),
-        new_closed_long_position(Decimal("4.95")),
-        new_closed_long_position(Decimal("-10.4")),
-        new_closed_long_position(Decimal("9.36")),
-    ]
-    for position in positions:
-        summary.append_position(position)
+    summary = TradingSummary(
+        start=0,
+        end=1,
+        starting_assets={
+            "btc": Decimal("100.0"),
+        },
+        # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
+        # Series: 100, 110, 99, 103.95, 93.55, 102.91
+        positions=[
+            new_closed_long_position(Decimal("10.0")),
+            new_closed_long_position(Decimal("-11.0")),
+            new_closed_long_position(Decimal("4.95")),
+            new_closed_long_position(Decimal("-10.4")),
+            new_closed_long_position(Decimal("9.36")),
+        ],
+    )
 
     stats = CoreStatistics.compose(summary)
     assert stats.cost == Decimal("100.0")
@@ -101,32 +105,19 @@ def test_trading_summary() -> None:
 
 
 def test_empty_trading_summary() -> None:
-    summary = TradingSummary(start=0, quote=Decimal("100.0"), quote_asset="btc")
+    summary = TradingSummary(
+        start=0,
+        end=1,
+        starting_assets={
+            "btc": Decimal("100.0"),
+        },
+        positions=[],
+    )
     stats = CoreStatistics.compose(summary)
     assert stats.cost == 100
     assert stats.gain == 100
     assert stats.profit == 0
     assert stats.max_drawdown == 0
-
-
-def test_trading_summary_end() -> None:
-    summary = TradingSummary(start=0, quote=Decimal("1.0"), quote_asset="btc")
-
-    summary.append_position(
-        Position.Long(
-            exchange="exchange",
-            symbol="eth-btc",
-            open_time=0,
-            open_fills=[],
-            close_time=1,
-            close_fills=[],
-            close_reason=CloseReason.STRATEGY,
-        )
-    )
-    assert summary.end == 1
-
-    summary.finish(2)
-    assert summary.end == 2
 
 
 def new_closed_long_position(profit: Decimal) -> Position.Long:
