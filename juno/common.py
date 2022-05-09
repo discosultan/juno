@@ -67,7 +67,7 @@ class BorrowInfo:
 
 # We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support
 # iterating over values of an instance (i.e `*mytuple`) which is convenient for decomposing
-# values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
+# values for SQLite insertion. Dataclasses miss that functionality but offer comparisons, etc.
 # out of the box.
 class Candle(NamedTuple):
     time: Timestamp = 0  # Interval start time.
@@ -337,6 +337,10 @@ class ExchangeInfo:
 @dataclass(frozen=True)
 class AssetInfo:
     precision: int = 8
+
+    def __post_init__(self) -> None:
+        if self.precision <= 0:
+            raise ValueError("Precision cannot be zero or negative")
 
 
 @dataclass(frozen=True)
