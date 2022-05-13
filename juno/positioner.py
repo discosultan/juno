@@ -510,13 +510,18 @@ class SimulatedPositioner:
         _, quote_asset = unpack_assets(position.symbol)
         fees, filters = self._informant.get_fees_filters(position.exchange, position.symbol)
 
+        fills: list[Fill] = []
         size = filters.size.round_down(position.base_gain)
-        quote = round_down(price * size, filters.quote_precision)
-        fee = round_half_up(quote * fees.taker, filters.quote_precision)
+        if size > 0:
+            quote = round_down(price * size, filters.quote_precision)
+            fee = round_half_up(quote * fees.taker, filters.quote_precision)
+            fills.append(Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset))
+        # If size is 0, we cannot close the position anymore. This can happen if the amount bought
+        # falls below min size filter due to fees, for example.
 
         closed_position = position.close(
             time=time,
-            fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset)],
+            fills=fills,
             reason=reason,
         )
         _log.info(

@@ -92,10 +92,10 @@ def _get_asset_performance(
     asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
     asset_holdings.update(summary.starting_assets)
 
-    asset_performances: list[dict[str, Decimal]] = []
+    asset_performance: list[dict[str, Decimal]] = []
 
-    asset_performances.append(
-        _get_asset_performances_from_holdings(asset_holdings, asset_prices, 0)
+    asset_performance.append(
+        _get_asset_performance_entry_from_holdings(asset_holdings, asset_prices, 0)
     )
 
     # Offset the open price, hence enumrate starting from 1.
@@ -107,14 +107,14 @@ def _get_asset_performance(
                 asset_holdings[asset] = asset_holdings[asset] + size
 
         # Update asset performance (mark-to-market portfolio).
-        asset_performances.append(
-            _get_asset_performances_from_holdings(asset_holdings, asset_prices, price_i)
+        asset_performance.append(
+            _get_asset_performance_entry_from_holdings(asset_holdings, asset_prices, price_i)
         )
 
-    return asset_performances
+    return asset_performance
 
 
-def _get_asset_performances_from_holdings(
+def _get_asset_performance_entry_from_holdings(
     asset_holdings: dict[str, Decimal], asset_prices: dict[str, list[Decimal]], price_i: int
 ) -> dict[str, Decimal]:
     asset_performance = {k: Decimal("0.0") for k in asset_prices.keys()}

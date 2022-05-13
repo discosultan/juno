@@ -13,7 +13,7 @@ from juno.config import (
 )
 from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
-from juno.time import strftimestamp, time_ms
+from juno.time import DAY_MS, ceil_timestamp, strftimestamp, time_ms
 from juno.traders import Trader
 from juno.trading import TradingMode, TradingSummary
 from juno.utils import construct
@@ -119,7 +119,8 @@ class Backtest(Agent):
             exchange=config.exchange,
             symbols=symbols,
             start=summary.start,
-            end=summary.end,
+            end=ceil_timestamp(summary.end, DAY_MS),
+            interval=DAY_MS,
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
         )
