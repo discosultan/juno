@@ -14,7 +14,7 @@ parser.add_argument("symbol", nargs="?", default="eth-btc")
 parser.add_argument(
     "intervals",
     nargs="?",
-    type=lambda s: map(strpinterval, s.split(",")),
+    type=lambda s: list(map(strpinterval, s.split(","))),
     default=[MIN_MS, 3 * MIN_MS],
 )
 parser.add_argument("--start", nargs="?", type=strptimestamp, default=None)
@@ -47,6 +47,7 @@ async def main() -> None:
             f"start {strftimestamp(start)} current {strftimestamp(current)} end "
             f"{strftimestamp(end)}"
         )
+        logging.info(f"symbol {args.symbol} intervals {args.intervals}")
 
         async for candle_meta, candle in chandler.stream_concurrent_candles(
             exchange=args.exchange,

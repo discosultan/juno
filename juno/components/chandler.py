@@ -9,11 +9,11 @@ from decimal import Decimal
 from typing import AsyncGenerator, AsyncIterable, Callable, Iterable, Optional
 
 from asyncstdlib import list as list_async
-from asyncstdlib import merge as merge_async
+from asyncstdlib import merge as ordered_merge_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
-from juno.asyncio import aclose, first_async, stream_with_timeout
+from juno.asyncio import aclose, first_async, merge_async, stream_with_timeout
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
@@ -59,9 +59,6 @@ class Chandler(AbstractAsyncContextManager):
         self._storage_batch_size = storage_batch_size
         self._earliest_exchange_start = earliest_exchange_start
 
-    # TODO: Historical candle stream works correctly. However, future ones stall for lower
-    # intervals because the current algorithm always waits for a candle from higher interval first
-    # in order to guarantee ordering.
     async def stream_concurrent_candles(
         self,
         exchange: str,
@@ -70,8 +67,8 @@ class Chandler(AbstractAsyncContextManager):
         end: int = MAX_TIME_MS,
         exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[tuple[CandleMeta, Candle]]:
-        # Sort by interval descending.
         sorted_entries = sorted(entries, key=lambda e: e[1])
+        now = self._get_time_ms()
 
         async def attach_candle_meta(
             symbol: str, interval: int, candles: AsyncIterable[Candle]
@@ -79,7 +76,7 @@ class Chandler(AbstractAsyncContextManager):
             async for candle in candles:
                 yield ((symbol, interval), candle)
 
-        streams = (
+        historical_streams = (
             attach_candle_meta(
                 symbol,
                 interval,
@@ -88,18 +85,42 @@ class Chandler(AbstractAsyncContextManager):
                     symbol=symbol,
                     interval=interval,
                     start=start,
-                    end=end,
+                    end=now,
                     exchange_timeout=exchange_timeout,
                 ),
             )
             for symbol, interval in sorted_entries
         )
 
-        # Merge streams.
-        async for candle_meta, candle in merge_async(
-            *streams,
+        # Merge historical streams.
+        async for candle_meta, candle in ordered_merge_async(
+            *historical_streams,
             key=lambda p: p[1].time,
         ):
+            yield candle_meta, candle
+
+        future_streams = (
+            attach_candle_meta(
+                symbol,
+                interval,
+                self.stream_candles(
+                    exchange=exchange,
+                    symbol=symbol,
+                    interval=interval,
+                    start=now,
+                    end=end,
+                    exchange_timeout=exchange_timeout,
+                ),
+            )
+            for symbol, interval in reversed(sorted_entries)
+        )
+
+        # Merge future streams. We do not use ordered merge for future and assume the exchange
+        # already provides candles in an ordered fashion.
+        # If we used the ordered algorithm, future ones would stall for lower intervals because the
+        # current algorithm always waits for a candle from higher interval first in order to
+        # guarantee ordering.
+        async for candle_meta, candle in merge_async(*future_streams):
             yield candle_meta, candle
 
     async def stream_candles_fill_missing_with_none(
