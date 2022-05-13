@@ -2,9 +2,12 @@ import inspect
 import os
 import sys
 from dataclasses import is_dataclass
+from decimal import Decimal
 from enum import Enum
 from types import ModuleType
 from typing import Any, Mapping, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
+
+import yaml
 
 from juno import Interval, Timestamp, json
 from juno.itertools import recursive_iter
@@ -13,6 +16,17 @@ from juno.typing import GenericConstructor, get_input_type_hints, isenum, isname
 from juno.utils import get_module_type, map_concrete_module_types
 
 T = TypeVar("T")
+
+
+# Support loading Decimals from a yaml config file.
+# The value must be prefixed with the `!decimal` tag.
+# https://stackoverflow.com/a/47346704/1466456
+def _decimal_constructor(loader, node):
+    value = loader.construct_scalar(node)
+    return Decimal(value)
+
+
+yaml.add_constructor("!decimal", _decimal_constructor)
 
 
 def from_env(
@@ -42,6 +56,21 @@ def from_env(
 def from_json_file(file: str) -> dict[str, Any]:
     with open(file, "r") as f:
         return json.load(f)
+
+
+def from_yaml_file(file: str) -> dict[str, Any]:
+    with open(file, "r") as f:
+        return yaml.load(f, yaml.Loader)
+
+
+def from_file(file: str) -> dict[str, Any]:
+    file_lower = file.lower()
+    if file_lower.endswith("json"):
+        return from_json_file(file)
+    elif file_lower.endswith("yaml") or file_lower.endswith("yml"):
+        return from_yaml_file(file)
+    else:
+        raise ValueError("Invalid config file. Expected JSON or YAML format")
 
 
 def list_names(config: dict[str, Any], name: str) -> set[str]:

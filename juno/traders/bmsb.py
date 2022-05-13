@@ -18,7 +18,7 @@ from juno.strategies import FourWeekRule
 from juno.strategies.strategy import Changed
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
-from juno.time import DAY_MS, WEEK_MS, floor_timestamp, time_ms
+from juno.time import DAY_MS, WEEK_MS, time_ms
 from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
 from juno.typing import Constructor
 from juno.utils import unpack_assets

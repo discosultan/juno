@@ -38,7 +38,7 @@ async def main() -> None:
     config_path = sys.argv[1] if len(sys.argv) >= 2 else full_path(__file__, "config/default.json")
     cfg = merge(
         {},
-        config.from_json_file(config_path),
+        config.from_file(config_path),
         config.from_env(),
     )
 
