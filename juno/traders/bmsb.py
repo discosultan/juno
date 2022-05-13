@@ -10,12 +10,12 @@ from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.custodians import Stub
+from juno.custodians.custodian import Custodian
 from juno.indicators import Sma
 from juno.positioner import Positioner, SimulatedPositioner
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
-from juno.strategies import FourWeekRule
-from juno.strategies.strategy import Changed
+from juno.strategies.strategy import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import DAY_MS, WEEK_MS, time_ms
@@ -31,16 +31,16 @@ T = TypeVar("T")
 
 
 class BMSBStrategy:
-    def __init__(self) -> None:
+    def __init__(self, signal: Constructor[Signal]) -> None:
         self._20w_sma: Sma = Sma(20)
-        self._4w_rule: FourWeekRule = FourWeekRule(period=28, ma="ema", ma_period=14)
+        self._signal = signal.construct()
         self._advice = Advice.NONE
         self._changed = Changed(enabled=True)
         self._is_over_20w_sma: bool = False
 
     @property
     def mature(self) -> bool:
-        return self._20w_sma.mature and self._4w_rule.mature
+        return self._20w_sma.mature and self._signal.mature
 
     def update(self, candle: Candle, candle_meta: tuple[str, int]) -> Advice:
         _, interval = candle_meta
@@ -48,16 +48,16 @@ class BMSBStrategy:
         if interval == WEEK_MS:
             self._20w_sma.update(candle.close)
         elif interval == DAY_MS:
-            self._4w_rule.update(candle)
+            self._signal.update(candle)
         else:
             raise ValueError("Unexpected candle interval")
 
         if self.mature and interval == WEEK_MS:
             self._is_over_20w_sma = candle.close >= self._20w_sma.value
         elif self.mature and interval == DAY_MS:
-            if self._is_over_20w_sma and self._4w_rule.advice is Advice.LONG:
+            if self._is_over_20w_sma and self._signal.advice is Advice.LONG:
                 self._advice = Advice.LONG
-            elif not self._is_over_20w_sma and self._4w_rule.advice is Advice.SHORT:
+            elif not self._is_over_20w_sma and self._signal.advice is Advice.SHORT:
                 self._advice = Advice.SHORT
             elif self._advice is Advice.LONG and not self._is_over_20w_sma:
                 self._advice = Advice.LIQUIDATE
@@ -74,6 +74,7 @@ class BMSBConfig:
     benchmark_symbol: str
     symbol: str
     end: Timestamp
+    strategy: Constructor[Signal]
     start: Optional[Timestamp] = None  # None means earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     mode: TradingMode = TradingMode.BACKTEST
@@ -81,6 +82,7 @@ class BMSBConfig:
     close_on_exit: bool = True  # Whether to close open position on exit.
     stop_loss: Optional[Constructor[StopLoss]] = None
     take_profit: Optional[Constructor[TakeProfit]] = None
+    custodian: str = "stub"
 
     @property
     def base_asset(self) -> str:
@@ -137,6 +139,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
         broker: Optional[Broker] = None,  # Only required if not backtesting.
         events: Events = Events(),
         get_time_ms: Callable[[], int] = time_ms,
+        custodians: list[Custodian] = [Stub()],
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -150,6 +153,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
                 custodians=[Stub()],
             )
         self._simulated_positioner = SimulatedPositioner(informant=informant)
+        self._custodians = {type(c).__name__.lower(): c for c in custodians}
         self._events = events
         self._get_time_ms = get_time_ms
         self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
@@ -231,8 +235,9 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
         )
         real_start = self._get_time_ms()
 
-        quote = config.quote
-        assert quote
+        quote = await self._custodians[config.custodian].request_quote(
+            exchange=config.exchange, asset=config.quote_asset, quote=config.quote
+        )
         assert quote > filters.price.min
 
         next_ = start
@@ -246,7 +251,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
             candle_start=start,
             real_start=real_start,
             start=start if config.mode is TradingMode.BACKTEST else real_start,
-            strategy=BMSBStrategy(),
+            strategy=BMSBStrategy(config.strategy),
             quote=quote,
             starting_quote=quote,
             stop_loss=(
@@ -321,7 +326,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
             coro = None
 
             if isinstance(state.open_position, Position.OpenLong):
-                if advice in [Advice.SHORT, Advice.LIQUIDATE]:
+                if advice in {Advice.SHORT, Advice.LIQUIDATE}:
                     coro = self._close_position(state, CloseReason.STRATEGY, candle)
                 elif state.open_position and state.stop_loss.upside_hit:
                     assert advice is not Advice.LONG
@@ -332,7 +337,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
                     _log.info(f"upside take profit hit at {config.take_profit}; selling")
                     coro = self._close_position(state, CloseReason.TAKE_PROFIT, candle)
             elif isinstance(state.open_position, Position.OpenShort):
-                if advice in [Advice.LONG, Advice.LIQUIDATE]:
+                if advice in {Advice.LONG, Advice.LIQUIDATE}:
                     coro = self._close_position(state, CloseReason.STRATEGY, candle)
                 elif state.stop_loss.downside_hit:
                     assert advice is not Advice.SHORT
@@ -393,7 +398,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
             if config.mode is TradingMode.BACKTEST
             else await self._positioner.open_positions(
                 exchange=config.exchange,
-                custodian="stub",
+                custodian=config.custodian,
                 mode=config.mode,
                 entries=[(config.symbol, state.quote, short)],
             )
@@ -424,7 +429,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
             )
             if config.mode is TradingMode.BACKTEST
             else await self._positioner.close_positions(
-                custodian="stub",
+                custodian=config.custodian,
                 mode=config.mode,
                 entries=[(open_position, reason)],
             )

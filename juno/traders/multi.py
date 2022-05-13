@@ -391,17 +391,17 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             assert symbol_state.last_candle
             if isinstance(
                 symbol_state.open_position, Position.OpenLong
-            ) and symbol_state.advice in [
+            ) and symbol_state.advice in {
                 Advice.LIQUIDATE,
                 Advice.SHORT,
-            ]:
+            }:
                 to_process.append((symbol_state, symbol_state.reason))
             elif isinstance(
                 symbol_state.open_position, Position.OpenShort
-            ) and symbol_state.advice in [
+            ) and symbol_state.advice in {
                 Advice.LIQUIDATE,
                 Advice.LONG,
-            ]:
+            }:
                 to_process.append((symbol_state, symbol_state.reason))
         if len(to_process) > 0:
             await process_task_on_queue(queue, self._close_positions(state, to_process))

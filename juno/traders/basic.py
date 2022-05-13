@@ -298,7 +298,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
             coro = None
 
             if isinstance(state.open_position, Position.OpenLong):
-                if advice in [Advice.SHORT, Advice.LIQUIDATE]:
+                if advice in {Advice.SHORT, Advice.LIQUIDATE}:
                     coro = self._close_position(state, CloseReason.STRATEGY, candle)
                 elif state.open_position and state.stop_loss.upside_hit:
                     assert advice is not Advice.LONG
@@ -309,7 +309,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                     _log.info(f"upside take profit hit at {config.take_profit}; selling")
                     coro = self._close_position(state, CloseReason.TAKE_PROFIT, candle)
             elif isinstance(state.open_position, Position.OpenShort):
-                if advice in [Advice.LONG, Advice.LIQUIDATE]:
+                if advice in {Advice.LONG, Advice.LIQUIDATE}:
                     coro = self._close_position(state, CloseReason.STRATEGY, candle)
                 elif state.stop_loss.downside_hit:
                     assert advice is not Advice.SHORT
