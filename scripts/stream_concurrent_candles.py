@@ -51,7 +51,7 @@ async def main() -> None:
 
         async for candle_meta, candle in chandler.stream_concurrent_candles(
             exchange=args.exchange,
-            entries=product([args.symbol], args.intervals),
+            entries=list(product([args.symbol], args.intervals)),
             start=start,
             end=end,
         ):

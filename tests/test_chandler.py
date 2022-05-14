@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Optional
 
@@ -599,10 +600,63 @@ async def test_stream_concurrent_historical_candles(
     )
 
     assert output == [
-        (("eth-btc", 2), Candle(time=0, close=Decimal("2.0"))),
-        (("eth-btc", 1), Candle(time=0, close=Decimal("1.0"))),
-        (("eth-btc", 1), Candle(time=1, close=Decimal("1.0"))),
-        (("eth-btc", 2), Candle(time=2, close=Decimal("2.0"))),
-        (("eth-btc", 1), Candle(time=2, close=Decimal("1.0"))),
-        (("eth-btc", 1), Candle(time=3, close=Decimal("1.0"))),
+        (("eth-btc", 1), Candle(time=0, close=Decimal("1.0"))),  # time 1
+        (("eth-btc", 2), Candle(time=0, close=Decimal("2.0"))),  # time 2
+        (("eth-btc", 1), Candle(time=1, close=Decimal("1.0"))),  # time 2
+        (("eth-btc", 1), Candle(time=2, close=Decimal("1.0"))),  # time 3
+        (("eth-btc", 2), Candle(time=2, close=Decimal("2.0"))),  # time 4
+        (("eth-btc", 1), Candle(time=3, close=Decimal("1.0"))),  # time 4
+    ]
+
+
+async def test_stream_concurrent_future_candles(
+    storage: fakes.Storage,
+    mocker: MockerFixture,
+) -> None:
+    time = fakes.Time(0)
+    exchange = mocker.MagicMock(Exchange, autospec=True)
+    exchange.list_candle_intervals.return_value = [3, 5]
+    exchange.can_stream_candles = True
+
+    @asynccontextmanager
+    async def connect_stream_future_candles(symbol: str, interval: int):
+        def inner():
+            if interval == 3:
+                return resolved_stream(
+                    Candle(time=0, close=Decimal("3.0")),
+                    Candle(time=3, close=Decimal("3.0")),
+                    Candle(time=6, close=Decimal("3.0")),
+                )
+            elif interval == 5:
+                return resolved_stream(
+                    Candle(time=0, close=Decimal("5.0")),
+                    Candle(time=5, close=Decimal("5.0")),
+                )
+            else:
+                raise ValueError()
+
+        yield inner()
+
+    exchange.connect_stream_candles.side_effect = connect_stream_future_candles
+    chandler = Chandler(
+        storage=storage,
+        exchanges=[exchange],
+        get_time_ms=time.get_time,
+    )
+
+    output = await list_async(
+        chandler.stream_concurrent_candles(
+            exchange="magicmock",
+            entries=[("eth-btc", 3), ("eth-btc", 5)],
+            start=0,
+            end=10,
+        )
+    )
+
+    assert output == [
+        (("eth-btc", 3), Candle(time=0, close=Decimal("3.0"))),
+        (("eth-btc", 5), Candle(time=0, close=Decimal("5.0"))),
+        (("eth-btc", 3), Candle(time=3, close=Decimal("3.0"))),
+        (("eth-btc", 3), Candle(time=6, close=Decimal("3.0"))),
+        (("eth-btc", 5), Candle(time=5, close=Decimal("5.0"))),
     ]

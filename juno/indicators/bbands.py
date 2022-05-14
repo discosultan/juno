@@ -11,7 +11,6 @@ class Bbands:
     _sum: Decimal = Decimal("0.0")
     _sum2: Decimal = Decimal("0.0")
     _prices: list[Decimal]
-    # _last_price: Optional[Decimal] = None
     _t: int = 0
     _t1: int
 
