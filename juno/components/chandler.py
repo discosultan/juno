@@ -23,6 +23,7 @@ from juno.time import (
     WEEK_MS,
     ceil_timestamp,
     floor_timestamp,
+    is_in_interval,
     strfinterval,
     strfspan,
     strftimestamp,
@@ -95,7 +96,7 @@ class Chandler(AbstractAsyncContextManager):
         while next_ < next_end:
             next_ += greatest_common_interval
             for (symbol, interval), stream in future_streams:
-                if next_ % interval == 0:
+                if is_in_interval(next_, interval):
                     optional_candle = await anext(stream)
                     if optional_candle is not None:
                         yield (symbol, interval), optional_candle
@@ -115,24 +116,28 @@ class Chandler(AbstractAsyncContextManager):
         start = floor_timestamp(start, interval)
         end = floor_timestamp(end, interval)
         last_candle: Optional[Candle] = None
-        async for candle in self.stream_candles(
+        stream = self.stream_candles(
             exchange=exchange,
             symbol=symbol,
             interval=interval,
             start=start,
             end=end,
             exchange_timeout=exchange_timeout,
-        ):
-            if last_candle:
-                num_missed = (candle.time - last_candle.time) // interval - 1
-            else:
-                num_missed = (candle.time - start) // interval
-            if num_missed > 0:
-                _log.info(f"filling {num_missed} candle(s) with None")
-                for _ in range(num_missed):
-                    yield None
-            yield candle
-            last_candle = candle
+        )
+        try:
+            async for candle in stream:
+                if last_candle:
+                    num_missed = (candle.time - last_candle.time) // interval - 1
+                else:
+                    num_missed = (candle.time - start) // interval
+                if num_missed > 0:
+                    _log.info(f"filling {num_missed} candle(s) with None")
+                    for _ in range(num_missed):
+                        yield None
+                yield candle
+                last_candle = candle
+        finally:
+            await aclose(stream)
 
         if last_candle:
             num_missed = (end - last_candle.time) // interval - 1

@@ -86,3 +86,15 @@ def test_ceil_timestamp(timestamp: int, interval: int, expected_output: int) -> 
 )
 def test_floor_timestamp(timestamp: int, interval: int, expected_output: int) -> None:
     assert time.floor_timestamp(timestamp, interval) == expected_output
+
+
+@pytest.mark.parametrize(
+    "timestamp,interval,expected_output",
+    [
+        [1, 1, True],
+        [time.SEC_MS, time.SEC_MS, True],
+        [time.SEC_MS, time.MIN_MS, False],
+    ],
+)
+def test_is_in_interval(timestamp: int, interval: int, expected_output: bool) -> None:
+    assert time.is_in_interval(timestamp, interval) == expected_output

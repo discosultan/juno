@@ -119,3 +119,11 @@ def ceil_timestamp(timestamp: int, interval: int) -> int:
         dt = datetime_utcfromtimestamp_ms(timestamp)
         return datetime_timestamp_ms((dt.replace(day=1) + timedelta(days=32)).replace(day=1))
     raise NotImplementedError()
+
+
+def is_in_interval(timestamp: int, interval: int) -> int:
+    if interval < WEEK_MS:
+        return timestamp % interval == 0
+    if interval == WEEK_MS:
+        return (timestamp % interval) - WEEK_OFFSET_MS == 0
+    raise NotImplementedError()

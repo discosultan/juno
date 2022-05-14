@@ -12,7 +12,7 @@ from juno.asyncio import cancel, resolved_stream
 from juno.components import Chandler
 from juno.exchanges import Exchange
 from juno.storages import Storage
-from juno.time import WEEK_MS, strptimestamp
+from juno.time import DAY_MS, WEEK_MS, strptimestamp
 from juno.utils import key
 
 from . import fakes
@@ -564,7 +564,7 @@ async def test_stream_concurrent_historical_candles(
     storage: fakes.Storage,
     mocker: MockerFixture,
 ) -> None:
-    time = fakes.Time(100, increment=1)
+    time = fakes.Time(100)
     exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.can_stream_historical_candles.return_value = True
     exchange.list_candle_intervals.return_value = [1, 2]
@@ -577,11 +577,12 @@ async def test_stream_concurrent_historical_candles(
                 Candle(time=2, close=Decimal("1.0")),
                 Candle(time=3, close=Decimal("1.0")),
             )
-        else:  # interval == 2
+        elif interval == 2:
             return resolved_stream(
                 Candle(time=0, close=Decimal("2.0")),
                 Candle(time=2, close=Decimal("2.0")),
             )
+        raise ValueError()
 
     exchange.stream_historical_candles.side_effect = stream_historical_candles
     chandler = Chandler(
@@ -609,6 +610,60 @@ async def test_stream_concurrent_historical_candles(
     ]
 
 
+async def test_stream_concurrent_historical_candles_with_offset_time(
+    storage: fakes.Storage,
+    mocker: MockerFixture,
+) -> None:
+    time = fakes.Time(strptimestamp("2018-01-08"))
+    exchange = mocker.MagicMock(Exchange, autospec=True)
+    exchange.can_stream_historical_candles.return_value = True
+    exchange.list_candle_intervals.return_value = [DAY_MS, WEEK_MS]
+
+    def stream_historical_candles(symbol: str, interval: int, start: int, end: int):
+        if interval == DAY_MS:
+            return resolved_stream(
+                Candle(time=strptimestamp("2018-01-01"), close=Decimal("1.0")),  # Mon
+                Candle(time=strptimestamp("2018-01-02"), close=Decimal("1.0")),
+                Candle(time=strptimestamp("2018-01-03"), close=Decimal("1.0")),
+                Candle(time=strptimestamp("2018-01-04"), close=Decimal("1.0")),
+                Candle(time=strptimestamp("2018-01-05"), close=Decimal("1.0")),
+                Candle(time=strptimestamp("2018-01-06"), close=Decimal("1.0")),
+                Candle(time=strptimestamp("2018-01-07"), close=Decimal("1.0")),  # Sun
+            )
+        elif interval == WEEK_MS:
+            return resolved_stream(
+                Candle(time=strptimestamp("2018-01-01"), close=Decimal("7.0")),
+            )
+        raise ValueError()
+
+    exchange.stream_historical_candles.side_effect = stream_historical_candles
+    chandler = Chandler(
+        storage=storage,
+        exchanges=[exchange],
+        get_time_ms=time.get_time,
+    )
+
+    output = await list_async(
+        chandler.stream_concurrent_candles(
+            exchange="magicmock",
+            entries=[("eth-btc", DAY_MS), ("eth-btc", WEEK_MS)],
+            start=strptimestamp("2018-01-01"),
+            end=strptimestamp("2018-01-08"),
+        )
+    )
+
+    assert output == [
+        (("eth-btc", DAY_MS), Candle(time=strptimestamp("2018-01-01"), close=Decimal("1.0"))),
+        (("eth-btc", DAY_MS), Candle(time=strptimestamp("2018-01-02"), close=Decimal("1.0"))),
+        (("eth-btc", DAY_MS), Candle(time=strptimestamp("2018-01-03"), close=Decimal("1.0"))),
+        (("eth-btc", DAY_MS), Candle(time=strptimestamp("2018-01-04"), close=Decimal("1.0"))),
+        (("eth-btc", DAY_MS), Candle(time=strptimestamp("2018-01-05"), close=Decimal("1.0"))),
+        (("eth-btc", DAY_MS), Candle(time=strptimestamp("2018-01-06"), close=Decimal("1.0"))),
+        (("eth-btc", WEEK_MS), Candle(time=strptimestamp("2018-01-01"), close=Decimal("7.0"))),
+        (("eth-btc", DAY_MS), Candle(time=strptimestamp("2018-01-07"), close=Decimal("1.0"))),
+    ]
+
+
 async def test_stream_concurrent_future_candles(
     storage: fakes.Storage,
     mocker: MockerFixture,
@@ -632,8 +687,7 @@ async def test_stream_concurrent_future_candles(
                     Candle(time=0, close=Decimal("5.0")),
                     Candle(time=5, close=Decimal("5.0")),
                 )
-            else:
-                raise ValueError()
+            raise ValueError()
 
         yield inner()
 
