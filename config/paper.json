@@ -11,8 +11,7 @@
             "quote": 1.0,
             "trader": {
                 "type": "basic",
-                "symbol": "eth-btc",
-                "missed_candle_policy": "ignore"
+                "symbol": "eth-btc"
             },
             "strategy": {
                 "type": "doublema2",

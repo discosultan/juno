@@ -69,6 +69,8 @@ async def test_backtest(mocker: MockerFixture) -> None:
             "type": "basic",
             "symbol": "eth-btc",
             "close_on_exit": True,
+            "long": True,
+            "short": False,
         },
     )
     container = _get_container(exchange)
@@ -148,7 +150,8 @@ async def test_backtest_scenarios(mocker: MockerFixture, scenario_nr: int) -> No
         trader={
             "type": "basic",
             "symbol": "eth-btc",
-            "missed_candle_policy": "ignore",
+            "long": True,
+            "short": False,
         },
     )
     async with container:
@@ -211,6 +214,8 @@ async def test_paper(mocker: MockerFixture) -> None:
         trader={
             "type": "basic",
             "symbol": "eth-btc",
+            "long": True,
+            "short": False,
         },
     )
     async with container:
@@ -276,6 +281,8 @@ async def test_live(mocker: MockerFixture) -> None:
         trader={
             "type": "basic",
             "symbol": "eth-btc",
+            "long": True,
+            "short": False,
         },
     )
     async with container:
@@ -319,6 +326,8 @@ async def test_live_persist_and_resume(mocker: MockerFixture, strategy: str) -> 
         trader={
             "type": "basic",
             "symbol": "eth-btc",
+            "long": True,
+            "short": False,
         },
     )
     async with container:

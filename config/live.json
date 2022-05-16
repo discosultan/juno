@@ -15,8 +15,7 @@
             "interval": "1h",
             "trader": {
                 "type": "basic",
-                "symbol": "eth-btc",
-                "missed_candle_policy": "restart"
+                "symbol": "eth-btc"
             },
             "strategy": {
                 "type": "doublema2",

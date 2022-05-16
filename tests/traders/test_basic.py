@@ -246,6 +246,8 @@ async def test_adjust_start_ignore_mid_trend() -> None:
             persistence=1,
         ),
         adjust_start=True,
+        long=True,
+        short=False,
     )
     state = await trader.initialize(config)
 
@@ -281,6 +283,8 @@ async def test_adjust_start_persistence() -> None:
             persistence=2,
         ),
         adjust_start=True,
+        long=True,
+        short=False,
     )
     state = await trader.initialize(config)
 
@@ -320,6 +324,8 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
             maturity=3,
         ),
         adjust_start=True,
+        long=True,
+        short=False,
     )
     state = await trader.initialize(config)
 
@@ -355,6 +361,8 @@ async def test_summary_end_on_cancel() -> None:
         end=10,
         quote=Decimal("1.0"),
         strategy=GenericConstructor.from_type(Fixed),
+        long=True,
+        short=False,
     )
     state = await trader.initialize(config)
 
@@ -390,6 +398,8 @@ async def test_summary_end_on_historical_cancel() -> None:
         end=2,
         quote=Decimal("1.0"),
         strategy=GenericConstructor.from_type(Fixed),
+        long=True,
+        short=False,
     )
     state = await trader.initialize(config)
 
@@ -442,6 +452,8 @@ async def test_close_on_exit(
             advices=[Advice.LONG, Advice.LONG, Advice.SHORT, Advice.SHORT],
         ),
         close_on_exit=close_on_exit,
+        long=True,
+        short=False,
     )
     state = await trader.initialize(config)
 
@@ -489,6 +501,7 @@ async def test_open_new_positions() -> None:
             advices=[Advice.LONG],
         ),
         long=True,
+        short=False,
     )
     state = await trader.initialize(config)
     state.open_new_positions = False

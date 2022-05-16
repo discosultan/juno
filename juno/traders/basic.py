@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Optional, TypeVar
 from uuid import uuid4
 
-from juno import Advice, Candle, Interval, Timestamp
+from juno import Advice, BadOrder, Candle, Interval, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
@@ -43,7 +43,7 @@ class BasicConfig:
     channel: str = "default"
     adjust_start: bool = True
     long: bool = True  # Take long positions.
-    short: bool = False  # Take short positions.
+    short: bool = True  # Take short positions.
     close_on_exit: bool = True  # Whether to close open position on exit.
     # Timeout in case no candle (including open) from exchange.
     exchange_candle_timeout: Optional[Interval] = None
@@ -252,6 +252,8 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 exchange_timeout=config.exchange_candle_timeout,
             ):
                 await self._tick(state, candle)
+        except BadOrder:
+            _log.exception("bad order; finishing early")
         finally:
             state.running = False
             # Remove queue and wait for any pending position tasks to finish.

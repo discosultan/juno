@@ -9,13 +9,12 @@ from juno import Advice, BadOrder, Candle, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
-from juno.custodians import Stub
-from juno.custodians.custodian import Custodian
+from juno.custodians import Custodian, Stub
 from juno.indicators import Sma
 from juno.positioner import Positioner, SimulatedPositioner
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
-from juno.strategies.strategy import Changed, Signal
+from juno.strategies import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import DAY_MS, WEEK_MS, time_ms
@@ -75,13 +74,15 @@ class BMSBConfig:
     symbol: str
     end: Timestamp
     strategy: Constructor[Signal]
+    stop_loss: Optional[Constructor[StopLoss]] = None
+    take_profit: Optional[Constructor[TakeProfit]] = None
     start: Optional[Timestamp] = None  # None means earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     mode: TradingMode = TradingMode.BACKTEST
     channel: str = "default"
+    long: bool = True  # Take long positions.
+    short: bool = True  # Take short positions.
     close_on_exit: bool = True  # Whether to close open position on exit.
-    stop_loss: Optional[Constructor[StopLoss]] = None
-    take_profit: Optional[Constructor[TakeProfit]] = None
     custodian: str = "stub"
 
     @property
@@ -137,9 +138,9 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
         informant: Informant,
         user: Optional[User] = None,
         broker: Optional[Broker] = None,  # Only required if not backtesting.
+        custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
         get_time_ms: Callable[[], int] = time_ms,
-        custodians: list[Custodian] = [Stub()],
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -150,7 +151,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
                 chandler=chandler,
                 broker=broker,
                 user=user,
-                custodians=[Stub()],
+                custodians=custodians,
             )
         self._simulated_positioner = SimulatedPositioner(informant=informant)
         self._custodians = {type(c).__name__.lower(): c for c in custodians}
@@ -279,7 +280,7 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
             ):
                 await self._tick(state, candle_meta, candle)
         except BadOrder:
-            _log.info("ran out of funds; finishing early")
+            _log.exception("bad order; finishing early")
         finally:
             state.running = False
             # Remove queue and wait for any pending position tasks to finish.
@@ -303,15 +304,15 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
         candle: Candle,
     ) -> None:
         config = state.config
+        _, interval = candle_meta
 
         await self._events.emit(config.channel, "candle", candle)
 
         advice = state.strategy.update(candle, candle_meta)
-        if candle_meta[1] == DAY_MS:
+        if interval == DAY_MS:
             state.stop_loss.update(candle)
             state.take_profit.update(candle)
 
-        _, interval = candle_meta
         # Make sure strategy doesn't give advice during "adjusted start" period.
         if interval == WEEK_MS or (interval == DAY_MS and candle.time < state.candle_start):
             advice = Advice.NONE
@@ -356,9 +357,9 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
         if not state.open_position and state.open_new_positions:
             coro = None
 
-            if advice is Advice.LONG:
+            if config.long and advice is Advice.LONG:
                 coro = self._open_position(state, False, candle)
-            elif advice is Advice.SHORT:
+            elif config.short and advice is Advice.SHORT:
                 coro = self._open_position(state, True, candle)
 
             if coro:
