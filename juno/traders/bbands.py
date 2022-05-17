@@ -69,23 +69,24 @@ class BBandsStrategy:
         _, interval = candle_meta
 
         if interval == MIN_MS:
-            # Update current outside bb.
-            self._bb.update(candle.close)
-            self._outside_bb = (
-                1 if candle.close > self._bb.upper else -1 if candle.close < self._bb.lower else 0
-            )
+            self._update_1m(candle)
         elif interval == 3 * MIN_MS:
-            if len(self._3m_candles) == _num_3m_candles:
-                self._3m_candles.pop(0)
-            self._3m_candles.append(candle)
+            self._update_3m(candle)
         elif interval == 5 * MIN_MS:
-            if len(self._5m_candles) == _num_5m_candles:
-                self._5m_candles.pop(0)
-            self._5m_candles.append(candle)
+            self._update_5m(candle)
         else:
             raise ValueError("Unexpected candle interval")
 
-        if self.mature and interval == MIN_MS:
+        return self._changed.update(self._advice)
+
+    def _update_1m(self, candle: Candle) -> None:
+        # Update current outside bb.
+        self._bb.update(candle.close)
+        self._outside_bb = (
+            1 if candle.close > self._bb.upper else -1 if candle.close < self._bb.lower else 0
+        )
+
+        if self.mature:
             # Update current trend.
             obv3 = Obv()
             for candle3 in self._3m_candles:
@@ -134,12 +135,19 @@ class BBandsStrategy:
             elif self._advice is Advice.SHORT and self._outside_bb == -1:
                 self._advice = Advice.LIQUIDATE
 
-        if interval == MIN_MS:
-            # Update previous outside bb and trend.
-            self._previous_outside_bb = self._outside_bb
-            self._previous_trend = self._trend
+        # Update previous outside bb and trend.
+        self._previous_outside_bb = self._outside_bb
+        self._previous_trend = self._trend
 
-        return self._changed.update(self._advice)
+    def _update_3m(self, candle: Candle) -> None:
+        if len(self._3m_candles) == _num_3m_candles:
+            self._3m_candles.pop(0)
+        self._3m_candles.append(candle)
+
+    def _update_5m(self, candle: Candle) -> None:
+        if len(self._5m_candles) == _num_5m_candles:
+            self._5m_candles.pop(0)
+        self._5m_candles.append(candle)
 
 
 @dataclass(frozen=True)
