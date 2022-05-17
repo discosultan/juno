@@ -44,7 +44,8 @@ def get_script(summary: TradingSummary) -> str:
     # Open longs.
     lines.append(f"var open_longs = array.new_int({len(longs)})")
     for i, pos in enumerate(longs):
-        lines.append(f"array.set(open_longs, {i}, {adjust_time(pos.open_time)})")
+        time = adjust_time(pos.open_time)
+        lines.append(f"array.set(open_longs, {i}, {time})")
     lines.append("open_longs_data = array.includes(open_longs, time)")
     lines.append(
         "plotshape(open_longs_data, style=shape.triangleup, location=location.belowbar, "
@@ -54,7 +55,12 @@ def get_script(summary: TradingSummary) -> str:
     # Close longs.
     lines.append(f"var close_longs = array.new_int({len(longs)})")
     for i, pos in enumerate(longs):
-        lines.append(f"array.set(close_longs, {i}, {adjust_time(pos.close_time)})")
+        time = adjust_time(pos.close_time)
+        lines.append(f"array.set(close_longs, {i}, {time})")
+        lines.append(
+            f'label.new({time}, high, text="{pos.profit}", xloc=xloc.bar_time, '
+            "yloc=yloc.abovebar,  style=label.style_label_down)"
+        )
     lines.append("close_longs_data = array.includes(close_longs, time)")
     lines.append(
         "plotshape(close_longs_data, style=shape.xcross, location=location.abovebar, "
@@ -64,7 +70,8 @@ def get_script(summary: TradingSummary) -> str:
     # Open shorts.
     lines.append(f"var open_shorts = array.new_int({len(shorts)})")
     for i, pos in enumerate(shorts):
-        lines.append(f"array.set(open_shorts, {i}, {adjust_time(pos.open_time)})")
+        time = adjust_time(pos.open_time)
+        lines.append(f"array.set(open_shorts, {i}, {time})")
     lines.append("open_shorts_data = array.includes(open_shorts, time)")
     lines.append(
         "plotshape(open_shorts_data, style=shape.triangledown, location=location.abovebar, "
@@ -74,7 +81,12 @@ def get_script(summary: TradingSummary) -> str:
     # Close shorts.
     lines.append(f"var close_shorts = array.new_int({len(shorts)})")
     for i, pos in enumerate(shorts):
-        lines.append(f"array.set(close_shorts, {i}, {adjust_time(pos.close_time)})")
+        time = adjust_time(pos.close_time)
+        lines.append(f"array.set(close_shorts, {i}, {time})")
+        lines.append(
+            f'label.new({time}, low, text="{pos.profit}", xloc=xloc.bar_time, '
+            "yloc=yloc.belowbar, style=label.style_label_up)"
+        )
     lines.append("close_shorts_data = array.includes(close_shorts, time)")
     lines.append(
         "plotshape(close_shorts_data, style=shape.xcross, location=location.belowbar, "
