@@ -8,6 +8,7 @@ from typing import Union
 from .adx import Adx
 from .adxr import Adxr
 from .alma import Alma
+from .atr import Atr
 from .bbands import Bbands
 from .cci import Cci
 from .chaikin_oscillator import ChaikinOscillator
@@ -36,6 +37,7 @@ __all__ = [
     "Adx",
     "Adxr",
     "Alma",
+    "Atr",
     "Bbands",
     "Cci",
     "ChaikinOscillator",

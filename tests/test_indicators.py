@@ -22,6 +22,10 @@ def test_adxr(data) -> None:
     _assert(indicators.Adxr(14), data["adxr"], 4)
 
 
+def test_atr(data) -> None:
+    _assert(indicators.Atr(4), data["atr"], 4)
+
+
 def test_bbands(data) -> None:
     _assert(indicators.Bbands(5, Decimal("2.0")), data["bbands"], 4)
 
