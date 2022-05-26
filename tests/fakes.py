@@ -183,6 +183,7 @@ class Chandler(components.Chandler):
         fill_missing_with_last=False,
         simulate_open_from_interval=None,
         exchange_timeout=None,
+        type_="regular",
     ):
         # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):

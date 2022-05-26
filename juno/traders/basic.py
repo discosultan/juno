@@ -48,6 +48,7 @@ class BasicConfig:
     # Timeout in case no candle (including open) from exchange.
     exchange_candle_timeout: Optional[Interval] = None
     custodian: str = "stub"
+    candle_type: str = "regular"
 
     @property
     def base_asset(self) -> str:
@@ -214,11 +215,14 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
             # Adjust start to accommodate for the required history before a strategy
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
+            num_historical_candles = strategy.maturity - 1
+            if config.candle_type == "heikin-ashi":
+                num_historical_candles += 1
             _log.info(
-                f"fetching {strategy.maturity - 1} candle(s) before start time to warm-up "
+                f"fetching {num_historical_candles} candle(s) before start time to warm-up "
                 "strategy"
             )
-            next_ = max(next_ - (strategy.maturity - 1) * config.interval, 0)
+            next_ = max(next_ - num_historical_candles * config.interval, 0)
 
         return BasicState(
             config=config,
@@ -250,6 +254,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 start=state.next_,
                 end=config.end,
                 exchange_timeout=config.exchange_candle_timeout,
+                type_=config.candle_type,
             ):
                 await self._tick(state, candle)
         except BadOrder:
