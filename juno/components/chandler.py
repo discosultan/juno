@@ -156,6 +156,7 @@ class Chandler(AbstractAsyncContextManager):
         start: int,
         end: int = MAX_TIME_MS,
         exchange_timeout: Optional[float] = None,
+        type_: str = "regular",
     ) -> list[Candle]:
         return await list_async(
             self.stream_candles(
@@ -165,6 +166,7 @@ class Chandler(AbstractAsyncContextManager):
                 start,
                 end,
                 exchange_timeout,
+                type_,
             )
         )
 
