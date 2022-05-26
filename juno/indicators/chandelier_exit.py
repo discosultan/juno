@@ -9,6 +9,7 @@ class ChandelierExit:
     short: Decimal = Decimal("0.0")
 
     _atr: Atr
+    _atr_multiplier: int
     _highs: deque[Decimal]
     _lows: deque[Decimal]
     _t: int = 0
@@ -19,6 +20,7 @@ class ChandelierExit:
         long_period: int = 22,
         short_period: int = 22,
         atr_period: int = 22,
+        atr_multiplier: int = 3,
     ) -> None:
         if long_period < 1:
             raise ValueError(f"Invalid long period ({long_period})")
@@ -26,6 +28,7 @@ class ChandelierExit:
             raise ValueError(f"Invalid short period ({short_period})")
 
         self._atr = Atr(period=atr_period)
+        self._atr_multiplier = atr_multiplier
         self._highs = deque(maxlen=long_period)
         self._lows = deque(maxlen=short_period)
         self._t1 = max(long_period, short_period)
@@ -46,8 +49,8 @@ class ChandelierExit:
         self._lows.append(low)
 
         if self.mature:
-            triple_atr = self._atr.value * 3
-            self.long = max(self._highs) - triple_atr
-            self.short = max(self._lows) + triple_atr
+            multiplied_atr = self._atr.value * self._atr_multiplier
+            self.long = max(self._highs) - multiplied_atr
+            self.short = max(self._lows) + multiplied_atr
 
         return self.long, self.short
