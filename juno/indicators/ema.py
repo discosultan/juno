@@ -6,6 +6,7 @@ from decimal import Decimal
 # Exponential Moving Average
 class Ema:
     value: Decimal = Decimal("0.0")
+
     _adjust: bool
     _a: Decimal
     _a_inv: Decimal

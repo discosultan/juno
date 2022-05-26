@@ -6,6 +6,7 @@ from .ema import Ema
 # On-Balance Volume
 class Obv:
     value: Decimal = Decimal("0.0")
+
     _last_price: Decimal = Decimal("0.0")
     _t: int = 0
     _t1: int = 1

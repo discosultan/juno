@@ -4,6 +4,7 @@ from decimal import Decimal
 # Simple Moving Average
 class Sma:
     value: Decimal = Decimal("0.0")
+
     _prices: list[Decimal]
     _i: int = 0
     _sum: Decimal = Decimal("0.0")

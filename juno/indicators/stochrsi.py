@@ -9,6 +9,7 @@ from .rsi import Rsi
 # Stochastic Relative Strength Index
 class StochRsi:
     value: Decimal = Decimal("0.0")
+
     _rsi: Rsi
     _min: Decimal = Decimal("0.0")
     _max: Decimal = Decimal("0.0")

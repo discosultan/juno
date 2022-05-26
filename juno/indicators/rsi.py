@@ -6,6 +6,7 @@ from .smma import Smma
 # Relative Strength Index
 class Rsi:
     value: Decimal = Decimal("0.0")
+
     _mean_down: Smma
     _mean_up: Smma
     _last_price: Decimal = Decimal("0.0")

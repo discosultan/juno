@@ -7,6 +7,7 @@ from .smma import Smma
 # Average Directional Index
 class Adx:
     value: Decimal = Decimal("0.0")
+
     _dx: DX
     _smma: Smma
 

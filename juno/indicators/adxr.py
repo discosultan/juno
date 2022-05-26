@@ -7,6 +7,7 @@ from .adx import Adx
 # Average Directional Movement Index Rating
 class Adxr:
     value: Decimal = Decimal("0.0")
+
     _adx: Adx
     _historical_adx: deque[Decimal]
     _t: int = 0

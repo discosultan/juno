@@ -6,6 +6,7 @@ from .ema import Ema
 # Klinger Volume Oscillator
 class Kvo:
     value: Decimal = Decimal("0.0")
+
     _short_ema: Ema
     _long_ema: Ema
     _prev_hlc: Decimal = Decimal("0.0")

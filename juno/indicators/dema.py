@@ -6,6 +6,7 @@ from .ema import Ema
 # Double Exponential Moving Average
 class Dema:
     value: Decimal = Decimal("0.0")
+
     _ema1: Ema
     _ema2: Ema
     _t: int = 0

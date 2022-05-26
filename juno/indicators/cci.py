@@ -7,6 +7,7 @@ from .sma import Sma
 # Commodity Channel Index
 class Cci:
     value: Decimal = Decimal("0.0")
+
     _sma: Sma
     _scale: Decimal
     _typical_prices: deque[Decimal]
