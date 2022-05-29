@@ -249,7 +249,7 @@ class Chandler(AbstractAsyncContextManager):
                     if type_ == "regular":
                         yield candle
                     elif type_ == "heikin-ashi":
-                        if last_candle is not None:
+                        if last_candle is not None and last_candle.time == candle.time - interval:
                             yield Candle.heikin_ashi(previous=last_candle, current=candle)
                     else:
                         raise ValueError("Invalid candle type")
