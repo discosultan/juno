@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Optional, TypeVar
 from uuid import uuid4
 
-from juno import Advice, BadOrder, Candle, Interval, Timestamp
+from juno import Advice, BadOrder, Candle, CandleType, Interval, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
@@ -48,7 +48,7 @@ class BasicConfig:
     # Timeout in case no candle (including open) from exchange.
     exchange_candle_timeout: Optional[Interval] = None
     custodian: str = "stub"
-    candle_type: str = "regular"
+    candle_type: CandleType = "regular"
 
     @property
     def base_asset(self) -> str:

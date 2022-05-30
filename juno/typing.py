@@ -12,6 +12,7 @@ from typing import (
     Any,
     Generic,
     Iterable,
+    Literal,
     Optional,
     TypeVar,
     Union,
@@ -143,6 +144,9 @@ def raw_to_type(value: Any, type_: Any) -> Any:
         _, sub_type = get_args(type_)
         for key, sub_value in value.items():
             value[key] = raw_to_type(sub_value, sub_type)
+        return value
+
+    if resolved_type is Literal:
         return value
 
     annotations = get_type_hints(resolved_type)

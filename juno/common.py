@@ -5,9 +5,9 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
-from typing import NamedTuple, Optional, Union
+from typing import Literal, NamedTuple, Optional, Union
 
-from juno.aliases import Timestamp
+from juno.aliases import Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_down, round_half_up
 from juno.time import datetime_utcfromtimestamp_ms
@@ -112,6 +112,10 @@ class Candle(NamedTuple):
             close=current.average,
             volume=current.volume,
         )
+
+
+CandleType = Literal["regular", "heikin-ashi"]
+CandleMeta = tuple[str, Interval, CandleType]  # symbol, interval, type
 
 
 class Depth(ModuleType):

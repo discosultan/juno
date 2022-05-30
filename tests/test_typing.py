@@ -7,6 +7,7 @@ from enum import Enum, IntEnum
 from typing import (  # type: ignore
     Any,
     Generic,
+    Literal,
     NamedTuple,
     Optional,
     Tuple,
@@ -151,6 +152,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
         ({"value": 1}, FrozenDataClass, FrozenDataClass(value=1)),
         ({"value": 1}, FieldDataClass, FieldDataClass(value=1)),
         ([1, 2], Tuple[int, ...], (1, 2)),
+        ("foo", Literal["foo"], "foo"),
     ],
 )
 def test_raw_to_type(obj, type_, expected_output) -> None:

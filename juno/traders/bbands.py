@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Optional, TypeVar
 from uuid import uuid4
 
-from juno import Advice, BadOrder, Candle, Timestamp
+from juno import Advice, BadOrder, Candle, CandleMeta, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
@@ -65,8 +65,8 @@ class BBandsStrategy:
             and len(self._5m_candles) == _num_5m_candles
         )
 
-    def update(self, candle: Candle, candle_meta: tuple[str, int]) -> Advice:
-        _, interval = candle_meta
+    def update(self, candle: Candle, candle_meta: CandleMeta) -> Advice:
+        _, interval, _ = candle_meta
 
         if interval == MIN_MS:
             self._update_1m(candle)
@@ -349,9 +349,9 @@ class BBandsTrader(Trader[BBandsConfig, BBandsState], StartMixin):
             async for candle_meta, candle in self._chandler.stream_concurrent_candles(
                 exchange=config.exchange,
                 entries=[
-                    (config.symbol, MIN_MS),
-                    (config.symbol, 3 * MIN_MS),
-                    (config.symbol, 5 * MIN_MS),
+                    (config.symbol, MIN_MS, "regular"),
+                    (config.symbol, 3 * MIN_MS, "regular"),
+                    (config.symbol, 5 * MIN_MS, "regular"),
                 ],
                 start=state.next_,
                 end=config.end,
@@ -378,7 +378,7 @@ class BBandsTrader(Trader[BBandsConfig, BBandsState], StartMixin):
     async def _tick(
         self,
         state: BBandsState,
-        candle_meta: tuple[str, int],
+        candle_meta: CandleMeta,
         candle: Candle,
     ) -> None:
         config = state.config

@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Optional, TypeVar
 from uuid import uuid4
 
-from juno import Advice, BadOrder, Candle, Timestamp
+from juno import Advice, BadOrder, Candle, CandleMeta, CandleType, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
@@ -41,8 +41,8 @@ class BMSBStrategy:
     def mature(self) -> bool:
         return self._20w_sma.mature and self._signal.mature
 
-    def update(self, candle: Candle, candle_meta: tuple[str, int]) -> Advice:
-        _, interval = candle_meta
+    def update(self, candle: Candle, candle_meta: CandleMeta) -> Advice:
+        _, interval, _ = candle_meta
 
         if interval == WEEK_MS:
             self._20w_sma.update(candle.close)
@@ -84,6 +84,7 @@ class BMSBConfig:
     short: bool = True  # Take short positions.
     close_on_exit: bool = True  # Whether to close open position on exit.
     custodian: str = "stub"
+    candle_type: CandleType = "regular"
 
     @property
     def base_asset(self) -> str:
@@ -272,8 +273,8 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
             async for candle_meta, candle in self._chandler.stream_concurrent_candles(
                 exchange=config.exchange,
                 entries=[
-                    (config.benchmark_symbol, WEEK_MS),
-                    (config.symbol, DAY_MS),
+                    (config.benchmark_symbol, WEEK_MS, "regular"),
+                    (config.symbol, DAY_MS, config.candle_type),
                 ],
                 start=state.next_,
                 end=config.end,
@@ -300,11 +301,11 @@ class BMSBTrader(Trader[BMSBConfig, BMSBState], StartMixin):
     async def _tick(
         self,
         state: BMSBState,
-        candle_meta: tuple[str, int],
+        candle_meta: CandleMeta,
         candle: Candle,
     ) -> None:
         config = state.config
-        _, interval = candle_meta
+        _, interval, _ = candle_meta
 
         await self._events.emit(config.channel, "candle", candle)
 
