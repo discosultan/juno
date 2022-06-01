@@ -1,4 +1,5 @@
 from .adx import Adx
+from .chandelier_exit import ChandelierExit
 from .double_ma import DoubleMA, DoubleMAParams
 from .double_ma_2 import DoubleMA2
 from .double_ma_stoch import DoubleMAStoch
@@ -26,6 +27,7 @@ from .triple_ma import TripleMA, TripleMAParams
 
 __all__ = [
     "Adx",
+    "ChandelierExit",
     "Changed",
     "DoubleMA",
     "DoubleMAParams",

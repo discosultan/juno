@@ -4,9 +4,14 @@ from decimal import Decimal
 from .atr import Atr
 
 
+# Ref: https://www.tradingview.com/script/AqXxNS7j-Chandelier-Exit/
 class ChandelierExit:
     long: Decimal = Decimal("0.0")
     short: Decimal = Decimal("0.0")
+
+    _prev_long: Decimal = Decimal("0.0")
+    _prev_short: Decimal = Decimal("0.0")
+    _prev_close: Decimal = Decimal("0.0")
 
     _atr: Atr
     _atr_multiplier: int
@@ -51,6 +56,18 @@ class ChandelierExit:
         if self.mature:
             multiplied_atr = self._atr.value * self._atr_multiplier
             self.long = max(self._highs) - multiplied_atr
-            self.short = max(self._lows) + multiplied_atr
+            self.short = min(self._lows) + multiplied_atr
+
+            prev_long = self.long if self._prev_long == 0 else self._prev_long
+            prev_short = self.short if self._prev_short == 0 else self._prev_short
+
+            self.long = max(self.long, prev_long) if self._prev_close > prev_long else self.long
+            self.short = (
+                min(self.short, prev_short) if self._prev_close < prev_short else self.short
+            )
+
+        self._prev_long = self.long
+        self._prev_short = self.short
+        self._prev_close = close
 
         return self.long, self.short
