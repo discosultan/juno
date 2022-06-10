@@ -350,7 +350,7 @@ class AssetInfo:
 @dataclass(frozen=True)
 class SavingsProduct:
     product_id: str
-    status: str  # "PREHEATING" | "PURCHASING"
+    status: Literal["PREHEATING", "PURCHASING"]
     asset: str
     can_purchase: bool
     can_redeem: bool
