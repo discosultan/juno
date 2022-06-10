@@ -10,7 +10,7 @@ from juno.math import annualized, round_half_up
 from juno.trading import CloseReason, Position, TradingSummary
 
 
-@dataclass
+@dataclass(frozen=True)
 class CoreStatistics:
     start: Timestamp
     end: Timestamp

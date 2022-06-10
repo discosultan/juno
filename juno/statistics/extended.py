@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, NamedTuple
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -17,7 +18,8 @@ Operator = Callable[[Decimal, Decimal], Decimal]
 _SQRT_365 = np.sqrt(365)
 
 
-class ExtendedStatistics(NamedTuple):
+@dataclass(frozen=True)
+class ExtendedStatistics:
     total_return: float
     annualized_return: float
     annualized_volatility: float
