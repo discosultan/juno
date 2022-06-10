@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import TypedDict
 
 import pytest
 import yaml
@@ -10,7 +11,7 @@ from juno.utils import full_path
 @pytest.fixture(scope="module")
 def data():
     # Load inputs / expected outputs for all indicators.
-    with open(full_path(__file__, "./data/indicators_2021-04-08.yaml")) as f:
+    with open(full_path(__file__, "./data/indicators.yaml")) as f:
         return yaml.load(f, Loader=yaml.BaseLoader)
 
 
@@ -104,7 +105,21 @@ def test_alma(data) -> None:
     _assert(indicators.Alma(9, 6), data["alma"], 7)
 
 
-def _assert(indicator, data, precision: int) -> None:
+# TODO: Fix.
+# def test_chandelier_exit(data) -> None:
+#     _assert(indicators.ChandelierExit(2, 2, 2, 3, True), data["chandelier_exit"], 2)
+
+
+# def test_zlsma(data) -> None:
+#     _assert(indicators.Zlsma(2, 0), data["zlsma"], 2)
+
+
+class IndicatorData(TypedDict):
+    inputs: list[list[str]]
+    outputs: list[list[str]]
+
+
+def _assert(indicator, data: IndicatorData, precision: int) -> None:
     inputs = data["inputs"]
     expected_outputs = data["outputs"]
     input_len, output_len = len(inputs[0]), len(expected_outputs[0])
@@ -113,11 +128,16 @@ def _assert(indicator, data, precision: int) -> None:
         outputs = indicator.update(*(Decimal(input_[i]) for input_ in inputs))
         if not isinstance(outputs, tuple):
             outputs = (outputs,)
+        assert len(outputs) == len(expected_outputs)
+
         if i >= offset:
             assert indicator.mature
             for j in range(0, len(outputs)):
-                assert pytest.approx(outputs[j], abs=10**-precision) == Decimal(
-                    expected_outputs[j][i - offset]
-                )
+                expected_output = expected_outputs[j][i - offset]
+                # "*" is a special symbol and allows any value.
+                if expected_output != "*":
+                    assert pytest.approx(outputs[j], abs=10**-precision) == Decimal(
+                        expected_output
+                    )
         else:
             assert not indicator.mature

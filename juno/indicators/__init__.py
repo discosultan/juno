@@ -31,6 +31,7 @@ from .smma import Smma
 from .stoch import Stoch
 from .stochrsi import StochRsi
 from .tsi import Tsi
+from .zlsma import Zlsma
 
 MA = Union[Alma, Dema, Ema, Ema2, Kama, Sma, Smma]
 
@@ -63,4 +64,5 @@ __all__ = [
     "Stoch",
     "StochRsi",
     "Tsi",
+    "Zlsma",
 ]
