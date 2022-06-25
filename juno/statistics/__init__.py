@@ -11,7 +11,7 @@ from .core import CoreStatistics
 from .extended import ExtendedStatistics
 
 
-@dataclass
+@dataclass(frozen=True)
 class Statistics:
     core: CoreStatistics
     extended: ExtendedStatistics

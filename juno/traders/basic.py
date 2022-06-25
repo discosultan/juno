@@ -282,9 +282,6 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
     ) -> None:
         config = state.config
 
-        assert state.strategy
-        assert state.changed
-
         await self._events.emit(config.channel, "candle", candle)
 
         state.stop_loss.update(candle)
