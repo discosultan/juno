@@ -1,6 +1,7 @@
 import asyncio
 
 from juno import Advice
+from juno.common import CandleType
 from juno.components import Chandler, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
@@ -14,17 +15,19 @@ async def main() -> None:
     binance = init_instance(Binance, from_env())
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
+    symbol = "eth-btc"
     interval = DAY_MS
+    candle_type: CandleType = "regular"
     start = strptimestamp("2022-01-01")
     end = strptimestamp("2022-06-01")
     async with binance, trades, chandler:
         candles = await chandler.list_candles(
             exchange="binance",
-            symbol="btc-usdt",
+            symbol=symbol,
             interval=interval,
             start=start,
             end=end,
-            type_="regular",
+            type_=candle_type,
         )
 
     strategy = ChandelierExit(
@@ -35,7 +38,7 @@ async def main() -> None:
     )
     time_advices = []
     for candle in candles:
-        strategy.update(candle)
+        strategy.update(candle, (symbol, interval, candle_type))
         time_advices.append((candle.time + interval, strategy.advice))
 
     def adjust_time(time: int) -> int:

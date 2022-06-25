@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from juno import Candle, indicators
+from juno import Candle, CandleMeta, indicators
 from juno.constraints import Int, Uniform
 
 from .strategy import Oscillator, Strategy
@@ -53,5 +53,5 @@ class Rsi(Oscillator):
     def oversold(self) -> bool:
         return self.indicator.mature and self.indicator.value < self._down_threshold
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self.indicator.update(candle.close)

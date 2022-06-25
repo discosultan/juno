@@ -2,12 +2,13 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Literal, Optional, TypeVar, Union
 from uuid import uuid4
 
 from juno import Advice, BadOrder, Candle, CandleType, Interval, Timestamp
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
+from juno.common import CandleMeta
 from juno.components import Chandler, Events, Informant, User
 from juno.custodians import Custodian, Stub
 from juno.positioner import Positioner, SimulatedPositioner
@@ -16,7 +17,7 @@ from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
-from juno.time import time_ms
+from juno.time import floor_timestamp, strftimestamp, time_ms
 from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
 from juno.typing import Constructor
 from juno.utils import unpack_assets
@@ -41,7 +42,7 @@ class BasicConfig:
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     mode: TradingMode = TradingMode.BACKTEST
     channel: str = "default"
-    adjust_start: bool = True
+    adjusted_start: Optional[Union[Timestamp, Literal["strategy"]]] = "strategy"
     long: bool = True  # Take long positions.
     short: bool = True  # Take short positions.
     close_on_exit: bool = True  # Whether to close open position on exit.
@@ -211,25 +212,28 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         strategy = config.strategy.construct()
 
         next_ = start
-        if config.adjust_start:
+        if config.adjusted_start == "strategy":
             # Adjust start to accommodate for the required history before a strategy
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
             num_historical_candles = strategy.maturity - 1
             if config.candle_type == "heikin-ashi":
                 num_historical_candles += 1
+            next_ = max(next_ - num_historical_candles * config.interval, 0)
             _log.info(
                 f"fetching {num_historical_candles} candle(s) before start time to warm-up "
-                "strategy"
+                f"strategy; adjusted start set to {strftimestamp(next_)}"
             )
-            next_ = max(next_ - num_historical_candles * config.interval, 0)
+        elif isinstance(config.adjusted_start, int):  # Timestamp
+            next_ = floor_timestamp(config.adjusted_start, config.interval)
+            _log.info(f"adjusted start set to {strftimestamp(next_)}")
 
         return BasicState(
             config=config,
             close_on_exit=config.close_on_exit,
-            next_=next_,
-            start=start if config.mode is TradingMode.BACKTEST else real_start,
+            start=start,
             real_start=real_start,
+            next_=next_,
             quote=quote,
             starting_quote=quote,
             strategy=strategy,
@@ -247,16 +251,17 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         self._queues[state.id] = asyncio.Queue()
         state.running = True
         try:
-            async for candle in self._chandler.stream_candles(
+            async for candle, candle_meta in self._chandler.stream_concurrent_candles(
                 exchange=config.exchange,
-                symbol=config.symbol,
-                interval=config.interval,
+                entries=(
+                    [(config.symbol, config.interval, config.candle_type)]
+                    + state.strategy.extra_candles
+                ),
                 start=state.next_,
                 end=config.end,
                 exchange_timeout=config.exchange_candle_timeout,
-                type_=config.candle_type,
             ):
-                await self._tick(state, candle)
+                await self._tick(state, candle, candle_meta)
         except BadOrder:
             _log.exception("bad order; finishing early")
         finally:
@@ -279,19 +284,27 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         self,
         state: BasicState,
         candle: Candle,
+        candle_meta: CandleMeta,
     ) -> None:
         config = state.config
+        is_main_candle = candle_meta == (config.symbol, config.interval, config.candle_type)
 
         await self._events.emit(config.channel, "candle", candle)
 
-        state.stop_loss.update(candle)
-        state.take_profit.update(candle)
-        state.strategy.update(candle)
-        advice = state.changed.update(state.strategy.advice)
-        _log.debug(f"received advice: {advice.name}")
-        # Make sure strategy doesn't give advice during "adjusted start" period.
-        if state.next_ < state.start:
-            assert advice is Advice.NONE
+        if is_main_candle:
+            state.stop_loss.update(candle)
+            state.take_profit.update(candle)
+
+        state.strategy.update(candle, candle_meta)
+        advice = Advice.NONE
+        if is_main_candle:
+            # Make sure strategy doesn't give advice during "adjusted start" period.
+            advice = (
+                state.changed.update(state.strategy.advice)
+                if state.next_ >= state.start
+                else Advice.NONE
+            )
+            _log.debug(f"received advice: {advice.name}")
 
         queue = self._queues[state.id]
         coro: Optional[Awaitable]
@@ -422,17 +435,18 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
 
     def build_summary(self, state: BasicState) -> TradingSummary:
         config = state.config
+        start = state.start if config.mode is TradingMode.BACKTEST else state.real_start
         if config.end is not None and config.end <= state.real_start:  # Backtest.
             end = (
                 state.last_candle.time + config.interval
                 if state.last_candle
-                else state.start + config.interval
+                else start + config.interval
             )
         else:  # Paper or live.
             end = min(self._get_time_ms(), config.end)
 
         return TradingSummary(
-            start=state.start,
+            start=start,
             end=end,
             starting_assets={
                 state.config.quote_asset: state.starting_quote,

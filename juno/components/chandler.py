@@ -66,8 +66,9 @@ class Chandler(AbstractAsyncContextManager):
         start: int,
         end: int = MAX_TIME_MS,
         exchange_timeout: Optional[float] = None,
-    ) -> AsyncIterable[tuple[CandleMeta, Candle]]:
-        desc_sorted_entries = sorted(entries, key=lambda e: e[1], reverse=True)
+    ) -> AsyncIterable[tuple[Candle, CandleMeta]]:
+        unique_entries = set(entries)
+        desc_sorted_entries = sorted(unique_entries, key=lambda e: e[1], reverse=True)
         future_streams = [
             (
                 (symbol, interval, type_),
@@ -89,7 +90,7 @@ class Chandler(AbstractAsyncContextManager):
         # For example:
         # - with intervals 3 and 5, the greatest common interval would be 1.
         # - with intervals 5 and 10, the greatest common interval would be 5.
-        greatest_common_interval = math.gcd(*(interval for _, interval, _ in entries))
+        greatest_common_interval = math.gcd(*(interval for _, interval, _ in unique_entries))
 
         next_ = floor_timestamp(start, greatest_common_interval)
         next_end = floor_timestamp(end, greatest_common_interval)
@@ -99,7 +100,7 @@ class Chandler(AbstractAsyncContextManager):
                 if is_in_interval(next_, interval):
                     optional_candle = await anext(stream)
                     if optional_candle is not None:
-                        yield (symbol, interval, type_), optional_candle
+                        yield optional_candle, (symbol, interval, type_)
 
         await asyncio.gather(*(aclose(stream) for _, stream in future_streams))
 

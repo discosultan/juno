@@ -1,6 +1,6 @@
 from typing import Any
 
-from juno import Advice, Candle, strategies
+from juno import Advice, Candle, CandleMeta, strategies
 from juno.config import init_module_instance
 
 from .strategy import MidTrend, MidTrendPolicy, Oscillator, Persistence, Signal
@@ -54,11 +54,11 @@ class SigOsc(Signal):
     def mature(self) -> bool:
         return self._t >= self._t1
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, meta: CandleMeta) -> None:
         self._t = min(self._t + 1, self._t1)
 
-        self._sig.update(candle)
-        self._osc.update(candle)
+        self._sig.update(candle, meta)
+        self._osc.update(candle, meta)
 
         if self._sig.mature and self._osc.mature:
             advice = self._sig.advice

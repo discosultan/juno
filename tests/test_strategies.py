@@ -3,6 +3,7 @@ import operator
 import pytest
 
 from juno import Advice, Candle, strategies
+from juno.common import CandleMeta
 from juno.constraints import Int, Pair
 from juno.strategies import MidTrendPolicy, Sig, Strategy
 
@@ -16,7 +17,7 @@ class DummyStrategy(Strategy):
             }
         )
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, meta: CandleMeta) -> None:
         pass
 
 
@@ -181,7 +182,7 @@ def test_sig_extra_maturity_changed_enabled(extra_maturity, advices, expected_ad
         changed_enabled=True,
     )
 
-    sig.update(Candle(time=0))
-    sig.update(Candle(time=1))
+    sig.update(Candle(time=0), ("eth-btc", 1, "regular"))
+    sig.update(Candle(time=1), ("eth-btc", 1, "regular"))
 
     assert sig.advice is expected_advice

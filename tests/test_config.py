@@ -1,7 +1,7 @@
 import sys
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, Literal, NamedTuple, Optional, Union
 
 from juno import Interval, Timestamp, config
 from juno.time import HOUR_MS
@@ -21,6 +21,10 @@ class Foo(NamedTuple):
     list_of_intervals: list[Interval]
     dict_of_intervals: dict[Interval, Interval]
     enum: SomeEnum
+    union1: Union[str, int]
+    union2: Union[str, int]
+    literal: Literal["foo"]
+    optional_union: Optional[Union[str, int]]
 
 
 def test_config_to_type_type_to_config() -> None:
@@ -34,6 +38,10 @@ def test_config_to_type_type_to_config() -> None:
         "list_of_intervals": ["1h", "2h"],
         "dict_of_intervals": {"1h": "2h"},
         "enum": "key",
+        "union1": "foo",
+        "union2": 1,
+        "literal": "foo",
+        "optional_union": "foo",
     }
     expected_output: Union[dict[str, Any], Foo] = Foo(
         name="bar",
@@ -45,6 +53,10 @@ def test_config_to_type_type_to_config() -> None:
         list_of_intervals=[HOUR_MS, 2 * HOUR_MS],
         dict_of_intervals={HOUR_MS: 2 * HOUR_MS},
         enum=SomeEnum.KEY,
+        union1="foo",
+        union2=1,
+        literal="foo",
+        optional_union="foo",
     )
 
     output = config.config_to_type(input_, Foo)

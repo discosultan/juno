@@ -346,7 +346,7 @@ class BBandsTrader(Trader[BBandsConfig, BBandsState], StartMixin):
         self._queues[state.id] = asyncio.Queue()
         state.running = True
         try:
-            async for candle_meta, candle in self._chandler.stream_concurrent_candles(
+            async for candle, candle_meta in self._chandler.stream_concurrent_candles(
                 exchange=config.exchange,
                 entries=[
                     (config.symbol, MIN_MS, "regular"),
@@ -356,7 +356,7 @@ class BBandsTrader(Trader[BBandsConfig, BBandsState], StartMixin):
                 start=state.next_,
                 end=config.end,
             ):
-                await self._tick(state, candle_meta, candle)
+                await self._tick(state, candle, candle_meta)
         except BadOrder:
             _log.info("ran out of funds; finishing early")
         finally:
@@ -378,8 +378,8 @@ class BBandsTrader(Trader[BBandsConfig, BBandsState], StartMixin):
     async def _tick(
         self,
         state: BBandsState,
-        candle_meta: CandleMeta,
         candle: Candle,
+        candle_meta: CandleMeta,
     ) -> None:
         config = state.config
 

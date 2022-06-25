@@ -1,6 +1,6 @@
 from typing import Any
 
-from juno import Advice, Candle
+from juno import Advice, Candle, CandleMeta
 from juno.config import init_instance
 
 from .double_ma import DoubleMA
@@ -35,9 +35,9 @@ class DoubleMAStoch(Signal):
     def mature(self) -> bool:
         return self._double_ma.mature and self._stoch.mature
 
-    def update(self, candle: Candle) -> None:
-        self._double_ma.update(candle)
-        self._stoch.update(candle)
+    def update(self, candle: Candle, meta: CandleMeta) -> None:
+        self._double_ma.update(candle, meta)
+        self._stoch.update(candle, meta)
 
         if self.mature:
             # TODO: Try adding changed filter to MA output?

@@ -6,6 +6,7 @@ from enum import IntEnum
 from typing import Any, Optional, Union
 
 from juno import Advice, Candle
+from juno.common import CandleMeta
 from juno.constraints import Choice, Constraint
 from juno.indicators import Alma, Dema, Ema, Ema2, Kama, Sma, Smma
 
@@ -170,8 +171,12 @@ class Strategy(ABC):
     def mature(self) -> bool:
         pass
 
+    @property
+    def extra_candles(self) -> list[CandleMeta]:
+        return []
+
     @abstractmethod
-    def update(self, candle: Candle):
+    def update(self, candle: Candle, meta: CandleMeta):
         pass
 
     @staticmethod

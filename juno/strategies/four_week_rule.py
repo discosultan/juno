@@ -4,7 +4,7 @@ from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
 
-from juno import Advice, Candle, indicators
+from juno import Advice, Candle, CandleMeta, indicators
 from juno.constraints import Int
 from juno.indicators import MA
 from juno.math import minmax
@@ -71,7 +71,7 @@ class FourWeekRule(Signal):
     def mature(self) -> bool:
         return self._t >= self._t1
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self._t = min(self._t + 1, self._t1)
 
         self._ma.update(candle.close)

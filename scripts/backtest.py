@@ -89,7 +89,7 @@ async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreSt
             quote=Decimal("1.0"),
             long=True,
             short=True,
-            adjust_start=False,
+            adjusted_start=None,
             custodian="stub",
         )
     )

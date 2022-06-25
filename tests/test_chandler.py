@@ -601,12 +601,12 @@ async def test_stream_concurrent_historical_candles(
     )
 
     assert output == [
-        (("eth-btc", 1, "regular"), Candle(time=0, close=Decimal("1.0"))),  # time 1
-        (("eth-btc", 2, "regular"), Candle(time=0, close=Decimal("2.0"))),  # time 2
-        (("eth-btc", 1, "regular"), Candle(time=1, close=Decimal("1.0"))),  # time 2
-        (("eth-btc", 1, "regular"), Candle(time=2, close=Decimal("1.0"))),  # time 3
-        (("eth-btc", 2, "regular"), Candle(time=2, close=Decimal("2.0"))),  # time 4
-        (("eth-btc", 1, "regular"), Candle(time=3, close=Decimal("1.0"))),  # time 4
+        (Candle(time=0, close=Decimal("1.0")), ("eth-btc", 1, "regular")),  # time 1
+        (Candle(time=0, close=Decimal("2.0")), ("eth-btc", 2, "regular")),  # time 2
+        (Candle(time=1, close=Decimal("1.0")), ("eth-btc", 1, "regular")),  # time 2
+        (Candle(time=2, close=Decimal("1.0")), ("eth-btc", 1, "regular")),  # time 3
+        (Candle(time=2, close=Decimal("2.0")), ("eth-btc", 2, "regular")),  # time 4
+        (Candle(time=3, close=Decimal("1.0")), ("eth-btc", 1, "regular")),  # time 4
     ]
 
 
@@ -654,36 +654,36 @@ async def test_stream_concurrent_historical_candles_with_offset_time(
 
     assert output == [
         (
-            ("eth-btc", DAY_MS, "regular"),
             Candle(time=strptimestamp("2018-01-01"), close=Decimal("1.0")),
+            ("eth-btc", DAY_MS, "regular"),
         ),
         (
-            ("eth-btc", DAY_MS, "regular"),
             Candle(time=strptimestamp("2018-01-02"), close=Decimal("1.0")),
+            ("eth-btc", DAY_MS, "regular"),
         ),
         (
-            ("eth-btc", DAY_MS, "regular"),
             Candle(time=strptimestamp("2018-01-03"), close=Decimal("1.0")),
+            ("eth-btc", DAY_MS, "regular"),
         ),
         (
-            ("eth-btc", DAY_MS, "regular"),
             Candle(time=strptimestamp("2018-01-04"), close=Decimal("1.0")),
+            ("eth-btc", DAY_MS, "regular"),
         ),
         (
-            ("eth-btc", DAY_MS, "regular"),
             Candle(time=strptimestamp("2018-01-05"), close=Decimal("1.0")),
+            ("eth-btc", DAY_MS, "regular"),
         ),
         (
-            ("eth-btc", DAY_MS, "regular"),
             Candle(time=strptimestamp("2018-01-06"), close=Decimal("1.0")),
-        ),
-        (
-            ("eth-btc", WEEK_MS, "regular"),
-            Candle(time=strptimestamp("2018-01-01"), close=Decimal("7.0")),
-        ),
-        (
             ("eth-btc", DAY_MS, "regular"),
+        ),
+        (
+            Candle(time=strptimestamp("2018-01-01"), close=Decimal("7.0")),
+            ("eth-btc", WEEK_MS, "regular"),
+        ),
+        (
             Candle(time=strptimestamp("2018-01-07"), close=Decimal("1.0")),
+            ("eth-btc", DAY_MS, "regular"),
         ),
     ]
 
@@ -732,9 +732,9 @@ async def test_stream_concurrent_future_candles(
     )
 
     assert output == [
-        (("eth-btc", 3, "regular"), Candle(time=0, close=Decimal("3.0"))),
-        (("eth-btc", 5, "regular"), Candle(time=0, close=Decimal("5.0"))),
-        (("eth-btc", 3, "regular"), Candle(time=3, close=Decimal("3.0"))),
-        (("eth-btc", 3, "regular"), Candle(time=6, close=Decimal("3.0"))),
-        (("eth-btc", 5, "regular"), Candle(time=5, close=Decimal("5.0"))),
+        (Candle(time=0, close=Decimal("3.0")), ("eth-btc", 3, "regular")),
+        (Candle(time=0, close=Decimal("5.0")), ("eth-btc", 5, "regular")),
+        (Candle(time=3, close=Decimal("3.0")), ("eth-btc", 3, "regular")),
+        (Candle(time=6, close=Decimal("3.0")), ("eth-btc", 3, "regular")),
+        (Candle(time=5, close=Decimal("5.0")), ("eth-btc", 5, "regular")),
     ]

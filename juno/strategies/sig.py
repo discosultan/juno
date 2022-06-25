@@ -1,6 +1,6 @@
 from typing import Any
 
-from juno import Advice, Candle, strategies
+from juno import Advice, Candle, CandleMeta, strategies
 from juno.config import init_module_instance
 
 from .strategy import Changed, Maturity, MidTrend, MidTrendPolicy, Persistence, Signal
@@ -47,10 +47,10 @@ class Sig(Signal):
     def mature(self) -> bool:
         return self._t >= self._t1
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, meta: CandleMeta) -> None:
         self._t = min(self._t + 1, self._t1)
 
-        self._sig.update(candle)
+        self._sig.update(candle, meta)
 
         extra_maturity_advice = self._extra_maturity.update(self._changed.update(self._sig.advice))
 

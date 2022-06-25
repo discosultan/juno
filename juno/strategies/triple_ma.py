@@ -3,7 +3,7 @@ from __future__ import annotations
 import operator
 from dataclasses import dataclass
 
-from juno import Advice, Candle, indicators
+from juno import Advice, Candle, CandleMeta, indicators
 from juno.constraints import Int, Triple
 from juno.indicators import MA, Ema
 from juno.typing import Constructor
@@ -86,7 +86,7 @@ class TripleMA(Signal):
     def mature(self) -> bool:
         return self._long_ma.mature and self._medium_ma.mature and self._short_ma.mature
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self._short_ma.update(candle.close)
         self._medium_ma.update(candle.close)
         self._long_ma.update(candle.close)

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from juno import Advice, Candle
+from juno import Advice, Candle, CandleMeta
 
 from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
 
@@ -51,7 +51,7 @@ class Fixed(Signal):
     def mature(self) -> bool:
         return self._t >= self._t2
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self._t = min(self._t + 1, self._t2)
 
         self.updates.append(candle)

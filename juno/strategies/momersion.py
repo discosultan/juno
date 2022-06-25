@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from juno import Candle, indicators
+from juno import Candle, CandleMeta, indicators
 from juno.constraints import Int, Uniform
 
 from .strategy import Strategy
@@ -35,7 +35,7 @@ class Momersion(Strategy):
     def mature(self) -> bool:
         return self._momersion.mature
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self._momersion.update(candle.close)
         if self._momersion.mature:
             if self._momersion.value < self._threshold:

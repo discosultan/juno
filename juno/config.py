@@ -4,7 +4,7 @@ import sys
 from dataclasses import is_dataclass
 from decimal import Decimal
 from enum import Enum
-from types import ModuleType
+from types import ModuleType, NoneType
 from typing import Any, Mapping, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
 
 import yaml
@@ -203,12 +203,22 @@ def config_to_type(value: Any, type_: Any) -> Any:
         return strpinterval(value)
     if type_ is Timestamp:
         return strptimestamp(value)
+    if type_ is NoneType:
+        if value is None:
+            return None
+        raise TypeError(f"Invalid value {value} for NoneType")
 
     origin = get_origin(type_)
     if origin:
-        if origin is Union:  # Most probably Optional[T].
-            st, _ = get_args(type_)
-            return config_to_type(value, st) if value is not None else None
+        # Either Union[T, Y] or Optional[T].
+        # Optional[T] is equivalent to Union[T, NoneType].
+        if origin is Union:
+            for arg in get_args(type_):
+                try:
+                    return config_to_type(value, arg)
+                except Exception:
+                    pass
+            raise TypeError(f"Unable to deserialize value {value} of type {type_}")
         if origin is type:  # typing.type[T]
             raise NotImplementedError()
         if origin is list:  # typing.list[T]
@@ -237,12 +247,22 @@ def type_to_config(value: Any, type_: Any) -> Any:
         return strfinterval(value)
     if type_ is Timestamp:
         return strftimestamp(value)
+    if type_ is NoneType:
+        if value is None:
+            return None
+        raise TypeError(f"Invalid value {value} for NoneType")
 
     origin = get_origin(type_)
     if origin:
-        if origin is Union:  # Most probably Optional[T].
-            st, _ = get_args(type_)
-            return type_to_config(value, st) if value is not None else None
+        # Either Union[T, Y] or Optional[T].
+        # Optional[T] is equivalent to Union[T, NoneType].
+        if origin is Union:
+            for arg in get_args(type_):
+                try:
+                    return type_to_config(value, arg)
+                except Exception:
+                    pass
+            raise TypeError(f"Unable to serialize value {value} of type {type_}")
         if origin is type:  # typing.type[T]
             return value.__name__.lower()
         if origin is list:  # typing.list[T]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from juno import Advice, Candle, indicators
+from juno import Advice, Candle, CandleMeta, indicators
 
 from .strategy import Changed, Signal
 
@@ -37,7 +37,7 @@ class ChandelierExit(Signal):
     def mature(self) -> bool:
         return self._chandelier.mature
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         if candle.close > self._chandelier.short:
             self._advice = self._changed.update(Advice.LONG)
         elif candle.close < self._chandelier.long:

@@ -219,7 +219,7 @@ async def test_downside_take_profit() -> None:
     assert short_positions[0].close_reason is CloseReason.TAKE_PROFIT
 
 
-async def test_adjust_start_ignore_mid_trend() -> None:
+async def test_adjusted_start_ignore_mid_trend() -> None:
     chandler = fakes.Chandler(
         candles={
             ("dummy", "eth-btc", 1): [
@@ -245,7 +245,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
             mid_trend_policy=MidTrendPolicy.IGNORE,
             persistence=1,
         ),
-        adjust_start=True,
+        adjusted_start="strategy",
         long=True,
         short=False,
     )
@@ -256,7 +256,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
     assert len(summary.positions) == 0
 
 
-async def test_adjust_start_persistence() -> None:
+async def test_adjusted_start_persistence() -> None:
     chandler = fakes.Chandler(
         candles={
             ("dummy", "eth-btc", 1): [
@@ -282,7 +282,7 @@ async def test_adjust_start_persistence() -> None:
             mid_trend_policy=MidTrendPolicy.CURRENT,
             persistence=2,
         ),
-        adjust_start=True,
+        adjusted_start="strategy",
         long=True,
         short=False,
     )
@@ -323,7 +323,7 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
             Fixed,
             maturity=3,
         ),
-        adjust_start=True,
+        adjusted_start="strategy",
         long=True,
         short=False,
     )

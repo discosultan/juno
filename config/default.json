@@ -13,7 +13,7 @@
                 "symbol": "eth-btc",
                 "long": true,
                 "short": true,
-                "adjust_start": false
+                "adjusted_start": null
             },
             "strategy": {
                 "type": "fourweekrule",

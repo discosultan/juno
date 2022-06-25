@@ -1,7 +1,7 @@
 import operator
 from decimal import Decimal
 
-from juno import Advice, Candle, indicators
+from juno import Advice, Candle, CandleMeta, indicators
 from juno.constraints import Int, Pair, Uniform
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
@@ -58,7 +58,7 @@ class DoubleMA2(Signal):
     def mature(self) -> bool:
         return self._long_ma.mature
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from juno import Candle, indicators
+from juno.common import CandleMeta
 from juno.constraints import Int, Uniform
 
 from .strategy import Strategy
@@ -35,7 +36,7 @@ class Adx(Strategy):
     def mature(self) -> bool:
         return self._adx.mature
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self._adx.update(candle.high, candle.low)
         if self._adx.mature:
             if self._adx.value < self._threshold:

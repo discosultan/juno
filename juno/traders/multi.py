@@ -507,7 +507,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
 
         symbol_state.stop_loss.update(candle)
         symbol_state.take_profit.update(candle)
-        symbol_state.strategy.update(candle)
+        symbol_state.strategy.update(candle, (symbol_state.symbol, config.interval, "regular"))
         advice = symbol_state.strategy.advice
         reason = CloseReason.STRATEGY
         if isinstance(symbol_state.open_position, Position.OpenLong) and advice not in [

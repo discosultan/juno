@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from juno import Candle, indicators
+from juno import Candle, CandleMeta, indicators
 
 from .strategy import Oscillator
 
@@ -41,5 +41,5 @@ class Stoch(Oscillator):
     def oversold(self) -> bool:
         return self.indicator.mature and self.indicator.k < self._down_threshold
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self.indicator.update(candle.high, candle.low, candle.close)

@@ -1,6 +1,6 @@
 import operator
 
-from juno import Advice, Candle, indicators
+from juno import Advice, Candle, CandleMeta, indicators
 from juno.constraints import Int, Pair
 
 from .strategy import Signal, Strategy
@@ -42,7 +42,7 @@ class Macd(Signal):
     def mature(self) -> bool:
         return self._macd.mature
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle, _: CandleMeta) -> None:
         self._macd.update(candle.close)
 
         if self._macd.mature:
