@@ -51,21 +51,25 @@ class Bmsb(Signal):
 
     def update(self, candle: Candle, meta: CandleMeta) -> Advice:
         if meta == self._benchmark_meta:
-            self._20w_sma.update(candle.close)
-
-            if self.mature:
-                self._is_over_20w_sma = candle.close >= self._20w_sma.value
+            self._update_bmsb(candle)
         else:
-            self._signal.update(candle, meta)
-
-            if self.mature:
-                if self._is_over_20w_sma and self._signal.advice is Advice.LONG:
-                    self._advice = Advice.LONG
-                elif not self._is_over_20w_sma and self._signal.advice is Advice.SHORT:
-                    self._advice = Advice.SHORT
-                elif self._advice is Advice.LONG and not self._is_over_20w_sma:
-                    self._advice = Advice.LIQUIDATE
-                elif self._advice is Advice.SHORT and self._is_over_20w_sma:
-                    self._advice = Advice.LIQUIDATE
-
+            self._update_main(candle, meta)
         return self._changed.update(self._advice)
+
+    def _update_bmsb(self, candle: Candle) -> None:
+        self._20w_sma.update(candle.close)
+        if self.mature:
+            self._is_over_20w_sma = candle.close >= self._20w_sma.value
+
+    def _update_main(self, candle: Candle, meta: CandleMeta) -> None:
+        self._signal.update(candle, meta)
+
+        if self.mature:
+            if self._is_over_20w_sma and self._signal.advice is Advice.LONG:
+                self._advice = Advice.LONG
+            elif not self._is_over_20w_sma and self._signal.advice is Advice.SHORT:
+                self._advice = Advice.SHORT
+            elif self._advice is Advice.LONG and not self._is_over_20w_sma:
+                self._advice = Advice.LIQUIDATE
+            elif self._advice is Advice.SHORT and self._is_over_20w_sma:
+                self._advice = Advice.LIQUIDATE

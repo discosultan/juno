@@ -1,4 +1,5 @@
 from .adx import Adx
+from .bbands import BBands
 from .bmsb import Bmsb
 from .chandelier_exit import ChandelierExit
 from .double_ma import DoubleMA, DoubleMAParams
@@ -28,6 +29,7 @@ from .triple_ma import TripleMA, TripleMAParams
 
 __all__ = [
     "Adx",
+    "BBands",
     "Bmsb",
     "ChandelierExit",
     "Changed",
