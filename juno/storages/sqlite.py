@@ -15,10 +15,9 @@ from typing import (
     get_type_hints,
 )
 
-from juno import Interval, Timestamp, json
+from juno import Interval, Timestamp, json, serialization
 from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.time import MAX_TIME_MS, strfspan
-from juno.typing import raw_to_type, type_to_raw
 from juno.utils import home_path
 
 from .storage import Storage
@@ -85,7 +84,7 @@ class SQLite(Storage):
 
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
         for row in rows:
-            yield raw_to_type(row, type_)
+            yield serialization.raw.deserialize(row, type_)
 
     async def store_time_series_and_span(
         self, shard: str, key: str, items: list[Any], start: int, end: int
@@ -151,7 +150,7 @@ class SQLite(Storage):
                 row = conn.execute(
                     f"SELECT * FROM {_KEY_VALUE_PAIR_KEY} WHERE key=? LIMIT 1", [key]
                 ).fetchone()
-                return raw_to_type(json.loads(row[1]), type_) if row else None
+                return serialization.raw.deserialize(json.loads(row[1]), type_) if row else None
 
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 
@@ -162,7 +161,7 @@ class SQLite(Storage):
                 self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 conn.execute(
                     f"INSERT OR REPLACE INTO {_KEY_VALUE_PAIR_KEY} VALUES (?, ?)",
-                    [key, json.dumps(type_to_raw(item))],
+                    [key, json.dumps(serialization.raw.serialize(item))],
                 )
                 conn.commit()
 

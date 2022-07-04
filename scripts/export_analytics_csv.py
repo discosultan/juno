@@ -7,12 +7,12 @@ from juno import Candle, Filters, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
+from juno.inspect import GenericConstructor
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
-from juno.typing import GenericConstructor
 from juno.utils import unpack_assets
 
 SYMBOL = "eth-btc"
@@ -41,7 +41,7 @@ async def main() -> None:
             quote=Decimal("1.0"),
             strategy=GenericConstructor.from_type(
                 strategies.DoubleMA2,
-                {
+                **{
                     "short_period": 3,
                     "long_period": 73,
                     "neg_threshold": Decimal("-0.102"),

@@ -20,6 +20,7 @@ from juno.asyncio import (
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.custodians import Custodian, Stub
+from juno.inspect import Constructor
 from juno.math import rpstdev, split
 from juno.positioner import Positioner, SimulatedPositioner
 from juno.stop_loss import Noop as NoopStopLoss
@@ -29,7 +30,6 @@ from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import floor_timestamp, strftimestamp, time_ms
 from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
-from juno.typing import Constructor
 
 from .trader import Trader
 

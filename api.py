@@ -5,12 +5,11 @@ from typing import AsyncIterator
 import aiohttp_cors
 from aiohttp import web
 
-import juno.json as json
+from juno import json, serialization
 from juno.components import Chandler
 from juno.exchanges import Binance
 from juno.logging import create_handlers
 from juno.storages import SQLite
-from juno.typing import type_to_raw
 
 
 async def juno(app: web.Application) -> AsyncIterator[None]:
@@ -46,7 +45,7 @@ async def candles(request: web.Request) -> web.Response:
         end=int(query["end"]),
     )
 
-    return web.json_response(type_to_raw(result), dumps=json.dumps)
+    return web.json_response(serialization.raw.serialize(result), dumps=json.dumps)
 
 
 @routes.get("/candle_intervals")
@@ -57,7 +56,7 @@ async def candle_intervals(request: web.Request) -> web.Response:
         exchange=request.query["exchange"],
     )
 
-    return web.json_response(type_to_raw(result), dumps=json.dumps)
+    return web.json_response(serialization.raw.serialize(result), dumps=json.dumps)
 
 
 logging.basicConfig(

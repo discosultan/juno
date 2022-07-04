@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dataclasses import asdict
 
-import juno.json as json
+from juno import json
 from juno.components import Informant
 from juno.exchanges import Exchange
 from juno.storages import SQLite

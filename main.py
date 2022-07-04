@@ -9,7 +9,7 @@ import pkg_resources
 from mergedeep import merge
 
 import juno
-from juno import agents, components, config, custodians, traders
+from juno import agents, components, config, custodians, serialization, traders
 from juno.agents import Agent
 from juno.brokers import Broker
 from juno.custodians import Custodian
@@ -88,7 +88,7 @@ async def main() -> None:
     agent_ctxs: list[tuple[Agent, Any, list[Plugin]]] = [
         (
             container.resolve(agent_types[c["type"]]),
-            config.config_to_type(c, agent_types[c["type"]].Config),
+            serialization.config.deserialize(c, agent_types[c["type"]].Config),
             [container.resolve(plugin_types[p]) for p in c.get("plugins", [])],
         )
         for c in cfg["agents"]

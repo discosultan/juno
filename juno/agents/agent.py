@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, Optional
 
+from juno import json, serialization
 from juno.components import Events
-from juno.config import format_as_config
 from juno.plugins import Plugin
 from juno.storages import Memory, Storage
 from juno.utils import exc_traceback, extract_public, generate_random_words
@@ -71,7 +71,10 @@ class Agent:
         return result
 
     async def on_running(self, config: Any, state: Any) -> None:
-        _log.info(f"{self.get_name(state)}: running with config {format_as_config(config)}")
+        _log.info(
+            f"{self.get_name(state)}: running with config "
+            f"{json.dumps(serialization.config.serialize(config), indent=4)}"
+        )
         await self._events.emit(state.name, "starting", config, state)
 
     async def on_cancelled(self, config: Any, state: Any) -> None:
@@ -85,7 +88,7 @@ class Agent:
     async def on_finally(self, config: Any, state: Any) -> Any:
         _log.info(
             f"{self.get_name(state)}: finished with result "
-            f"{format_as_config(extract_public(state.result))}"
+            f"{json.dumps(serialization.config.serialize(extract_public(state.result)), indent=4)}"
         )
         await self._events.emit(state.name, "finished", state.result)
 

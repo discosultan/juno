@@ -2,9 +2,8 @@ from decimal import Decimal
 from typing import TypedDict
 
 import pytest
-import yaml
 
-from juno import indicators
+from juno import indicators, yaml
 from juno.utils import full_path
 
 

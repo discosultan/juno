@@ -9,9 +9,9 @@ from more_itertools import sliced
 from nextcord import File
 from nextcord.ext.commands.bot import Bot, Context
 
+from juno import json, serialization
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
-from juno.config import format_as_config
 from juno.positioner import SimulatedPositioner
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader
@@ -89,7 +89,11 @@ class Discord(Bot, Plugin):
                 instance=trader,
             )
             await send_message(
-                format_message("starting with config", format_as_config(config), lang="json")
+                format_message(
+                    "starting with config",
+                    json.dumps(serialization.config.serialize(config), indent=4),
+                    lang="json",
+                )
             )
 
         @self._events.on(agent_name, "positions_opened")
@@ -100,7 +104,12 @@ class Discord(Bot, Plugin):
                         format_message(
                             f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
                             "position",
-                            format_as_config(extract_public(p, exclude=["fills"])),
+                            json.dumps(
+                                serialization.config.serialize(
+                                    extract_public(p, exclude=["fills"])
+                                ),
+                                indent=4,
+                            ),
                             lang="json",
                         ),
                     )
@@ -117,8 +126,11 @@ class Discord(Bot, Plugin):
                         format_message(
                             f'closed {"long" if isinstance(p, Position.Long) else "short"} '
                             "position",
-                            format_as_config(
-                                extract_public(p, exclude=["open_fills", "close_fills"])
+                            json.dumps(
+                                serialization.config.serialize(
+                                    extract_public(p, exclude=["open_fills", "close_fills"])
+                                ),
+                                indent=4,
                             ),
                             lang="json",
                         ),
@@ -127,7 +139,11 @@ class Discord(Bot, Plugin):
                 )
             )
             await send_message(
-                format_message("summary", format_as_config(extract_public(summary)), lang="json")
+                format_message(
+                    "summary",
+                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
+                    lang="json",
+                )
             )
 
         @self._events.on(agent_name, "finished")
@@ -135,7 +151,7 @@ class Discord(Bot, Plugin):
             await send_message(
                 format_message(
                     "finished with summary",
-                    format_as_config(extract_public(summary)),
+                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
                     lang="json",
                 ),
             )
@@ -254,7 +270,10 @@ class Discord(Bot, Plugin):
             await send_message(
                 format_message(
                     "summary",
-                    format_as_config(extract_public(trader_ctx.state.summary)),
+                    json.dumps(
+                        serialization.config.serialize(extract_public(trader_ctx.state.summary)),
+                        indent=4,
+                    ),
                     lang="json",
                 )
             )
@@ -282,8 +301,11 @@ class Discord(Bot, Plugin):
                 agent_name,
                 f'{"long" if isinstance(pos, Position.OpenLong) else "short"} position open; if '
                 "closed now",
-                format_as_config(
-                    extract_public(closed_pos, exclude=["open_fills", "close_fills"])
+                json.dumps(
+                    serialization.config.serialize(
+                        extract_public(closed_pos, exclude=["open_fills", "close_fills"])
+                    ),
+                    indent=4,
                 ),
                 lang="json",
             ),

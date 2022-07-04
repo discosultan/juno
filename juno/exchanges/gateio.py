@@ -9,7 +9,7 @@ from types import TracebackType
 from typing import Any, AsyncIterable, AsyncIterator, Optional
 from urllib.parse import urlencode
 
-import juno.json as json
+from juno import json
 from juno.common import (
     Balance,
     Candle,

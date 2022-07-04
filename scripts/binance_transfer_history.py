@@ -3,7 +3,7 @@ import asyncio
 import csv
 import logging
 
-import juno.json as json
+from juno import json
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.time import strftimestamp, strptimestamp

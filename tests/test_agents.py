@@ -7,7 +7,17 @@ from typing import Callable
 import pytest
 from pytest_mock import MockerFixture
 
-from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
+from juno import (
+    Balance,
+    Candle,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    OrderResult,
+    OrderStatus,
+    serialization,
+)
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel, resolved_stream, stream_queue
 from juno.brokers import Broker, Market
@@ -21,7 +31,6 @@ from juno.storages import Memory, Storage
 from juno.time import HOUR_MS
 from juno.traders import Basic, Trader
 from juno.trading import Position, TradingSummary
-from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
 from . import fakes
@@ -124,7 +133,7 @@ async def test_backtest_scenarios(mocker: MockerFixture, scenario_nr: int) -> No
         },
     )
     exchange.stream_historical_candles.return_value = resolved_stream(
-        *raw_to_type(
+        *serialization.raw.deserialize(
             load_json_file(__file__, f"./data/backtest_scenario{scenario_nr}_candles.json"),
             list[Candle],
         )

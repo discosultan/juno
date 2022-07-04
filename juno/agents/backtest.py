@@ -3,14 +3,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Optional
 
-from juno import Interval, Timestamp, stop_loss, strategies, take_profit
+from juno import Interval, Timestamp, json, serialization, stop_loss, strategies, take_profit
 from juno.components import Chandler, Events, Prices
-from juno.config import (
-    format_as_config,
-    get_module_type_constructor,
-    get_type_name_and_kwargs,
-    kwargs_for,
-)
+from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, ceil_timestamp, strftimestamp, time_ms
@@ -102,7 +97,10 @@ class Backtest(Agent):
         if not state.result:
             state.result = await trader.initialize(trader_config)
 
-        _log.info(f"{self.get_name(state)}: running with config {format_as_config(config)}")
+        _log.info(
+            f"{self.get_name(state)}: running with config "
+            f"{json.dumps(serialization.config.serialize(config), indent=4)}"
+        )
         await self._events.emit(state.name, "starting", config, state, trader)
 
         summary = await trader.run(state.result)
@@ -127,12 +125,15 @@ class Backtest(Agent):
 
         _log.info(f"calculating benchmark and portfolio statistics ({config.fiat_asset})")
         stats = ExtendedStatistics.compose(summary=summary, asset_prices=fiat_prices)
-        _log.info(format_as_config(stats))
+        _log.info(json.dumps(serialization.config.serialize(stats), indent=4))
 
     async def on_finally(self, config: Config, state: State) -> Any:
         summary = self.build_summary(config, state)
         stats = CoreStatistics.compose(summary)
-        _log.info(f"{self.get_name(state)}: finished with result " f"{format_as_config(stats)}")
+        _log.info(
+            f"{self.get_name(state)}: finished with result "
+            f"{json.dumps(serialization.config.serialize(stats), indent=4)}"
+        )
         await self._events.emit(state.name, "finished", summary)
         return summary
 

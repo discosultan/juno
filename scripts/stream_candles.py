@@ -5,8 +5,7 @@ from itertools import product
 
 from asyncstdlib import enumerate as enumerate_async
 
-import juno.json as json
-from juno import storages
+from juno import json, storages
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
 from juno.time import MIN_MS, floor_timestamp, strftimestamp, strpinterval, strptimestamp, time_ms

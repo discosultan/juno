@@ -5,9 +5,9 @@ import pytest
 
 from juno import Advice, BorrowInfo, Candle, Filters, stop_loss, take_profit, traders
 from juno.asyncio import cancel
+from juno.inspect import GenericConstructor
 from juno.strategies import Fixed, MidTrendPolicy
 from juno.trading import CloseReason, Position
-from juno.typing import GenericConstructor
 from tests import fakes
 
 

@@ -2,10 +2,9 @@ import argparse
 import asyncio
 import logging
 
-import juno.json as json
+from juno import json, serialization
 from juno.exchanges import Exchange
 from juno.time import strfinterval
-from juno.typing import type_to_raw
 
 parser = argparse.ArgumentParser()
 parser.add_argument("exchange", nargs="?", default="binance")
@@ -28,7 +27,7 @@ async def main() -> None:
 
         if args.dump:
             with open("exchange_info.json", "w") as file:
-                json.dump(type_to_raw(exchange_info), file, indent=4)
+                json.dump(serialization.raw.serialize(exchange_info), file, indent=4)
 
 
 asyncio.run(main())

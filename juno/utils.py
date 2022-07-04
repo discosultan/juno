@@ -16,7 +16,8 @@ from uuid import uuid4
 import aiolimiter
 
 from juno import json
-from juno.typing import ExcType, ExcValue, Traceback, isnamedtuple
+from juno.inspect import isnamedtuple
+from juno.typing import ExcType, ExcValue, Traceback
 
 T = TypeVar("T")
 

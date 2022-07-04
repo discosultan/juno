@@ -13,7 +13,6 @@ from decimal import Decimal
 from types import TracebackType
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
-import juno.json as json
 from juno import (
     AssetInfo,
     Balance,
@@ -28,6 +27,7 @@ from juno import (
     OrderUpdate,
     Side,
     TimeInForce,
+    json,
 )
 from juno.asyncio import cancel, create_task_sigint_on_exception, stream_queue
 from juno.errors import BadOrder, OrderMissing

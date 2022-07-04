@@ -22,9 +22,9 @@ from juno import (
 from juno.asyncio import cancel
 from juno.brokers import Market
 from juno.components import Informant, User
+from juno.inspect import GenericConstructor
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
-from juno.typing import GenericConstructor
 from tests import fakes
 
 TIMEOUT = 1.0

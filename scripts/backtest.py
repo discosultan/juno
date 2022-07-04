@@ -4,19 +4,16 @@ import logging
 from decimal import Decimal
 from typing import Any
 
-# import yaml
-import juno.json as json
-from juno import stop_loss, strategies, take_profit
+from juno import json, serialization, stop_loss, strategies, take_profit
 from juno.asyncio import gather_dict
 from juno.components import Chandler, Informant
-from juno.config import format_as_config
 from juno.exchanges import Exchange
+from juno.inspect import GenericConstructor
 from juno.statistics import CoreStatistics
 from juno.storages import SQLite
 from juno.time import DAY_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
-from juno.typing import GenericConstructor, type_to_raw
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--exchange", default="binance")
@@ -64,7 +61,7 @@ async def main() -> None:
 
     if args.dump:
         stats = {k: v[1] for k, v in summaries_stats.items()}
-        dump("strategies.json", type_to_raw(stats))
+        dump("strategies.json", serialization.raw.serialize(stats))
 
 
 async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreStatistics]:
@@ -95,7 +92,7 @@ async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreSt
     )
     summary = await trader.run(state)
     stats = CoreStatistics.compose(summary)
-    logging.info(format_as_config(stats))
+    logging.info(json.dumps(serialization.config.serialize(stats), indent=4))
     return summary, stats
 
 

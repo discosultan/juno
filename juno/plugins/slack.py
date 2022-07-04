@@ -8,8 +8,8 @@ from typing import Any
 from more_itertools import sliced
 from slack_sdk.web.async_client import AsyncWebClient
 
+from juno import json, serialization
 from juno.components import Events
-from juno.config import format_as_config
 from juno.traders import Trader
 from juno.trading import Position, TradingSummary
 from juno.utils import exc_traceback, extract_public
@@ -55,7 +55,12 @@ class Slack(Plugin):
         async def on_starting(config: Any, state: Any, trader: Trader) -> None:
             nonlocal agent_state
             agent_state = state
-            await send_message(format_message("starting with config", format_as_config(config)))
+            await send_message(
+                format_message(
+                    "starting with config",
+                    json.dumps(serialization.config.serialize(config), indent=4),
+                )
+            )
 
         @self._events.on(agent_name, "positions_opened")
         async def on_positions_opened(positions: list[Position], summary: TradingSummary) -> None:
@@ -65,7 +70,12 @@ class Slack(Plugin):
                         format_message(
                             f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
                             "position",
-                            format_as_config(extract_public(p, exclude=["fills"])),
+                            json.dumps(
+                                serialization.config.serialize(
+                                    extract_public(p, exclude=["fills"])
+                                ),
+                                indent=4,
+                            ),
                         ),
                     )
                     for p in positions
@@ -81,8 +91,11 @@ class Slack(Plugin):
                         format_message(
                             f'closed {"long" if isinstance(p, Position.Long) else "short"} '
                             "position",
-                            format_as_config(
-                                extract_public(p, exclude=["open_fills", "close_fills"])
+                            json.dumps(
+                                serialization.config.serialize(
+                                    extract_public(p, exclude=["open_fills", "close_fills"])
+                                ),
+                                indent=4,
                             ),
                         ),
                     )
@@ -90,7 +103,10 @@ class Slack(Plugin):
                 )
             )
             await send_message(
-                format_message("summary", format_as_config(extract_public(summary)))
+                format_message(
+                    "summary",
+                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
+                )
             )
 
         @self._events.on(agent_name, "finished")
@@ -98,7 +114,7 @@ class Slack(Plugin):
             await send_message(
                 format_message(
                     "finished with summary",
-                    format_as_config(extract_public(summary)),
+                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
                 ),
             )
 
