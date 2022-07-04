@@ -119,12 +119,9 @@ class Coinbase(Exchange):
                 quote_precision=-price_step.normalize().as_tuple()[2],
                 price=Price(
                     min=Decimal(product["min_market_funds"]),
-                    max=Decimal(product["max_market_funds"]),
                     step=price_step,
                 ),
                 size=Size(
-                    min=Decimal(product["base_min_size"]),
-                    max=Decimal(product["base_max_size"]),
                     step=size_step,
                 ),
             )
