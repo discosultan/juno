@@ -31,7 +31,7 @@ _log = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-@dataclass
+@dataclass(frozen=True)
 class _Timestamped(Generic[T]):
     time: Timestamp
     item: T

@@ -8,7 +8,7 @@ from .errors import BadOrder
 from .math import round_half_up
 
 
-@dataclass
+@dataclass(frozen=True)
 class Price:
     min: Decimal = Decimal("0.0")
     max: Decimal = Decimal("0.0")  # 0 means disabled.
@@ -33,7 +33,7 @@ class Price:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class PercentPrice:
     multiplier_up: Decimal = Decimal("Inf")
     multiplier_down: Decimal = Decimal("0.0")
@@ -46,7 +46,7 @@ class PercentPrice:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class PercentPriceBySide:
     bid_multiplier_up: Decimal = Decimal("Inf")
     bid_multiplier_down: Decimal = Decimal("0.0")
@@ -67,7 +67,7 @@ class PercentPriceBySide:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Size:
     min: Decimal = Decimal("0.0")
     max: Decimal = Decimal("0.0")  # 0 means disabled.
@@ -104,7 +104,7 @@ class Size:
             )
 
 
-@dataclass
+@dataclass(frozen=True)
 class MinNotional:
     min_notional: Decimal = Decimal("0.0")
     apply_to_market: bool = False
@@ -129,7 +129,7 @@ class MinNotional:
             self.validate_limit(avg_price, size)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Filters:
     price: Price = field(default_factory=Price)
     percent_price: PercentPrice = field(default_factory=PercentPrice)
