@@ -12,15 +12,13 @@ from tenacity import (
     wait_exponential,
 )
 
-from juno import BadOrder, Balance, Fill, Filters, Timestamp
+from juno import BadOrder, Balance, Fill, Filters, Interval_, Symbol_, Timestamp, Timestamp_
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
 from juno.custodians import Custodian
 from juno.inspect import extract_public
 from juno.math import ceil_multiple, round_down, round_half_up
-from juno.time import HOUR_MS, MIN_MS, strftimestamp, time_ms
 from juno.trading import CloseReason, Position, TradingMode
-from juno.utils import unpack_assets, unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
 
@@ -60,7 +58,7 @@ class Positioner:
         # Acquire funds from custodian.
         acquires: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
         for symbol, quote, _ in entries:
-            quote_asset = unpack_quote_asset(symbol)
+            quote_asset = Symbol_.quote_asset(symbol)
             acquires[(exchange, quote_asset)] += quote
         await asyncio.gather(
             *(
@@ -82,7 +80,7 @@ class Positioner:
         # ONLY RELEASE FOR OPEN LONG POSITIONS.
         releases: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
         for pos in (p for p in result if isinstance(p, Position.OpenLong)):
-            base_asset = unpack_base_asset(pos.symbol)
+            base_asset = Symbol_.base_asset(pos.symbol)
             releases[(pos.exchange, base_asset)] += pos.base_gain
         await asyncio.gather(
             *(
@@ -111,7 +109,7 @@ class Positioner:
         # ONLY ACQUIRE FOR OPEN LONG POSITIONS.
         acquires: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
         for open_long in (p for p, _ in entries if isinstance(p, Position.OpenLong)):
-            base_asset = unpack_base_asset(open_long.symbol)
+            base_asset = Symbol_.base_asset(open_long.symbol)
             acquires[(open_long.exchange, base_asset)] += open_long.base_gain
         await asyncio.gather(
             *(
@@ -132,7 +130,7 @@ class Positioner:
         # Release funds to custodian.
         releases: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
         for position in result:
-            quote_asset = unpack_quote_asset(position.symbol)
+            quote_asset = Symbol_.quote_asset(position.symbol)
             releases[(position.exchange, quote_asset)] += position.gain
         await asyncio.gather(
             *(
@@ -197,14 +195,14 @@ class Positioner:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"opening short position {symbol} {mode.name} with {collateral} collateral")
 
-        base_asset, quote_asset = unpack_assets(symbol)
+        base_asset, quote_asset = Symbol_.assets(symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
         # lowers multiplier for now for reduced risk.
         margin_multiplier = 2
         # margin_multiplier = self.informant.get_margin_multiplier(exchange)
 
-        price = (await self._chandler.get_last_candle(exchange, symbol, MIN_MS)).close
+        price = (await self._chandler.get_last_candle(exchange, symbol, Interval_.MIN)).close
 
         if mode is TradingMode.PAPER:
             limit = self._informant.get_borrow_info(
@@ -298,7 +296,7 @@ class Positioner:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"closing short position {position.symbol} {mode.name}")
 
-        base_asset, quote_asset = unpack_assets(position.symbol)
+        base_asset, quote_asset = Symbol_.assets(position.symbol)
         asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
         borrow_info = self._informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
@@ -310,7 +308,7 @@ class Positioner:
                 borrowed=position.borrowed,
                 hourly_rate=borrow_info.hourly_interest_rate,
                 start=position.time,
-                end=time_ms(),
+                end=Timestamp_.now(),
                 precision=asset_info.precision,
             )
         else:
@@ -483,7 +481,7 @@ class SimulatedPositioner:
         price: Decimal,
         quote: Decimal,
     ) -> Position.OpenLong:
-        base_asset, _ = unpack_assets(symbol)
+        base_asset, _ = Symbol_.assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         size = filters.size.round_down(quote / price)
@@ -498,7 +496,7 @@ class SimulatedPositioner:
             time=time,
             fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
         )
-        _log.info(f"opened simulated long position {symbol} at {strftimestamp(time)}")
+        _log.info(f"opened simulated long position {symbol} at {Timestamp_.format(time)}")
         return open_position
 
     def _close_simulated_long_position(
@@ -508,7 +506,7 @@ class SimulatedPositioner:
         price: Decimal,
         reason: CloseReason,
     ) -> Position.Long:
-        _, quote_asset = unpack_assets(position.symbol)
+        _, quote_asset = Symbol_.assets(position.symbol)
         fees, filters = self._informant.get_fees_filters(position.exchange, position.symbol)
 
         fills: list[Fill] = []
@@ -527,7 +525,7 @@ class SimulatedPositioner:
         )
         _log.info(
             f"closed simulated long position {closed_position.symbol} at "
-            f"{strftimestamp(time)} due to {reason.name}"
+            f"{Timestamp_.format(time)} due to {reason.name}"
         )
         return closed_position
 
@@ -539,7 +537,7 @@ class SimulatedPositioner:
         price: Decimal,
         collateral: Decimal,
     ) -> Position.OpenShort:
-        base_asset, quote_asset = unpack_assets(symbol)
+        base_asset, quote_asset = Symbol_.assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         limit = self._informant.get_borrow_info(
             exchange=exchange, asset=base_asset, account=symbol
@@ -563,7 +561,7 @@ class SimulatedPositioner:
             time=time,
             fills=[Fill(price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset)],
         )
-        _log.info(f"opened simulated short position {symbol} at {strftimestamp(time)}")
+        _log.info(f"opened simulated short position {symbol} at {Timestamp_.format(time)}")
         return open_position
 
     def _close_simulated_short_position(
@@ -573,7 +571,7 @@ class SimulatedPositioner:
         price: Decimal,
         reason: CloseReason,
     ) -> Position.Short:
-        base_asset, _ = unpack_assets(position.symbol)
+        base_asset, _ = Symbol_.assets(position.symbol)
         fees, filters = self._informant.get_fees_filters(position.exchange, position.symbol)
         asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
         borrow_info = self._informant.get_borrow_info(
@@ -600,7 +598,7 @@ class SimulatedPositioner:
         )
         _log.info(
             f"closed simulated short position {closed_position.symbol} at "
-            f"{strftimestamp(time)} due to {reason.name}"
+            f"{Timestamp_.format(time)} due to {reason.name}"
         )
         return closed_position
 
@@ -620,5 +618,5 @@ def _calculate_borrowed(
 def _calculate_interest(
     borrowed: Decimal, hourly_rate: Decimal, start: int, end: int, precision: int
 ) -> Decimal:
-    duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
+    duration = ceil_multiple(end - start, Interval_.HOUR) // Interval_.HOUR
     return round_half_up(borrowed * duration * hourly_rate, precision=precision)

@@ -34,3 +34,7 @@ class Storage(AsyncContextManager, ABC):
     @abstractmethod
     async def set(self, shard: str, key: str, item: T) -> None:
         pass
+
+    @staticmethod
+    def key(*items: Any) -> str:
+        return "_".join(map(str, items))

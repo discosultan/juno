@@ -4,9 +4,9 @@ import logging
 
 from asyncstdlib import list as list_async
 
+from juno import Timestamp_
 from juno.math import spans_overlap
 from juno.storages import SQLite
-from juno.time import strfspan
 
 SHARD = "binance_ada-btc_300000"
 KEY = "candle"
@@ -22,7 +22,7 @@ async def main() -> None:
         if spans_overlap(span1, span2):
             logging.info("OVERLAPPING SPAN FOUND:")
             logging.info(f"{span1} & {span2}")
-            logging.info(f"{strfspan(*span1)} & {strfspan(*span2)}")
+            logging.info(f"{Timestamp_.format_span(*span1)} & {Timestamp_.format_span(*span2)}")
             overlapping += 1
     if overlapping == 0:
         logging.info("none overlapping")

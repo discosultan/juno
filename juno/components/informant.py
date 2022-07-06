@@ -16,14 +16,15 @@ from juno import (
     ExchangeInfo,
     Fees,
     Filters,
+    Interval_,
     Ticker,
     Timestamp,
+    Timestamp_,
 )
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
-from juno.time import HOUR_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
 
 _log = logging.getLogger(__name__)
@@ -42,8 +43,8 @@ class Informant:
         self,
         storage: Storage,
         exchanges: list[Exchange],
-        get_time_ms: Callable[[], int] = time_ms,
-        cache_time: int = 6 * HOUR_MS,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
+        cache_time: int = 6 * Interval_.HOUR,
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -195,7 +196,7 @@ class Informant:
         period = self._cache_time
         _log.info(
             f'starting periodic sync of {key} for {", ".join(exchanges)} every '
-            f"{strfinterval(period)}"
+            f"{Interval_.format(period)}"
         )
         while True:
             await asyncio.gather(

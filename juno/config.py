@@ -1,14 +1,18 @@
 import inspect
 import os
-import sys
 from types import ModuleType
 from typing import Any, Mapping, Optional
 
-from juno import json, serialization, yaml
-from juno.inspect import GenericConstructor, isnamedtuple
+from juno import serialization
+from juno.inspect import (
+    GenericConstructor,
+    get_module_type,
+    isnamedtuple,
+    map_type_parent_module_types,
+)
 from juno.itertools import recursive_iter
+from juno.path import load_json_file, load_yaml_file
 from juno.typing import get_input_type_hints
-from juno.utils import get_module_type, map_concrete_module_types
 
 
 def from_env(
@@ -36,13 +40,11 @@ def from_env(
 
 
 def from_json_file(file: str) -> dict[str, Any]:
-    with open(file, "r") as f:
-        return json.load(f)
+    return load_json_file(file)
 
 
 def from_yaml_file(file: str) -> dict[str, Any]:
-    with open(file, "r") as f:
-        return yaml.load(f, yaml.Loader)
+    return load_yaml_file(file)
 
 
 def from_file(file: str) -> dict[str, Any]:
@@ -101,7 +103,7 @@ def _get(collection: Any, key: Any) -> Optional[Any]:
 def init_instances_mentioned_in_config(type_: type, config: dict[str, Any]) -> list[Any]:
     result = []
     type_name = type_.__name__.lower()
-    module_types = _map_type_parent_module_types(type_)
+    module_types = map_type_parent_module_types(type_)
     for name in list_names(config, type_name):
         type_ = module_types[name]
         if not inspect.isabstract(type_):
@@ -111,7 +113,7 @@ def init_instances_mentioned_in_config(type_: type, config: dict[str, Any]) -> l
 
 def try_init_all_instances(type_: type, config: dict[str, Any]) -> list[Any]:
     result = []
-    for parent_type in _map_type_parent_module_types(type_).values():
+    for parent_type in map_type_parent_module_types(type_).values():
         if inspect.isabstract(parent_type):
             continue
         try:
@@ -190,7 +192,7 @@ def resolve_concrete(
             raise ValueError(f"Concrete name not found for {abstract_name} in config")
         return default
 
-    module_type_map = _map_type_parent_module_types(type_)
+    module_type_map = map_type_parent_module_types(type_)
     concrete_type = module_type_map.get(concrete_name)
     if not concrete_type:
         if default is inspect.Parameter.empty:
@@ -198,9 +200,3 @@ def resolve_concrete(
         return default
 
     return concrete_type
-
-
-def _map_type_parent_module_types(type_: type[Any]) -> dict[str, type[Any]]:
-    module_name = type_.__module__
-    parent_module_name = module_name[0 : module_name.rfind(".")]
-    return map_concrete_module_types(sys.modules[parent_module_name])

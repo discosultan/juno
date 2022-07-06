@@ -4,12 +4,12 @@ import logging
 from decimal import Decimal
 from typing import Awaitable, Callable
 
-from juno import BadOrder, Fill, Side, brokers
+from juno import BadOrder, Fill, Side, Symbol_, brokers
 from juno.common import OrderResult
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
+from juno.inspect import get_module_type
 from juno.storages import SQLite
-from juno.utils import get_module_type, unpack_assets
 
 parser = argparse.ArgumentParser()
 parser.add_argument("side", nargs="?", type=lambda s: Side[s.upper()])
@@ -40,7 +40,7 @@ async def transact_symbol(
     broker: brokers.Broker,
     symbol: str,
 ) -> None:
-    base_asset, _ = unpack_assets(symbol)
+    base_asset, _ = Symbol_.assets(symbol)
     fees, filters = informant.get_fees_filters(args.exchange, symbol)
 
     size = args.size

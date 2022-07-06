@@ -3,13 +3,22 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Optional
 
-from juno import Interval, Timestamp, json, serialization, stop_loss, strategies, take_profit
+from juno import (
+    Interval,
+    Interval_,
+    Timestamp,
+    Timestamp_,
+    json,
+    serialization,
+    stop_loss,
+    strategies,
+    take_profit,
+)
 from juno.components import Chandler, Events, Prices
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.inspect import construct
 from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
-from juno.time import DAY_MS, ceil_timestamp, strftimestamp, time_ms
 from juno.traders import Trader
 from juno.trading import TradingMode, TradingSummary
 
@@ -48,7 +57,7 @@ class Backtest(Agent):
         prices: Optional[Prices] = None,
         events: Events = Events(),
         storage: Storage = Memory(),
-        get_time_ms: Callable[[], int] = time_ms,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
     ) -> None:
         self._traders = {type(t).__name__.lower(): t for t in traders}
         self._chandler = chandler
@@ -67,7 +76,7 @@ class Backtest(Agent):
         start = config.start
         if config.end is None:
             end = now
-            _log.info(f"end not specified; end set to {strftimestamp(now)}")
+            _log.info(f"end not specified; end set to {Timestamp_.format(now)}")
         else:
             end = config.end
 
@@ -117,8 +126,8 @@ class Backtest(Agent):
             exchange=config.exchange,
             symbols=symbols,
             start=summary.start,
-            end=ceil_timestamp(summary.end, DAY_MS),
-            interval=DAY_MS,
+            end=Timestamp_.ceil(summary.end, Interval_.DAY),
+            interval=Interval_.DAY,
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
         )

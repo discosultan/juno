@@ -23,7 +23,7 @@ from juno import (
     exchanges,
 )
 from juno.contextlib import AsyncContextManager
-from juno.utils import get_module_type
+from juno.inspect import get_module_type
 
 
 class Exchange(AsyncContextManager, ABC):

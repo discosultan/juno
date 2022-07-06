@@ -12,7 +12,7 @@ from typing import AsyncGenerator, AsyncIterable, Callable, Iterable, Optional
 from asyncstdlib import list as list_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import Candle, CandleMeta, ExchangeException
+from juno import Candle, CandleMeta, ExchangeException, Interval_, Symbol_, Timestamp_
 from juno.asyncio import aclose, first_async, stream_with_timeout
 from juno.common import CandleType
 from juno.contextlib import AsyncContextManager
@@ -20,18 +20,6 @@ from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
-from juno.time import (
-    MAX_TIME_MS,
-    WEEK_MS,
-    ceil_timestamp,
-    floor_timestamp,
-    is_in_interval,
-    strfinterval,
-    strfspan,
-    strftimestamp,
-    time_ms,
-)
-from juno.utils import key, unpack_assets
 
 from .trades import Trades
 
@@ -47,7 +35,7 @@ class Chandler(AsyncContextManager):
         storage: Storage,
         exchanges: list[Exchange],
         trades: Optional[Trades] = None,
-        get_time_ms: Callable[[], int] = time_ms,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
         storage_batch_size: int = 1000,
         earliest_exchange_start: int = 1293840000000,  # 2011-01-01
     ) -> None:
@@ -65,7 +53,7 @@ class Chandler(AsyncContextManager):
         exchange: str,
         entries: list[CandleMeta],
         start: int,
-        end: int = MAX_TIME_MS,
+        end: int = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[tuple[Candle, CandleMeta]]:
         unique_entries = set(entries)
@@ -93,12 +81,12 @@ class Chandler(AsyncContextManager):
         # - with intervals 5 and 10, the greatest common interval would be 5.
         greatest_common_interval = math.gcd(*(interval for _, interval, _ in unique_entries))
 
-        next_ = floor_timestamp(start, greatest_common_interval)
-        next_end = floor_timestamp(end, greatest_common_interval)
+        next_ = Timestamp_.floor(start, greatest_common_interval)
+        next_end = Timestamp_.floor(end, greatest_common_interval)
         while next_ < next_end:
             next_ += greatest_common_interval
             for (symbol, interval, type_), stream in future_streams:
-                if is_in_interval(next_, interval):
+                if Timestamp_.is_in_interval(next_, interval):
                     optional_candle = await anext(stream)
                     if optional_candle is not None:
                         yield optional_candle, (symbol, interval, type_)
@@ -111,12 +99,12 @@ class Chandler(AsyncContextManager):
         symbol: str,
         interval: int,
         start: int,
-        end: int = MAX_TIME_MS,
+        end: int = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> AsyncIterable[Optional[Candle]]:
-        start = floor_timestamp(start, interval)
-        end = floor_timestamp(end, interval)
+        start = Timestamp_.floor(start, interval)
+        end = Timestamp_.floor(end, interval)
         last_candle: Optional[Candle] = None
         stream = self.stream_candles(
             exchange=exchange,
@@ -157,7 +145,7 @@ class Chandler(AsyncContextManager):
         symbol: str,
         interval: int,
         start: int,
-        end: int = MAX_TIME_MS,
+        end: int = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> list[Candle]:
@@ -179,20 +167,20 @@ class Chandler(AsyncContextManager):
         symbol: str,
         interval: int,
         start: int,
-        end: int = MAX_TIME_MS,
+        end: int = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
-        start = floor_timestamp(start, interval)
-        end = floor_timestamp(end, interval)
+        start = Timestamp_.floor(start, interval)
+        end = Timestamp_.floor(end, interval)
 
         if end <= start:
             return
 
-        shard = key(exchange, symbol, interval)
-        candle_msg = f"{exchange} {symbol} {strfinterval(interval)} candle(s)"
+        shard = Storage.key(exchange, symbol, interval)
+        candle_msg = f"{exchange} {symbol} {Interval_.format(interval)} candle(s)"
 
         _log.info(f"checking for existing {candle_msg} in local storage")
         existing_spans = await list_async(
@@ -212,7 +200,7 @@ class Chandler(AsyncContextManager):
 
         last_candle: Optional[Candle] = None
         for span_start, span_end, exist_locally in spans:
-            period_msg = f"{strfspan(span_start, span_end)}"
+            period_msg = f"{Timestamp_.format_span(span_start, span_end)}"
             if exist_locally:
                 _log.info(f"local {candle_msg} exist between {period_msg}")
                 stream = self._storage.stream_time_series(
@@ -237,7 +225,7 @@ class Chandler(AsyncContextManager):
                     if not last_candle and (num_missed := (candle.time - start) // interval) > 0:
                         _log.warning(
                             f"missed {num_missed} {candle_msg} from the start "
-                            f"{strftimestamp(start)}; current candle {candle}"
+                            f"{Timestamp_.format(start)}; current candle {candle}"
                         )
 
                     if (
@@ -263,11 +251,11 @@ class Chandler(AsyncContextManager):
         if last_candle and (time_diff := end - last_candle.time) >= interval * 2:
             num_missed = time_diff // interval - 1
             _log.warning(
-                f"missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; "
+                f"missed {num_missed} {candle_msg} from the end {Timestamp_.format(end)}; "
                 f"current candle {last_candle}"
             )
         elif not last_candle:
-            _log.warning(f"missed all {candle_msg} between {strfspan(start, end)}")
+            _log.warning(f"missed all {candle_msg} between {Timestamp_.format_span(start, end)}")
 
     async def _stream_and_store_exchange_candles(
         self,
@@ -278,7 +266,7 @@ class Chandler(AsyncContextManager):
         end: int,
         exchange_timeout: Optional[float],
     ) -> AsyncGenerator[Candle, None]:
-        shard = key(exchange, symbol, interval)
+        shard = Storage.key(exchange, symbol, interval)
         # Note that we need to use a context manager based retrying because retry decorators do not
         # work with async generator functions.
         async for attempt in AsyncRetrying(
@@ -294,7 +282,7 @@ class Chandler(AsyncContextManager):
                 # stored twice, raising an integrity error.
                 batch = []
                 swap_batch: list[Candle] = []
-                current = floor_timestamp(self._get_time_ms(), interval)
+                current = Timestamp_.floor(self._get_time_ms(), interval)
 
                 try:
                     async with aclosing(
@@ -338,7 +326,7 @@ class Chandler(AsyncContextManager):
                         )
                     raise
                 else:
-                    current = floor_timestamp(self._get_time_ms(), interval)
+                    current = Timestamp_.floor(self._get_time_ms(), interval)
                     await self._storage.store_time_series_and_span(
                         shard=shard,
                         key=_CANDLE_KEY,
@@ -418,21 +406,21 @@ class Chandler(AsyncContextManager):
             )
             try:
                 async for candle in outer_stream:
-                    if interval < WEEK_MS and (candle.time % interval) != 0:
-                        adjusted_time = floor_timestamp(candle.time, interval)
+                    if interval < Interval_.WEEK and (candle.time % interval) != 0:
+                        adjusted_time = Timestamp_.floor(candle.time, interval)
                         _log.warning(
                             f"candle with bad time {candle} for interval "
-                            f"{strfinterval(interval)}; trying to adjust back in time to "
-                            f"{strftimestamp(adjusted_time)} or skip if volume zero"
+                            f"{Interval_.format(interval)}; trying to adjust back in time to "
+                            f"{Timestamp_.format(adjusted_time)} or skip if volume zero"
                         )
                         if last_candle_time == adjusted_time:
                             if candle.volume > 0:
                                 raise RuntimeError(
-                                    f"Received {symbol} {strfinterval(interval)} candle {candle} "
-                                    "with a time that does not fall into the interval. Cannot "
-                                    "adjust back in time because time coincides with last candle "
-                                    f"time {strftimestamp(last_candle_time)}. Cannot skip because "
-                                    "volume not zero"
+                                    f"Received {symbol} {Interval_.format(interval)} candle "
+                                    f"{candle} with a time that does not fall into the interval. "
+                                    "Cannot adjust back in time because time coincides with last "
+                                    f"candle time {Timestamp_.format(last_candle_time)}. Cannot "
+                                    "skip because volume not zero"
                                 )
                             else:
                                 continue
@@ -510,7 +498,7 @@ class Chandler(AsyncContextManager):
         if not self._trades:
             raise ValueError("Trades component not configured. Unable to construct candles")
 
-        base_asset, _ = unpack_assets(symbol)
+        base_asset = Symbol_.base_asset(symbol)
         _log.info(f"constructing {exchange} {symbol} {volume}{base_asset} candles from trades")
 
         current_volume = Decimal("0.0")
@@ -546,7 +534,7 @@ class Chandler(AsyncContextManager):
                 close = trade.price
 
     async def get_first_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
-        shard = key(exchange, symbol, interval)
+        shard = Storage.key(exchange, symbol, interval)
         candle = await self._storage.get(
             shard=shard,
             key=_FIRST_CANDLE_KEY,
@@ -561,7 +549,7 @@ class Chandler(AsyncContextManager):
                         symbol=symbol,
                         interval=interval,
                         start=0,
-                        end=MAX_TIME_MS,
+                        end=Timestamp_.MAX_TIME,
                     )
                 )
             else:
@@ -592,11 +580,11 @@ class Chandler(AsyncContextManager):
         )
 
         # TODO: Does not handle missing candles, hence, may yield incorrect results!
-        start = ceil_timestamp(self._earliest_exchange_start, interval)
-        end = floor_timestamp(self._get_time_ms(), interval)
+        start = Timestamp_.ceil(self._earliest_exchange_start, interval)
+        end = Timestamp_.floor(self._get_time_ms(), interval)
         final_end = end  # We need this to not go into the future. We will mutate `end`.
         while True:
-            mid = start + floor_timestamp(((end - start) // 2), interval)
+            mid = start + Timestamp_.floor(((end - start) // 2), interval)
             from_ = mid
             to = min(from_ + 2 * interval, final_end)
             candles = await self.list_candles(exchange, symbol, interval, from_, to)
@@ -614,7 +602,7 @@ class Chandler(AsyncContextManager):
 
     async def get_last_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
         now = self._get_time_ms()
-        end = floor_timestamp(now, interval)
+        end = Timestamp_.floor(now, interval)
         start = end - interval
         return await first_async(
             self.stream_candles(

@@ -8,14 +8,12 @@ from typing import AsyncIterable, Callable, Optional
 from asyncstdlib import list as list_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import ExchangeException, Trade
+from juno import ExchangeException, Timestamp_, Trade
 from juno.contextlib import AsyncContextManager
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
-from juno.time import strfspan, time_ms
-from juno.utils import key
 
 _log = logging.getLogger(__name__)
 
@@ -27,7 +25,7 @@ class Trades(AsyncContextManager):
         self,
         storage: Storage,
         exchanges: list[Exchange],
-        get_time_ms: Callable[[], int] = time_ms,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
         storage_batch_size: int = 1000,
     ) -> None:
         self._storage = storage
@@ -40,7 +38,7 @@ class Trades(AsyncContextManager):
     ) -> AsyncIterable[Trade]:
         """Tries to stream trades for the specified range from local storage. If trades don't
         exist, streams them from an exchange and stores to local storage."""
-        shard = key(exchange, symbol)
+        shard = Storage.key(exchange, symbol)
         trade_msg = f"{exchange} {symbol} trades"
 
         _log.info(f"checking for existing {trade_msg} in local storage")
@@ -60,7 +58,7 @@ class Trades(AsyncContextManager):
         spans.sort(key=lambda s: s[0])
 
         for span_start, span_end, exist_locally in spans:
-            period_msg = f"{strfspan(span_start, span_end)}"
+            period_msg = f"{Timestamp_.format_span(span_start, span_end)}"
             if exist_locally:
                 _log.info(f"local {trade_msg} exist between {period_msg}")
                 stream = self._storage.stream_time_series(
@@ -81,7 +79,7 @@ class Trades(AsyncContextManager):
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        shard = key(exchange, symbol)
+        shard = Storage.key(exchange, symbol)
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt_with_reset(8, 300),
             wait=wait_none_then_exponential(),

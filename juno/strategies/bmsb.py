@@ -1,10 +1,9 @@
 from typing import Any
 
-from juno import Advice, Candle, CandleMeta, strategies
+from juno import Advice, Candle, CandleMeta, Interval_, strategies
 from juno.common import CandleType
 from juno.config import init_module_instance
 from juno.indicators import Sma
-from juno.time import WEEK_MS
 
 from .strategy import Changed, Signal
 
@@ -22,7 +21,7 @@ class Bmsb(Signal):
         self,
         signal: dict[str, Any],
         benchmark_symbol: str = "btc-usdt",
-        benchmark_interval: int = WEEK_MS,
+        benchmark_interval: int = Interval_.WEEK,
         benchmark_candle_type: CandleType = "regular",
     ) -> None:
         self._20w_sma: Sma = Sma(20)

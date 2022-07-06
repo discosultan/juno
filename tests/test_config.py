@@ -1,8 +1,7 @@
 import sys
 from typing import NamedTuple
 
-from juno import Interval, config
-from juno.time import HOUR_MS
+from juno import Interval, Interval_, config
 
 
 class Foo(NamedTuple):
@@ -18,7 +17,7 @@ def test_init_module_instance() -> None:
     output = config.init_module_instance(sys.modules[__name__], input_)
 
     assert isinstance(output, Foo)
-    assert output.value == HOUR_MS
+    assert output.value == Interval_.HOUR
 
 
 def test_load_from_env() -> None:

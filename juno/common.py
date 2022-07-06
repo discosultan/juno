@@ -7,10 +7,9 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Literal, NamedTuple, Optional, Union
 
-from juno.aliases import Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_down, round_half_up
-from juno.time import datetime_utcfromtimestamp_ms
+from juno.primitives import Interval, Timestamp, Timestamp_
 
 
 class Advice(IntEnum):
@@ -91,7 +90,7 @@ class Candle(NamedTuple):
 
     def __repr__(self) -> str:
         return (
-            f"{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, "
+            f"{type(self).__name__}(time={Timestamp_.to_datetime_utc(self.time)}, "
             f"open={self.open}, high={self.high}, low={self.low}, close={self.close}, "
             f"volume={self.volume})"
         )

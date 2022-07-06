@@ -3,10 +3,12 @@ from __future__ import annotations
 import importlib
 import inspect
 import itertools
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field, is_dataclass, make_dataclass
 from enum import Enum
-from typing import Any, Generic, Sequence, TypeVar, get_type_hints
+from types import ModuleType
+from typing import Any, Generic, Optional, Sequence, TypeVar, get_type_hints
 
 T = TypeVar("T")
 
@@ -94,6 +96,53 @@ def _asdict(a: Any) -> dict:
     if isnamedtuple(a):
         return a._asdict()
     return a.__dict__
+
+
+def map_concrete_module_types(
+    module: ModuleType, abstract: Optional[type[Any]] = None
+) -> dict[str, type[Any]]:
+    return {
+        n.lower(): t
+        for n, t in inspect.getmembers(
+            module,
+            lambda c: (
+                inspect.isclass(c)
+                and not inspect.isabstract(c)
+                and (True if abstract is None else issubclass(c, abstract))
+            ),
+        )
+    }
+
+
+def map_type_parent_module_types(type_: type[Any]) -> dict[str, type[Any]]:
+    module_name = type_.__module__
+    parent_module_name = module_name[0 : module_name.rfind(".")]
+    return map_concrete_module_types(sys.modules[parent_module_name])
+
+
+# Cannot use typevar T in place of Any here. Triggers: "Only concrete class can be given where type
+# is expected".
+# Ref: https://github.com/python/mypy/issues/5374
+def list_concretes_from_module(module: ModuleType, abstract: type[Any]) -> list[type[Any]]:
+    return [
+        t
+        for _n, t in inspect.getmembers(
+            module,
+            lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract),
+        )
+    ]
+
+
+def get_module_type(module: ModuleType, name: str) -> type[Any]:
+    name_lower = name.lower()
+    found_members = inspect.getmembers(
+        module, lambda obj: inspect.isclass(obj) and obj.__name__.lower() == name_lower
+    )
+    if len(found_members) == 0:
+        raise ValueError(f'Type named "{name}" not found in module "{module.__name__}".')
+    if len(found_members) > 1:
+        raise ValueError(f'Found more than one type named "{name}" in module "{module.__name__}".')
+    return found_members[0][1]
 
 
 class Constructor(ABC, Generic[T]):

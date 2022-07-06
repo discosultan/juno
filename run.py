@@ -3,6 +3,7 @@ import os
 import sys
 
 from juno.logging import create_handlers
+from juno.path import load_text_file
 
 logging.basicConfig(
     handlers=create_handlers("color", ["stdout"]),
@@ -18,6 +19,6 @@ sys.argv.pop(0)
 # Ref: https://stackoverflow.com/a/23386287/1466456
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-exec(open(script_path).read())
+exec(load_text_file(script_path))
 
 logging.info("done")

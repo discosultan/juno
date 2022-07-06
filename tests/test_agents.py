@@ -14,6 +14,7 @@ from juno import (
     ExchangeInfo,
     Fees,
     Fill,
+    Interval_,
     OrderResult,
     OrderStatus,
     serialization,
@@ -26,12 +27,11 @@ from juno.custodians import Custodian, Spot
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
+from juno.path import full_path, load_json_file
 from juno.statistics import CoreStatistics
 from juno.storages import Memory, Storage
-from juno.time import HOUR_MS
 from juno.traders import Basic, Trader
 from juno.trading import Position, TradingSummary
-from juno.utils import load_json_file
 
 from . import fakes
 
@@ -117,7 +117,7 @@ async def test_backtest(mocker: MockerFixture) -> None:
 @pytest.mark.parametrize("scenario_nr", [1, 2])
 async def test_backtest_scenarios(mocker: MockerFixture, scenario_nr: int) -> None:
     exchange = mocker.MagicMock(Exchange, autospec=True)
-    exchange.list_candle_intervals.return_value = [HOUR_MS]
+    exchange.list_candle_intervals.return_value = [Interval_.HOUR]
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo(
         fees={"__all__": Fees(maker=Decimal("0.001"), taker=Decimal("0.001"))},
@@ -134,7 +134,9 @@ async def test_backtest_scenarios(mocker: MockerFixture, scenario_nr: int) -> No
     )
     exchange.stream_historical_candles.return_value = resolved_stream(
         *serialization.raw.deserialize(
-            load_json_file(__file__, f"./data/backtest_scenario{scenario_nr}_candles.json"),
+            load_json_file(
+                full_path(__file__, f"./data/backtest_scenario{scenario_nr}_candles.json")
+            ),
             list[Candle],
         )
     )
@@ -146,7 +148,7 @@ async def test_backtest_scenarios(mocker: MockerFixture, scenario_nr: int) -> No
         exchange="magicmock",
         start=1483225200000,
         end=1514761200000,
-        interval=HOUR_MS,
+        interval=Interval_.HOUR,
         quote=Decimal("100.0"),
         strategy={
             "type": "doublema2",

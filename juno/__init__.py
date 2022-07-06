@@ -1,4 +1,3 @@
-from .aliases import Interval, Timestamp
 from .common import (
     Advice,
     AssetInfo,
@@ -24,8 +23,10 @@ from .common import (
 )
 from .errors import BadOrder, ExchangeException, OrderMissing, OrderWouldBeTaker
 from .filters import Filters
+from .primitives import Asset, Interval, Interval_, Symbol, Symbol_, Timestamp, Timestamp_
 
 __all__ = [
+    "Asset",
     "Advice",
     "AssetInfo",
     "BadOrder",
@@ -41,6 +42,7 @@ __all__ = [
     "Fill",
     "Filters",
     "Interval",
+    "Interval_",
     "Order",
     "OrderMissing",
     "OrderResult",
@@ -50,8 +52,11 @@ __all__ = [
     "OrderWouldBeTaker",
     "SavingsProduct",
     "Side",
+    "Symbol",
+    "Symbol_",
     "Ticker",
     "TimeInForce",
     "Timestamp",
+    "Timestamp_",
     "Trade",
 ]

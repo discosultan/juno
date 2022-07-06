@@ -3,15 +3,18 @@ import asyncio
 import logging
 from itertools import product
 
+from juno import Interval_, Timestamp_
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
 from juno.storages import SQLite
-from juno.time import HOUR_MS, strfinterval, strftimestamp, strpinterval, time_ms
 
 parser = argparse.ArgumentParser()
 parser.add_argument("symbols", nargs="?", type=lambda s: s.split(","), default=["eth-btc"])
 parser.add_argument(
-    "intervals", nargs="?", type=lambda s: map(strpinterval, s.split(",")), default=[HOUR_MS]
+    "intervals",
+    nargs="?",
+    type=lambda s: map(Interval_.parse, s.split(",")),
+    default=[Interval_.HOUR],
 )
 parser.add_argument("--exchange", "-e", default="binance")
 args = parser.parse_args()
@@ -34,11 +37,11 @@ async def log_first_last(chandler: Chandler, symbol: str, interval: int) -> None
         chandler.get_last_candle(args.exchange, symbol, interval),
     )
     logging.info(
-        f"got the following {symbol} {strfinterval(interval)} candles at "
-        f"{strftimestamp(time_ms())}:"
+        f"got the following {symbol} {Interval_.format(interval)} candles at "
+        f"{Timestamp_.format(Timestamp_.now())}:"
     )
-    logging.info(f"    first - {strftimestamp(first_candle.time)} ({first_candle.time})")
-    logging.info(f"    last  - {strftimestamp(last_candle.time)} ({last_candle.time})")
+    logging.info(f"    first - {Timestamp_.format(first_candle.time)} ({first_candle.time})")
+    logging.info(f"    last  - {Timestamp_.format(last_candle.time)} ({last_candle.time})")
 
 
 asyncio.run(main())

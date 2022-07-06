@@ -1,13 +1,13 @@
 import asyncio
 
-from juno import Advice
+from juno import Advice, Interval_, Timestamp_
 from juno.common import CandleType
 from juno.components import Chandler, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
+from juno.path import save_text_file
 from juno.storages import SQLite
 from juno.strategies import ChandelierExit
-from juno.time import DAY_MS, strptimestamp
 
 
 async def main() -> None:
@@ -16,10 +16,10 @@ async def main() -> None:
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
     symbol = "eth-btc"
-    interval = DAY_MS
+    interval = Interval_.DAY
     candle_type: CandleType = "regular"
-    start = strptimestamp("2022-01-01")
-    end = strptimestamp("2022-06-01")
+    start = Timestamp_.parse("2022-01-01")
+    end = Timestamp_.parse("2022-06-01")
     async with binance, trades, chandler:
         candles = await chandler.list_candles(
             exchange="binance",
@@ -80,8 +80,7 @@ async def main() -> None:
         "color=color.red)"
     )
 
-    with open("script.pine", "w", encoding="utf-8") as file:
-        file.write("\n".join(lines))
+    save_text_file("\n".join(lines), "script.pine")
 
 
 asyncio.run(main())

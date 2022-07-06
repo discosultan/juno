@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from juno import Interval
-from juno.time import DAY_MS
+from juno import Interval, Interval_
 from juno.trading import TradingSummary
 
 from .core import CoreStatistics
@@ -20,7 +19,7 @@ class Statistics:
     def compose(
         summary: TradingSummary,
         asset_prices: dict[str, list[Decimal]],
-        interval: Interval = DAY_MS,
+        interval: Interval = Interval_.DAY,
         benchmark_asset: str = "btc",
     ) -> Statistics:
         return Statistics(

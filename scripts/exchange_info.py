@@ -2,9 +2,8 @@ import argparse
 import asyncio
 import logging
 
-from juno import json, serialization
+from juno import Interval_, json, serialization
 from juno.exchanges import Exchange
-from juno.time import strfinterval
 
 parser = argparse.ArgumentParser()
 parser.add_argument("exchange", nargs="?", default="binance")
@@ -22,7 +21,7 @@ async def main() -> None:
         exchange_info = await exchange.get_exchange_info()
 
         logging.info(exchange_info.fees.get(args.symbol) or exchange_info.fees["__all__"])
-        logging.info(list(map(strfinterval, exchange.list_candle_intervals())))
+        logging.info(list(map(Interval_.format, exchange.list_candle_intervals())))
         logging.info(exchange_info.filters.get(args.symbol) or exchange_info.filters["__all__"])
 
         if args.dump:

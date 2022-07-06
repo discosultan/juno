@@ -19,20 +19,22 @@ from juno import (
     ExchangeInfo,
     Fees,
     Filters,
+    Interval_,
     OrderResult,
     OrderType,
     OrderUpdate,
     Side,
+    Symbol_,
     Ticker,
     TimeInForce,
+    Timestamp_,
     Trade,
     json,
 )
+from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
-from juno.time import MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
@@ -182,7 +184,7 @@ class Kraken(Exchange):
                 )
 
         async with self._public_ws.subscribe(
-            {"name": "ohlc", "interval": interval // MIN_MS}, [_to_ws_symbol(symbol)]
+            {"name": "ohlc", "interval": interval // Interval_.MIN}, [_to_ws_symbol(symbol)]
         ) as ws:
             yield inner(ws)
 
@@ -325,7 +327,7 @@ class Kraken(Exchange):
             limiter = self._reqs_limiter
 
         data = data or {}
-        nonce = time_ms()
+        nonce = Timestamp_.now()
         data["nonce"] = nonce
         # TODO: support OTP
         # if enabled:
@@ -646,7 +648,7 @@ def _from_symbol(symbol: str) -> str:
 
 def _to_http_symbol(symbol: str) -> str:
     # 1. Go from Juno format to Kraken new format.
-    base, quote = unpack_assets(symbol)
+    base, quote = Symbol_.assets(symbol)
     base = _REVERSE_ASSET_ALIAS_MAP.get(base, base)
     quote = _REVERSE_ASSET_ALIAS_MAP.get(quote, quote)
     # 2. Transform to uppercase.

@@ -33,6 +33,7 @@ from juno import (
     ExchangeInfo,
     Fees,
     Fill,
+    Interval_,
     Order,
     OrderMissing,
     OrderResult,
@@ -42,28 +43,19 @@ from juno import (
     OrderWouldBeTaker,
     SavingsProduct,
     Side,
+    Symbol_,
     Ticker,
     TimeInForce,
+    Timestamp_,
     Trade,
     json,
 )
+from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, PercentPriceBySide, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page, page_limit
-from juno.time import (
-    DAY_MS,
-    DAY_SEC,
-    HOUR_MS,
-    HOUR_SEC,
-    MIN_MS,
-    MIN_SEC,
-    strfinterval,
-    strptimestamp,
-    time_ms,
-)
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
@@ -96,7 +88,7 @@ _LIMITERS_BASIC = 1
 _LIMITERS_ORDER = 2
 _LIMITERS_ONCE_PER_SEC = 3
 
-_BINANCE_START = strptimestamp("2017-07-01")
+_BINANCE_START = Timestamp_.parse("2017-07-01")
 
 _log = logging.getLogger(__name__)
 
@@ -136,7 +128,7 @@ class Binance(Exchange):
         self._reqs_per_min_limiter = AsyncLimiter(1200, 60 * x)
         self._raw_reqs_limiter = AsyncLimiter(5000, 300 * x)
         self._orders_per_sec_limiter = AsyncLimiter(10, 1 * x)
-        self._orders_per_day_limiter = AsyncLimiter(100_000, DAY_SEC * x)
+        self._orders_per_day_limiter = AsyncLimiter(100_000, Interval_.DAY_SEC * x)
         self._once_per_sec_limiters: dict[str, AsyncLimiter] = defaultdict(
             lambda: AsyncLimiter(1, 1 * x)
         )
@@ -279,7 +271,7 @@ class Binance(Exchange):
                     percent_price = PercentPrice(
                         multiplier_up=Decimal(f["multiplierUp"]),
                         multiplier_down=Decimal(f["multiplierDown"]),
-                        avg_price_period=f["avgPriceMins"] * MIN_MS,
+                        avg_price_period=f["avgPriceMins"] * Interval_.MIN,
                     )
                 elif t == "PERCENT_PRICE_BY_SIDE":
                     percent_price_by_side = PercentPriceBySide(
@@ -287,7 +279,7 @@ class Binance(Exchange):
                         bid_multiplier_down=Decimal(f["bidMultiplierDown"]),
                         ask_multiplier_up=Decimal(f["askMultiplierUp"]),
                         ask_multiplier_down=Decimal(f["askMultiplierDown"]),
-                        avg_price_period=f["avgPriceMins"] * MIN_MS,
+                        avg_price_period=f["avgPriceMins"] * Interval_.MIN,
                     )
                 elif t == "LOT_SIZE":
                     lot_size = Size(
@@ -299,7 +291,7 @@ class Binance(Exchange):
                     min_notional = MinNotional(
                         min_notional=Decimal(f["minNotional"]),
                         apply_to_market=f["applyToMarket"],
-                        avg_price_period=f["avgPriceMins"] * MIN_MS,
+                        avg_price_period=f["avgPriceMins"] * Interval_.MIN,
                     )
             # TODO: Looks like `percent_price_by_side` is not available yet. Update the assertion
             # once that has changed.
@@ -389,7 +381,7 @@ class Binance(Exchange):
                 security=_SEC_USER_DATA,
             )
             for balances in content["assets"]:
-                base_asset, quote_asset = unpack_assets(_from_symbol(balances["symbol"]))
+                base_asset, quote_asset = Symbol_.assets(_from_symbol(balances["symbol"]))
                 base_balance = balances["baseAsset"]
                 quote_balance = balances["quoteAsset"]
                 result[f"{base_asset}-{quote_asset}"] = {
@@ -473,7 +465,7 @@ class Binance(Exchange):
             url += "@100ms"
         async with self._connect_refreshing_stream(
             url=url,
-            interval=12 * HOUR_SEC,
+            interval=12 * Interval_.HOUR_SEC,
             name="depth",
             raise_on_disconnect=True,
         ) as ws:
@@ -667,7 +659,7 @@ class Binance(Exchange):
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         limit = 1000  # Max possible candles per request.
-        binance_interval = strfinterval(interval)
+        binance_interval = Interval_.format(interval)
         binance_symbol = _to_http_symbol(symbol)
         # Start 0 is a special value indicating that we try to find the earliest available candle.
         pagination_interval = interval
@@ -721,8 +713,8 @@ class Binance(Exchange):
                     )
 
         async with self._connect_refreshing_stream(
-            url=f"/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}",
-            interval=12 * HOUR_SEC,
+            url=f"/ws/{_to_ws_symbol(symbol)}@kline_{Interval_.format(interval)}",
+            interval=12 * Interval_.HOUR,
             name="candles",
             raise_on_disconnect=True,
         ) as ws:
@@ -738,7 +730,7 @@ class Binance(Exchange):
             "symbol": _to_http_symbol(symbol),
         }
         while True:
-            batch_end = batch_start + HOUR_MS
+            batch_end = batch_start + Interval_.HOUR
             payload["startTime"] = batch_start
             payload["endTime"] = min(batch_end, end) - 1  # Inclusive.
 
@@ -776,7 +768,7 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
         async with self._connect_refreshing_stream(
             url=f"/ws/{_to_ws_symbol(symbol)}@trade",
-            interval=12 * HOUR_SEC,
+            interval=12 * Interval_.HOUR_SEC,
             name="trade",
             raise_on_disconnect=True,
         ) as ws:
@@ -915,9 +907,9 @@ class Binance(Exchange):
 
     async def list_deposit_history(self, end: Optional[int] = None) -> list[Any]:
         # Does not support FIAT.
-        end = time_ms() if end is None else end
+        end = Timestamp_.now() if end is None else end
         tasks = []
-        for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
+        for page_start, page_end in page(_BINANCE_START, end, Interval_.DAY * 90):
             tasks.append(
                 self._api_request_json(
                     method="GET",
@@ -934,9 +926,9 @@ class Binance(Exchange):
 
     async def list_withdraw_history(self, end: Optional[int] = None) -> list[Any]:
         # Does not support FIAT.
-        end = time_ms() if end is None else end
+        end = Timestamp_.now() if end is None else end
         tasks = []
-        for page_start, page_end in page(_BINANCE_START, end, DAY_MS * 90):
+        for page_start, page_end in page(_BINANCE_START, end, Interval_.DAY * 90):
             tasks.append(
                 self._api_request_json(
                     method="GET",
@@ -1047,7 +1039,7 @@ class Binance(Exchange):
             await self._clock.wait()
 
             data = data or {}
-            data["timestamp"] = time_ms() + self._clock.time_diff
+            data["timestamp"] = Timestamp_.now() + self._clock.time_diff
             query_str_bytes = urllib.parse.urlencode(data).encode("utf-8")
             signature = hmac.new(self._secret_key_bytes, query_str_bytes, hashlib.sha256)
             data["signature"] = signature.hexdigest()
@@ -1188,7 +1180,9 @@ class Clock:
     async def _periodic_sync(self) -> None:
         while True:
             await self._sync_clock()
-            sleep_task: asyncio.Task[None] = asyncio.create_task(asyncio.sleep(HOUR_SEC * 6))
+            sleep_task: asyncio.Task[None] = asyncio.create_task(
+                asyncio.sleep(Interval_.HOUR_SEC * 6)
+            )
             reset_periodic_sync_task = asyncio.create_task(self._reset_periodic_sync.wait())
             try:
                 await asyncio.wait(
@@ -1210,13 +1204,13 @@ class Clock:
     async def _sync_clock(self) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
         _log.info("syncing clock with Binance")
-        before = time_ms()
+        before = Timestamp_.now()
         content = await self._binance._api_request_json(
             method="GET",
             url="/api/v3/time",
         )
         server_time = content["serverTime"]
-        after = time_ms()
+        after = Timestamp_.now()
         # Assume response time is same as request time.
         delay = (after - before) // 2
         local_time = before + delay
@@ -1323,7 +1317,7 @@ class UserDataStream:
 
     async def _periodic_listen_key_refresh(self) -> None:
         while True:
-            await asyncio.sleep(30 * MIN_SEC)
+            await asyncio.sleep(30 * Interval_.MIN_SEC)
             if self._listen_key:
                 try:
                     await self._update_listen_key(self._listen_key)
@@ -1342,7 +1336,7 @@ class UserDataStream:
             try:
                 async with self._binance._connect_refreshing_stream(
                     url=f"/ws/{self._listen_key}",
-                    interval=12 * HOUR_SEC,
+                    interval=12 * Interval_.HOUR_SEC,
                     name="user",
                     raise_on_disconnect=True,
                 ) as stream:

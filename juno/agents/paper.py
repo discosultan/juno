@@ -3,12 +3,20 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Optional
 
-from juno import Interval, Timestamp, json, serialization, stop_loss, strategies, take_profit
+from juno import (
+    Interval,
+    Timestamp,
+    Timestamp_,
+    json,
+    serialization,
+    stop_loss,
+    strategies,
+    take_profit,
+)
 from juno.components import Events, Informant
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.inspect import construct, extract_public
 from juno.storages import Memory, Storage
-from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
 from juno.trading import TradingMode, TradingSummary
 
@@ -43,7 +51,7 @@ class Paper(Agent):
         traders: list[Trader],
         events: Events = Events(),
         storage: Storage = Memory(),
-        get_time_ms: Callable[[], int] = time_ms,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
     ) -> None:
         self._informant = informant
         self._traders = {type(t).__name__.lower(): t for t in traders}
@@ -60,7 +68,7 @@ class Paper(Agent):
         assert config.end is None or config.end > now
 
         start = now
-        end = MAX_TIME_MS if config.end is None else config.end
+        end = Timestamp_.MAX_TIME if config.end is None else config.end
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         trader = self._traders[trader_name]

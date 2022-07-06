@@ -15,11 +15,12 @@ from juno.brokers import Broker
 from juno.custodians import Custodian
 from juno.di import Container
 from juno.exchanges import Exchange
+from juno.inspect import map_concrete_module_types
 from juno.logging import create_handlers
+from juno.path import full_path
 from juno.plugins import Plugin, map_plugin_types
 from juno.storages import Storage
 from juno.traders import Trader
-from juno.utils import full_path, map_concrete_module_types
 
 _log = logging.getLogger(__name__)
 

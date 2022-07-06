@@ -2,13 +2,12 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from juno import Advice, Interval, strategies
+from juno import Advice, Interval, Timestamp_, strategies
 from juno.components import Chandler, Events
 from juno.config import get_type_name_and_kwargs
+from juno.inspect import get_module_type
 from juno.storages import Memory, Storage
 from juno.strategies import Changed
-from juno.time import floor_timestamp, time_ms
-from juno.utils import get_module_type
 
 from .agent import Agent
 
@@ -40,8 +39,8 @@ class Signal(Agent):
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
         strategy = get_module_type(strategies, strategy_name)(**strategy_kwargs)
 
-        now = time_ms()
-        start = floor_timestamp(now, config.interval)
+        now = Timestamp_.now()
+        start = Timestamp_.floor(now, config.interval)
         start -= (strategy.maturity - 1) * config.interval
 
         changed = Changed(True)

@@ -3,15 +3,14 @@ import asyncio
 import csv
 import logging
 
-from juno import json
+from juno import Timestamp_, json
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
-from juno.time import strftimestamp, strptimestamp
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--end",
-    type=strptimestamp,
+    type=Timestamp_.parse,
     default=None,
 )
 parser.add_argument(
@@ -64,7 +63,7 @@ async def main() -> None:
     logging.info(json.dumps(withdrawals, 4))
 
     if args.dump:
-        with open("crypto_deposits.csv", "w", newline="") as csvfile:
+        with open("crypto_deposits.csv", "w", encoding="utf-8", newline="") as csvfile:
             writer = csv.DictWriter(
                 csvfile,
                 ["Date(UTC)", "Amount", "Coin", "Status", "Transaction ID"],
@@ -72,7 +71,7 @@ async def main() -> None:
             writer.writeheader()
             writer.writerows(deposits)
 
-        with open("crypto_withdrawals.csv", "w", newline="") as csvfile:
+        with open("crypto_withdrawals.csv", "w", encoding="utf-8", newline="") as csvfile:
             writer = csv.DictWriter(
                 csvfile,
                 ["Date(UTC)", "Amount", "Coin", "Status", "Fee", "Transaction ID"],
@@ -82,7 +81,7 @@ async def main() -> None:
 
 
 def timestamp(value: int) -> str:
-    return strftimestamp(value)[0:-6]
+    return Timestamp_.format(value)[0:-6]
 
 
 def deposit_status(value: int) -> str:

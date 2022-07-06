@@ -2,9 +2,9 @@ import asyncio
 import logging
 from dataclasses import asdict
 
-from juno import json
 from juno.components import Informant
 from juno.exchanges import Exchange
+from juno.path import save_json_file
 from juno.storages import SQLite
 
 EXCHANGE = "binance"
@@ -23,8 +23,9 @@ async def main() -> None:
         logging.info(filters)
 
     if DUMP_AS_JSON:
-        with open(f"{EXCHANGE}_{SYMBOL}_fees_filters.json", "w") as f:
-            json.dump((asdict(fees), asdict(filters)), f, indent=4)
+        save_json_file(
+            (asdict(fees), asdict(filters)), f"{EXCHANGE}_{SYMBOL}_fees_filters.json", indent=4
+        )
 
 
 asyncio.run(main())

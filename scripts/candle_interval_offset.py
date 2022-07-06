@@ -2,15 +2,15 @@ import argparse
 import asyncio
 import logging
 
+from juno import Interval_, Timestamp_
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
 from juno.storages import SQLite
-from juno.time import strfinterval, strftimestamp, strpinterval
 
 parser = argparse.ArgumentParser()
 parser.add_argument("exchange", nargs="?", default="binance")
 parser.add_argument("symbol", nargs="?", default="eth-btc")
-parser.add_argument("interval", nargs="?", type=strpinterval, default="1d")
+parser.add_argument("interval", nargs="?", type=Interval_.parse, default="1d")
 args = parser.parse_args()
 
 
@@ -25,8 +25,8 @@ async def main() -> None:
 
     offset = candle.time % args.interval
     logging.info(
-        f"{args.exchange} {args.symbol} {strfinterval(args.interval)} candle "
-        f"{strftimestamp(candle.time)} offset is {offset} ({strfinterval(offset)})"
+        f"{args.exchange} {args.symbol} {Interval_.format(args.interval)} candle "
+        f"{Timestamp_.format(candle.time)} offset is {offset} ({Interval_.format(offset)})"
     )
 
 

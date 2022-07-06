@@ -2,8 +2,7 @@ from decimal import Decimal
 from enum import IntEnum
 from typing import Any, Literal, NamedTuple, Optional, Union
 
-from juno import Interval, Timestamp, serialization
-from juno.time import HOUR_MS
+from juno import Interval, Interval_, Timestamp, serialization
 
 
 class SomeEnum(IntEnum):
@@ -45,12 +44,12 @@ def test_deserialize_serialize() -> None:
     expected_output: Union[dict[str, Any], Foo] = Foo(
         name="bar",
         timestamp=946_684_800_000,
-        interval=HOUR_MS,
-        optional_interval=2 * HOUR_MS,
+        interval=Interval_.HOUR,
+        optional_interval=2 * Interval_.HOUR,
         missing_optional_interval=None,
         decimal=Decimal("1.5"),
-        list_of_intervals=[HOUR_MS, 2 * HOUR_MS],
-        dict_of_intervals={HOUR_MS: 2 * HOUR_MS},
+        list_of_intervals=[Interval_.HOUR, 2 * Interval_.HOUR],
+        dict_of_intervals={Interval_.HOUR: 2 * Interval_.HOUR},
         enum=SomeEnum.KEY,
         union1="foo",
         union2=1,

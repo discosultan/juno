@@ -8,12 +8,10 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Optional, Sequence, Union
 
-from juno import Fill, Interval, Timestamp
+from juno import Fill, Interval, Symbol_, Timestamp, Timestamp_
 from juno.asyncio import gather_dict
 from juno.components import Chandler
 from juno.math import annualized
-from juno.time import floor_timestamp, strftimestamp
-from juno.utils import unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
 
@@ -62,7 +60,7 @@ class Position(ModuleType):
         @property
         def base_gain(self) -> Decimal:
             return Fill.total_size(self.open_fills) - Fill.total_fee(
-                self.open_fills, unpack_base_asset(self.symbol)
+                self.open_fills, Symbol_.base_asset(self.symbol)
             )
 
         @property
@@ -72,7 +70,7 @@ class Position(ModuleType):
         @property
         def gain(self) -> Decimal:
             return Fill.total_quote(self.close_fills) - Fill.total_fee(
-                self.close_fills, unpack_quote_asset(self.symbol)
+                self.close_fills, Symbol_.quote_asset(self.symbol)
             )
 
         @property
@@ -91,7 +89,7 @@ class Position(ModuleType):
         def dust(self) -> Decimal:
             return (
                 Fill.total_size(self.open_fills)
-                - Fill.total_fee(self.open_fills, unpack_base_asset(self.symbol))
+                - Fill.total_fee(self.open_fills, Symbol_.base_asset(self.symbol))
                 - Fill.total_size(self.close_fills)
             )
 
@@ -124,7 +122,7 @@ class Position(ModuleType):
         @property
         def base_gain(self) -> Decimal:
             return Fill.total_size(self.fills) - Fill.total_fee(
-                self.fills, unpack_base_asset(self.symbol)
+                self.fills, Symbol_.base_asset(self.symbol)
             )
 
     @dataclass(frozen=True)
@@ -166,7 +164,7 @@ class Position(ModuleType):
         def gain(self) -> Decimal:
             return (
                 Fill.total_quote(self.open_fills)
-                - Fill.total_fee(self.open_fills, unpack_quote_asset(self.symbol))
+                - Fill.total_fee(self.open_fills, Symbol_.quote_asset(self.symbol))
                 + self.collateral
                 - Fill.total_quote(self.close_fills)
             )
@@ -270,8 +268,8 @@ class StartMixin(ABC):
         """Figures out an appropriate candle start time based on the requested start.
         If no specific start is requested, finds the earliest start of the interval where all
         candle intervals are available.
-        If start is specified, floors the time to interval if interval is <= DAY_MS, otherwise
-        floors to DAY_MS.
+        If start is specified, floors the time to interval if interval is <= Interval_.DAY,
+        otherwise floors to Interval_.DAY.
         """
         if len(symbols) == 0:
             raise ValueError("Must have at least one symbol for requesting start")
@@ -307,14 +305,15 @@ class StartMixin(ABC):
                 if smallest_latest_first_candle.time > latest_first_candle.time:
                     result += interval
         else:
-            result = floor_timestamp(start, interval)
+            result = Timestamp_.floor(start, interval)
 
         if start is None:
-            _log.info(f"start not specified; start set to {strftimestamp(result)}")
+            _log.info(f"start not specified; start set to {Timestamp_.format(result)}")
         elif result != start:
             _log.info(
-                f"start specified as {strftimestamp(start)}; adjusted to {strftimestamp(result)}"
+                f"start specified as {Timestamp_.format(start)}; adjusted to "
+                f"{Timestamp_.format(result)}"
             )
         else:
-            _log.info(f"start specified as {strftimestamp(start)}; no adjustment needed")
+            _log.info(f"start specified as {Timestamp_.format(start)}; no adjustment needed")
         return result
