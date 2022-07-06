@@ -3,7 +3,7 @@
 from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import NamedTuple, Optional, Tuple
+from typing import Literal, NamedTuple, Optional, Tuple
 
 import pytest
 
@@ -60,6 +60,10 @@ def test_get_name(input_, expected_output) -> None:
         (1, Optional[int], True),
         (deque([Decimal("1.0")]), deque[Decimal], True),
         (deque([1]), deque[str], False),
+        (1, Literal[1], True),
+        (1, Literal[2], False),
+        (1, Literal[1, 2], True),
+        (1, Literal[2, 3], False),
     ],
 )
 def test_types_match(input_, type_, expected_output) -> None:

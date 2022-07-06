@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from types import TracebackType
-from typing import Any, Iterable, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
+from typing import Any, Iterable, Literal, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
 
 ExcType = Optional[type[BaseException]]
 ExcValue = Optional[BaseException]
@@ -34,6 +34,10 @@ def get_root_origin(type_: Any) -> Optional[type[Any]]:
 
 def types_match(obj: Any, type_: type[Any]) -> bool:
     origin = get_root_origin(type_) or type_
+
+    if origin is Literal:
+        args = get_args(type_)
+        return obj in args
 
     if origin is Union:
         sub_type, _ = get_args(type_)
