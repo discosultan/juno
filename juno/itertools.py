@@ -1,5 +1,7 @@
+import itertools
 import math
-from typing import Any, Iterable
+import random
+from typing import Any, Iterable, Iterator, Optional
 
 
 def merge_adjacent_spans(spans: Iterable[tuple[int, int]]) -> Iterable[tuple[int, int]]:
@@ -60,3 +62,13 @@ def recursive_iter(obj: Any, keys: tuple[Any, ...] = ()) -> Iterable[tuple[tuple
             yield from recursive_iter(item, keys + (idx,))
     else:
         yield keys, obj
+
+
+def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
+    if length is not None and (length < 2 or 14 < length):
+        raise ValueError("Length must be between 2 and 14")
+
+    from juno.data.words import WORDS
+
+    words = itertools.cycle(sorted(iter(WORDS), key=lambda _: random.random()))
+    return filter(lambda w: len(w) == length, words) if length else words

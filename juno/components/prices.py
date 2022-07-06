@@ -4,11 +4,9 @@ from typing import Iterable, Optional
 
 from asyncstdlib import enumerate as enumerate_async
 
-from juno import Candle
+from juno import Candle, Interval_, Symbol_, Timestamp_
 from juno.components import Chandler
 from juno.math import floor_multiple
-from juno.time import DAY_MS, strftimestamp
-from juno.utils import unpack_assets
 
 
 class Prices:
@@ -23,7 +21,7 @@ class Prices:
         symbols: Iterable[str],
         start: int,
         end: int,
-        interval: int = DAY_MS,
+        interval: int = Interval_.DAY,
         fiat_exchange: Optional[str] = None,
         fiat_asset: str = "usdt",
     ) -> dict[str, list[Decimal]]:
@@ -38,7 +36,7 @@ class Prices:
         # Quote -> fiat.
         quote_fiat_symbols = {
             f"{q}-{fiat_asset}" if q != fiat_asset else f"{b}-{q}"
-            for b, q in map(unpack_assets, symbols)
+            for b, q in map(Symbol_.assets, symbols)
         }
 
         # Validate we have enough data.
@@ -49,7 +47,7 @@ class Prices:
         # Gather prices.
         async def assign(symbol: str) -> None:
             assert fiat_exchange
-            quote_asset, _fiat_asset = unpack_assets(symbol)
+            quote_asset, _fiat_asset = Symbol_.assets(symbol)
             assert quote_asset not in result
             quote_prices: list[Decimal] = []
             last_candle: Optional[Candle] = None
@@ -69,7 +67,7 @@ class Prices:
         await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
 
         # Base -> fiat.
-        base_quote_symbols = [s for s in set(symbols) if unpack_assets(s)[0] not in result]
+        base_quote_symbols = [s for s in set(symbols) if Symbol_.assets(s)[0] not in result]
 
         # Validate we have enough data.
         await asyncio.gather(
@@ -78,7 +76,7 @@ class Prices:
 
         # Gather prices.
         async def assign_with_prices(symbol: str) -> None:
-            base_asset, quote_asset = unpack_assets(symbol)
+            base_asset, quote_asset = Symbol_.assets(symbol)
             assert base_asset not in result
             base_prices: list[Decimal] = []
             quote_prices = result[quote_asset]
@@ -112,7 +110,7 @@ class Prices:
         await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
 
         # Add fiat currency itself to prices if it's specified as a quote of any symbol.
-        if fiat_asset in (q for _, q in map(unpack_assets, symbols)):
+        if fiat_asset in (q for _, q in map(Symbol_.assets, symbols)):
             result[fiat_asset] = [Decimal("1.0")] * (((end - start) // interval) + 1)
 
         # # Validate we have enough data points.
@@ -129,6 +127,7 @@ class Prices:
         first = await self._chandler.get_first_candle(exchange, symbol, interval)
         if first.time > start:
             raise ValueError(
-                f"Unable to map prices; first candle for {symbol} at {strftimestamp(first.time)} "
-                f"but requested start at {strftimestamp(start)}"
+                f"Unable to map prices; first candle for {symbol} at "
+                f"{Timestamp_.format(first.time)} but requested start at "
+                f"{Timestamp_.format(start)}"
             )

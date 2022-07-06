@@ -7,9 +7,8 @@ from decimal import Decimal
 from juno import Advice, Candle, CandleMeta, indicators
 from juno.constraints import Int
 from juno.indicators import MA
-from juno.inspect import Constructor
+from juno.inspect import Constructor, get_module_type
 from juno.math import minmax
-from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
 

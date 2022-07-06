@@ -29,7 +29,7 @@ from juno.errors import OrderMissing, OrderWouldBeTaker
 from juno.filters import MinNotional, Price, Size
 from juno.http import ClientResponse, ClientSession
 from juno.math import precision_to_decimal
-from juno.utils import short_uuid4
+from juno.uuid import short_uuid4
 
 from .exchange import Exchange
 

@@ -21,21 +21,22 @@ from juno import (
     ExchangeInfo,
     Fees,
     Fill,
+    Interval_,
     OrderResult,
     OrderStatus,
     OrderType,
     OrderUpdate,
     Side,
+    Symbol_,
     TimeInForce,
     json,
 )
+from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import cancel, create_task_sigint_on_exception, stream_queue
 from juno.errors import BadOrder, OrderMissing
 from juno.filters import Filters, Price, Size
 from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
 from juno.math import round_down
-from juno.time import DAY_MS, HOUR_MS, MIN_MS, WEEK_MS
-from juno.utils import AsyncLimiter, unpack_quote_asset
 
 from .exchange import Exchange
 
@@ -87,19 +88,19 @@ class KuCoin(Exchange):
 
     def list_candle_intervals(self) -> list[int]:
         return [
-            MIN_MS,
-            3 * MIN_MS,
-            5 * MIN_MS,
-            15 * MIN_MS,
-            30 * MIN_MS,
-            HOUR_MS,
-            2 * HOUR_MS,
-            4 * HOUR_MS,
-            6 * HOUR_MS,
-            8 * HOUR_MS,
-            12 * HOUR_MS,
-            DAY_MS,
-            WEEK_MS,
+            Interval_.MIN,
+            3 * Interval_.MIN,
+            5 * Interval_.MIN,
+            15 * Interval_.MIN,
+            30 * Interval_.MIN,
+            Interval_.HOUR,
+            2 * Interval_.HOUR,
+            4 * Interval_.HOUR,
+            6 * Interval_.HOUR,
+            8 * Interval_.HOUR,
+            12 * Interval_.HOUR,
+            Interval_.DAY,
+            Interval_.WEEK,
         ]
 
     async def get_exchange_info(self) -> ExchangeInfo:
@@ -258,7 +259,7 @@ class KuCoin(Exchange):
                     elif type_ == "match":
                         price = Decimal(data["matchPrice"])
                         size = Decimal(data["matchSize"])
-                        quote_asset = unpack_quote_asset(data_symbol)
+                        quote_asset = Symbol_.quote_asset(data_symbol)
                         yield OrderUpdate.Match(
                             client_id=data["clientOid"],
                             fill=Fill.with_computed_quote(

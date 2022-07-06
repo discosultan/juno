@@ -6,9 +6,8 @@ from itertools import accumulate, chain
 import plotly.graph_objs as go
 import plotly.offline as py
 
-from juno import Candle, Fill, indicators
+from juno import Candle, Fill, Timestamp_, indicators
 from juno.components import Events
-from juno.time import datetime_utcfromtimestamp_ms
 from juno.trading import CloseReason, Position, TradingSummary
 
 from .plugin import Plugin
@@ -35,7 +34,7 @@ class Plotly(Plugin):
 
 
 def plot(candles: list[Candle], summary: TradingSummary) -> None:
-    times = [datetime_utcfromtimestamp_ms(c.time) for c in candles]
+    times = [Timestamp_.to_datetime_utc(c.time) for c in candles]
 
     traces = []
     # Candles.
@@ -119,7 +118,7 @@ def plot(candles: list[Candle], summary: TradingSummary) -> None:
 def trace_position_openings(positions: list[Position.Closed], symbol: str) -> go.Scatter:
     return go.Scatter(
         mode="markers",
-        x=[datetime_utcfromtimestamp_ms(p.open_time) for p in positions],
+        x=[Timestamp_.to_datetime_utc(p.open_time) for p in positions],
         y=[Fill.mean_price(p.open_fills) for p in positions],
         yaxis="y2",
         marker={
@@ -133,7 +132,7 @@ def trace_position_openings(positions: list[Position.Closed], symbol: str) -> go
 def trace_position_closings(positions: list[Position.Closed], color: str) -> go.Scatter:
     return go.Scatter(
         mode="markers",
-        x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
+        x=[Timestamp_.to_datetime_utc(p.close_time) for p in positions],
         y=[Fill.mean_price(p.close_fills) for p in positions],
         yaxis="y2",
         marker={
@@ -151,7 +150,7 @@ def trace_profit_pct_changes(summary: TradingSummary) -> go.Bar:
     balances = list(accumulate(chain([quote], (p.profit for p in positions))))
     profit_pct_changes = [100 * (b - a) / a for a, b in zip(balances[::1], balances[1::1])]
     return go.Bar(
-        x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
+        x=[Timestamp_.to_datetime_utc(p.close_time) for p in positions],
         y=profit_pct_changes,
         yaxis="y3",
     )
@@ -164,9 +163,7 @@ def trace_balance(summary: TradingSummary) -> go.Scatter:
     quote = list(summary.starting_assets.values())[0]
     balances = list(accumulate(chain([quote], (p.profit for p in positions))))
     times = list(
-        map(
-            datetime_utcfromtimestamp_ms, chain([summary.start], (p.close_time for p in positions))
-        )
+        map(Timestamp_.to_datetime_utc, chain([summary.start], (p.close_time for p in positions)))
     )
     return go.Scatter(
         mode="lines",
@@ -181,7 +178,7 @@ def trace_adx(candles: list[Candle]) -> go.Scatter:
     values = [adx.update(c.high, c.low) for c in candles]
     return go.Scatter(
         mode="lines",
-        x=[datetime_utcfromtimestamp_ms(c.time) for c in candles],
+        x=[Timestamp_.to_datetime_utc(c.time) for c in candles],
         y=values,
         yaxis="y4",
     )

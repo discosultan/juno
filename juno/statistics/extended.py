@@ -8,11 +8,9 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from juno import Interval
+from juno import Interval, Interval_, Symbol_
 from juno.math import floor_multiple
-from juno.time import DAY_MS
 from juno.trading import TradingSummary
-from juno.utils import unpack_assets
 
 Operator = Callable[[Decimal, Decimal], Decimal]
 _SQRT_365 = np.sqrt(365)
@@ -35,7 +33,7 @@ class ExtendedStatistics:
     def compose(
         summary: TradingSummary,
         asset_prices: dict[str, list[Decimal]],
-        interval: Interval = DAY_MS,
+        interval: Interval = Interval_.DAY,
         benchmark_asset: str = "btc",
     ) -> ExtendedStatistics:
         assert summary.end is not None
@@ -69,7 +67,7 @@ def _get_trades_from_summary(
 ) -> dict[int, list[tuple[str, Decimal]]]:
     trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.positions:
-        base_asset, quote_asset = unpack_assets(pos.symbol)
+        base_asset, quote_asset = Symbol_.assets(pos.symbol)
         # Open.
         time = floor_multiple(pos.open_time, interval)
         day_trades = trades[time]

@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from juno import Advice, Candle, CandleMeta, indicators
 from juno.constraints import Int, Triple
 from juno.indicators import MA, Ema
-from juno.inspect import Constructor
-from juno.utils import get_module_type
+from juno.inspect import Constructor, get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
 

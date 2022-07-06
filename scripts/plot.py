@@ -3,11 +3,11 @@ import asyncio
 import plotly.graph_objs as go
 import plotly.offline as py
 
+from juno import Interval_, Timestamp_
 from juno.components import Chandler, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite
-from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 
 
 async def main() -> None:
@@ -19,11 +19,11 @@ async def main() -> None:
         candles = await chandler.list_candles(
             exchange="binance",
             symbol="eth-btc",
-            interval=HOUR_MS,
-            start=strptimestamp("2017-01-01"),
-            end=strptimestamp("2018-01-01"),
+            interval=Interval_.HOUR,
+            start=Timestamp_.parse("2017-01-01"),
+            end=Timestamp_.parse("2018-01-01"),
         )
-        times = [datetime_utcfromtimestamp_ms(c.time) for c in candles]
+        times = [Timestamp_.to_datetime_utc(c.time) for c in candles]
 
         candles_map = {c.time: c for c in candles}
 
@@ -66,7 +66,7 @@ async def main() -> None:
         close=[c.close for c in candles],
     )
     trace2 = go.Scatter(
-        x=[datetime_utcfromtimestamp_ms(a) for a, _ in positions],
+        x=[Timestamp_.to_datetime_utc(a) for a, _ in positions],
         y=[candles_map[a].close for a, _ in positions],
         yaxis="y2",
         marker={
@@ -76,7 +76,7 @@ async def main() -> None:
         mode="markers",
     )
     trace3 = go.Scatter(
-        x=[datetime_utcfromtimestamp_ms(b) for _, b in positions],
+        x=[Timestamp_.to_datetime_utc(b) for _, b in positions],
         y=[candles_map[b].close for _, b in positions],
         yaxis="y2",
         marker={

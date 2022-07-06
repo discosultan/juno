@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 from typing import Any, Awaitable, Callable
 
-from juno.utils import exc_traceback
+from juno.traceback import exc_traceback
 
 _log = logging.getLogger(__name__)
 

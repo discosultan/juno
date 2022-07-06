@@ -3,15 +3,14 @@ from typing import TypedDict
 
 import pytest
 
-from juno import indicators, yaml
-from juno.utils import full_path
+from juno import indicators
+from juno.path import full_path, load_yaml_file
 
 
 @pytest.fixture(scope="module")
 def data():
     # Load inputs / expected outputs for all indicators.
-    with open(full_path(__file__, "./data/indicators.yaml")) as f:
-        return yaml.load(f, Loader=yaml.BaseLoader)
+    return load_yaml_file(full_path(__file__, "./data/indicators.yaml"))
 
 
 def test_adx(data) -> None:

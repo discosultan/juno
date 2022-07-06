@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from more_itertools import take
 
-from juno import Advice, Candle, Interval, Timestamp
+from juno import Advice, Candle, Interval, Timestamp, Timestamp_
 from juno.asyncio import (
     Event,
     SlotBarrier,
@@ -28,7 +28,6 @@ from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
-from juno.time import floor_timestamp, strftimestamp, time_ms
 from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
 
 from .trader import Trader
@@ -131,7 +130,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
         broker: Optional[Broker] = None,
         custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
-        get_time_ms: Callable[[], int] = time_ms,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -291,7 +290,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             required_start_msg = (
                 ""
                 if config.track_required_start is None
-                else f" with required start at {strftimestamp(config.track_required_start)}"
+                else f" with required start at {Timestamp_.format(config.track_required_start)}"
             )
             raise ValueError(
                 f"Exchange only supports {len(tickers)} symbols matching pattern {symbol_pattern} "
@@ -315,7 +314,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                 self._track_advice(state, symbol_state, candles_updated, trackers_ready[symbol])
             )
 
-        end = floor_timestamp(config.end, config.interval)
+        end = Timestamp_.floor(config.end, config.interval)
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
@@ -475,8 +474,9 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                     msg = (
                         f"received {symbol_state.symbol} advice {advice.name} during strategy "
                         f"warm-up period: adjusted start "
-                        f"{strftimestamp(symbol_state.adjusted_start)}; actual start "
-                        f"{strftimestamp(symbol_state.start)}; current {strftimestamp(current)}"
+                        f"{Timestamp_.format(symbol_state.adjusted_start)}; actual start "
+                        f"{Timestamp_.format(symbol_state.start)}; current "
+                        f"{Timestamp_.format(current)}"
                     )
                     _log.warning(msg)
                     await self._events.emit(config.channel, "message", msg)

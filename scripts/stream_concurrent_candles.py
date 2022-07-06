@@ -3,27 +3,26 @@ import asyncio
 import logging
 from itertools import product
 
-from juno import storages
+from juno import Interval_, Timestamp_, storages
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
-from juno.time import MIN_MS, floor_timestamp, strftimestamp, strpinterval, strptimestamp, time_ms
-from juno.utils import get_module_type
+from juno.inspect import get_module_type
 
 parser = argparse.ArgumentParser()
 parser.add_argument("symbol", nargs="?", default="eth-btc")
 parser.add_argument(
     "intervals",
     nargs="?",
-    type=lambda s: list(map(strpinterval, s.split(","))),
-    default=[MIN_MS, 3 * MIN_MS],
+    type=lambda s: list(map(Interval_.parse, s.split(","))),
+    default=[Interval_.MIN, 3 * Interval_.MIN],
 )
-parser.add_argument("--start", nargs="?", type=strptimestamp, default=None)
-parser.add_argument("--end", nargs="?", type=strptimestamp, default=None)
+parser.add_argument("--start", nargs="?", type=Timestamp_.parse, default=None)
+parser.add_argument("--end", nargs="?", type=Timestamp_.parse, default=None)
 parser.add_argument("--exchange", "-e", default="binance")
 parser.add_argument("--storage", default="sqlite")
 args = parser.parse_args()
 
-now = time_ms()
+now = Timestamp_.now()
 
 
 async def main() -> None:
@@ -38,14 +37,14 @@ async def main() -> None:
         start = (
             (await chandler.get_first_candle(args.exchange, args.symbol, min_interval)).time
             if args.start is None
-            else floor_timestamp(args.start, min_interval)
+            else Timestamp_.floor(args.start, min_interval)
         )
-        current = floor_timestamp(now, min_interval)
-        end = current if args.end is None else floor_timestamp(args.end, min_interval)
+        current = Timestamp_.floor(now, min_interval)
+        end = current if args.end is None else Timestamp_.floor(args.end, min_interval)
 
         logging.info(
-            f"start {strftimestamp(start)} current {strftimestamp(current)} end "
-            f"{strftimestamp(end)}"
+            f"start {Timestamp_.format(start)} current {Timestamp_.format(current)} end "
+            f"{Timestamp_.format(end)}"
         )
         logging.info(f"symbol {args.symbol} intervals {args.intervals}")
 

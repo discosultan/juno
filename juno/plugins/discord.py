@@ -9,15 +9,15 @@ from more_itertools import sliced
 from nextcord import File
 from nextcord.ext.commands.bot import Bot, Context
 
-from juno import json, serialization
+from juno import Interval_, Timestamp_, json, serialization
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
+from juno.inspect import extract_public
 from juno.positioner import SimulatedPositioner
-from juno.time import MIN_MS, time_ms
+from juno.traceback import exc_traceback
 from juno.traders import Trader
 from juno.trading import CloseReason, Position, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import exc_traceback, extract_public
 
 from .plugin import Plugin
 
@@ -289,10 +289,10 @@ class Discord(Bot, Plugin):
     async def _send_open_position_status(
         self, channel_id: int, agent_type: str, agent_name: str, pos: Position.Open
     ) -> None:
-        last_candle = await self._chandler.get_last_candle(pos.exchange, pos.symbol, MIN_MS)
+        last_candle = await self._chandler.get_last_candle(pos.exchange, pos.symbol, Interval_.MIN)
         closed_pos: Position.Closed
         (closed_pos,) = self._simulated_positioner.close_simulated_positions(
-            [(pos, CloseReason.CANCELLED, time_ms(), last_candle.close)]
+            [(pos, CloseReason.CANCELLED, Timestamp_.now(), last_candle.close)]
         )
         await self._send_message(
             channel_id,

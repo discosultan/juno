@@ -3,11 +3,11 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import Balance, Fill, Side, brokers
+from juno import Balance, Fill, Side, Symbol_, brokers
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
+from juno.inspect import get_module_type
 from juno.storages import SQLite
-from juno.utils import get_module_type, unpack_assets
 
 parser = argparse.ArgumentParser()
 parser.add_argument("side", nargs="?", type=lambda s: Side[s.upper()])
@@ -56,7 +56,7 @@ async def transact_symbol(
     balances: dict[str, Balance],
     symbol: str,
 ) -> None:
-    base_asset, quote_asset = unpack_assets(symbol)
+    base_asset, quote_asset = Symbol_.assets(symbol)
     fees, filters = informant.get_fees_filters(args.exchange, symbol)
 
     available_base = balances.get(base_asset, Balance.zero()).available

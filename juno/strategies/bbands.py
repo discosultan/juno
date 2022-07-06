@@ -1,9 +1,8 @@
 from decimal import Decimal
 
-from juno import Advice, Candle, CandleMeta
+from juno import Advice, Candle, CandleMeta, Interval_
 from juno.indicators import Bbands, Obv
 from juno.strategies.strategy import Changed
-from juno.time import MIN_MS
 
 from .strategy import Signal
 
@@ -58,18 +57,18 @@ class BBands(Signal):
     def extra_candles(self) -> list[CandleMeta]:
         # TODO
         return [
-            ("btc-usdt", 3 * MIN_MS, "regular"),
-            ("btc-usdt", 5 * MIN_MS, "regular"),
+            ("btc-usdt", 3 * Interval_.MIN, "regular"),
+            ("btc-usdt", 5 * Interval_.MIN, "regular"),
         ]
 
     def update(self, candle: Candle, candle_meta: CandleMeta) -> Advice:
         _, interval, _ = candle_meta
 
-        if interval == MIN_MS:
+        if interval == Interval_.MIN:
             self._update_1m(candle)
-        elif interval == 3 * MIN_MS:
+        elif interval == 3 * Interval_.MIN:
             self._update_3m(candle)
-        elif interval == 5 * MIN_MS:
+        elif interval == 5 * Interval_.MIN:
             self._update_5m(candle)
         else:
             raise ValueError("Unexpected candle interval")

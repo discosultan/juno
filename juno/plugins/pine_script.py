@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 
+from juno import Interval_
 from juno.components import Events
-from juno.time import MIN_MS
+from juno.path import save_text_file
 from juno.trading import Position, TradingSummary
 
 from .plugin import Plugin
@@ -18,8 +19,7 @@ class PineScript(Plugin):
     async def activate(self, agent_name: str, agent_type: str) -> None:
         @self._events.on(agent_name, "finished")
         async def on_finished(summary: TradingSummary) -> None:
-            with open("script.pine", "w", encoding="utf-8") as file:
-                file.write(get_script(summary))
+            save_text_file(get_script(summary), "script.pine")
 
         _log.info(f"activated for {agent_name} ({agent_type})")
 
@@ -99,4 +99,4 @@ def get_script(summary: TradingSummary) -> str:
 def adjust_time(time: int) -> int:
     # TODO: This interval hardcoded for a specific strategy. This is to plot the markers on the
     # closing candles and not on the opening ones.
-    return time - MIN_MS
+    return time - Interval_.MIN

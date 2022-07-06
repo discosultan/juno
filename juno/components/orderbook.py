@@ -11,13 +11,12 @@ from typing import AsyncIterable, AsyncIterator, Optional
 from asyncstdlib import chain as chain_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import Depth, ExchangeException, Fill, Filters, Side
+from juno import Depth, ExchangeException, Fill, Filters, Side, Symbol_
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, resolved_stream
 from juno.exchanges import Exchange
 from juno.math import round_half_up
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import unpack_assets
 
 _log = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class Orderbook:
                 raise ValueError()
 
             result = []
-            base_asset, quote_asset = unpack_assets(self.symbol)
+            base_asset, quote_asset = Symbol_.assets(self.symbol)
             if size is not None:
                 for aprice, asize in self.list_asks():
                     if asize >= size:
@@ -142,7 +141,7 @@ class Orderbook:
                 raise ValueError()
 
             result = []
-            base_asset, quote_asset = unpack_assets(self.symbol)
+            base_asset, quote_asset = Symbol_.assets(self.symbol)
             for bprice, bsize in self.list_bids():
                 if bsize >= size:
                     rsize = filters.size.round_down(size)

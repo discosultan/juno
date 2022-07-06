@@ -20,7 +20,7 @@ from asyncstdlib import chain as chain_async
 from multidict import CIMultiDictProxy
 
 from juno import json
-from juno.utils import generate_random_words
+from juno.itertools import generate_random_words
 
 from .asyncio import cancel, resolved_stream
 from .typing import ExcType, ExcValue, Traceback

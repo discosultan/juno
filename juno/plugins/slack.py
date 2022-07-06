@@ -10,9 +10,10 @@ from slack_sdk.web.async_client import AsyncWebClient
 
 from juno import json, serialization
 from juno.components import Events
+from juno.inspect import extract_public
+from juno.traceback import exc_traceback
 from juno.traders import Trader
 from juno.trading import Position, TradingSummary
-from juno.utils import exc_traceback, extract_public
 
 from .plugin import Plugin
 

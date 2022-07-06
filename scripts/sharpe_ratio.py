@@ -7,19 +7,17 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
-from juno import stop_loss, strategies
+from juno import Interval_, Symbol_, Timestamp_, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.inspect import GenericConstructor
 from juno.math import floor_multiple
 from juno.storages import SQLite
-from juno.time import DAY_MS, HOUR_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
-from juno.utils import unpack_assets
 
 SYMBOL = "eth-btc"
-INTERVAL = HOUR_MS
+INTERVAL = Interval_.HOUR
 
 Operator = Callable[[Decimal, Decimal], Decimal]
 
@@ -37,9 +35,9 @@ async def main() -> None:
     )
     informant = Informant(sqlite, exchanges)
     trader = Basic(informant=informant, chandler=chandler)
-    start = floor_multiple(strptimestamp("2019-01-01"), INTERVAL)
-    end = floor_multiple(strptimestamp("2019-12-01"), INTERVAL)
-    base_asset, quote_asset = unpack_assets(SYMBOL)
+    start = floor_multiple(Timestamp_.parse("2019-01-01"), INTERVAL)
+    end = floor_multiple(Timestamp_.parse("2019-12-01"), INTERVAL)
+    base_asset, quote_asset = Symbol_.assets(SYMBOL)
     async with binance, coinbase, informant, chandler:
         trader_state = await trader.initialize(
             BasicConfig(
@@ -65,9 +63,9 @@ async def main() -> None:
         )
         trading_summary = await trader.run(trader_state)
 
-        start_day = floor_multiple(start, DAY_MS)
-        end_day = floor_multiple(end, DAY_MS)
-        length_days = (end_day - start_day) / DAY_MS
+        start_day = floor_multiple(start, Interval_.DAY)
+        end_day = floor_multiple(end, Interval_.DAY)
+        length_days = (end_day - start_day) / Interval_.DAY
         # 1. Assumes symbol quote is BTC.
         # 2. We run it after trading step, because it might use the same candle configuration which
         # we don't support processing concurrently.
@@ -75,8 +73,8 @@ async def main() -> None:
         assert quote_asset == "btc"  # TODO: Don't support others yet.
 
         btc_fiat_daily, symbol_daily = await asyncio.gather(
-            chandler.list_candles("coinbase", "btc-eur", DAY_MS, start_day, end_day),
-            chandler.list_candles("binance", SYMBOL, DAY_MS, start_day, end_day),
+            chandler.list_candles("coinbase", "btc-eur", Interval_.DAY, start_day, end_day),
+            chandler.list_candles("binance", SYMBOL, Interval_.DAY, start_day, end_day),
         )
         assert len(btc_fiat_daily) == length_days
         assert len(symbol_daily) == length_days
@@ -89,12 +87,12 @@ async def main() -> None:
         trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
         for pos in trading_summary.positions:
             # Open.
-            time = floor_multiple(pos.open_time, DAY_MS)
+            time = floor_multiple(pos.open_time, Interval_.DAY)
             day_trades = trades[time]
             day_trades.append((quote_asset, -pos.cost))
             day_trades.append((base_asset, +pos.base_gain))
             # Close.
-            time = floor_multiple(pos.close_time, DAY_MS)
+            time = floor_multiple(pos.close_time, Interval_.DAY)
             day_trades = trades[time]
             day_trades.append((base_asset, -pos.base_cost))
             day_trades.append((quote_asset, +pos.gain))
@@ -106,7 +104,7 @@ async def main() -> None:
             lambda: {k: Decimal("0.0") for k in market_data.keys()}
         )
 
-        for time_day in range(start_day, end_day, DAY_MS):
+        for time_day in range(start_day, end_day, Interval_.DAY):
             # Update holdings.
             # TODO: Improve naming.
             day_trades2 = trades.get(time_day)
@@ -124,7 +122,9 @@ async def main() -> None:
                     logging.warning("missing market data for day")
                     # TODO: What if previous day also missing?? Maybe better to fill missing
                     # candles?? Remove assert above.
-                    asset_performance_day[asset] = asset_performance[time_day - DAY_MS][asset]
+                    asset_performance_day[asset] = asset_performance[time_day - Interval_.DAY][
+                        asset
+                    ]
 
         # Update portfolio performance.
         portfolio_performance = pd.Series(

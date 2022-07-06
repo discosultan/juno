@@ -2,9 +2,8 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
-from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
+from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Symbol_
 from juno.components import Informant, Orderbook, User
-from juno.utils import unpack_assets
 
 from .broker import Broker
 
@@ -41,7 +40,7 @@ class Market2(Broker):
         if not self._user.can_place_market_order(exchange):
             raise NotImplementedError()
 
-        base_asset, quote_asset = unpack_assets(symbol)
+        base_asset, quote_asset = Symbol_.assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         if size is not None:

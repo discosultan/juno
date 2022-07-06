@@ -15,10 +15,9 @@ from typing import (
     get_type_hints,
 )
 
-from juno import Interval, Timestamp, json, serialization
+from juno import Interval, Timestamp, Timestamp_, json, serialization
 from juno.itertools import generate_missing_spans, merge_adjacent_spans
-from juno.time import MAX_TIME_MS, strfspan
-from juno.utils import home_path
+from juno.path import home_path
 
 from .storage import Storage
 
@@ -54,10 +53,13 @@ class SQLite(Storage):
         _log.info(f"sqlite version: {sqlite3.sqlite_version}; schema version: {self._version}")
 
     async def stream_time_series_spans(
-        self, shard: str, key: str, start: int = 0, end: int = MAX_TIME_MS
+        self, shard: str, key: str, start: int = 0, end: int = Timestamp_.MAX_TIME
     ) -> AsyncIterable[tuple[int, int]]:
         def inner() -> list[tuple[int, int]]:
-            _log.info(f"streaming span(s) between {strfspan(start, end)} from shard {shard} {key}")
+            _log.info(
+                f"streaming span(s) between {Timestamp_.format_span(start, end)} from shard "
+                f"{shard} {key}"
+            )
             with self._connect(shard) as conn:
                 span_key = f"{key}_{_SPAN_KEY}"
                 self._ensure_table(conn, span_key, Span)
@@ -71,10 +73,13 @@ class SQLite(Storage):
             yield max(span_start, start), min(span_end, end)
 
     async def stream_time_series(
-        self, shard: str, key: str, type_: type[T], start: int = 0, end: int = MAX_TIME_MS
+        self, shard: str, key: str, type_: type[T], start: int = 0, end: int = Timestamp_.MAX_TIME
     ) -> AsyncIterable[T]:
         def inner() -> list[T]:
-            _log.info(f"streaming items between {strfspan(start, end)} from shard {shard} {key}")
+            _log.info(
+                f"streaming items between {Timestamp_.format_span(start, end)} from shard {shard} "
+                f"{key}"
+            )
             with self._connect(shard) as conn:
                 self._ensure_table(conn, key, type_)
                 return conn.execute(
@@ -124,8 +129,8 @@ class SQLite(Storage):
                 )
                 for (mstart, mend), mitems in zip(missing_spans, missing_item_spans):
                     _log.info(
-                        f"inserting {len(mitems)} item(s) between {strfspan(mstart, mend)} to "
-                        f"shard {shard} {key}"
+                        f"inserting {len(mitems)} item(s) between "
+                        f"{Timestamp_.format_span(mstart, mend)} to shard {shard} {key}"
                     )
                     if len(mitems) > 0:
                         try:

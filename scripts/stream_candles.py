@@ -5,11 +5,11 @@ from itertools import product
 
 from asyncstdlib import enumerate as enumerate_async
 
-from juno import json, storages
+from juno import Interval_, Timestamp_, storages
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
-from juno.time import MIN_MS, floor_timestamp, strftimestamp, strpinterval, strptimestamp, time_ms
-from juno.utils import get_module_type
+from juno.inspect import get_module_type
+from juno.path import save_json_file
 
 DUMP_AS_JSON = False
 LOG_CANDLES = False
@@ -17,15 +17,18 @@ LOG_CANDLES = False
 parser = argparse.ArgumentParser()
 parser.add_argument("symbols", nargs="?", type=lambda s: s.split(","), default=["eth-btc"])
 parser.add_argument(
-    "intervals", nargs="?", type=lambda s: map(strpinterval, s.split(",")), default=[MIN_MS]
+    "intervals",
+    nargs="?",
+    type=lambda s: map(Interval_.parse, s.split(",")),
+    default=[Interval_.MIN],
 )
-parser.add_argument("start", nargs="?", type=strptimestamp, default=None)
-parser.add_argument("end", nargs="?", type=strptimestamp, default=None)
+parser.add_argument("start", nargs="?", type=Timestamp_.parse, default=None)
+parser.add_argument("end", nargs="?", type=Timestamp_.parse, default=None)
 parser.add_argument("--exchange", "-e", default="binance")
 parser.add_argument("--storage", default="sqlite")
 args = parser.parse_args()
 
-now = time_ms()
+now = Timestamp_.now()
 
 
 async def main() -> None:
@@ -43,14 +46,14 @@ async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None
     start = (
         (await chandler.get_first_candle(args.exchange, symbol, interval)).time
         if args.start is None
-        else floor_timestamp(args.start, interval)
+        else Timestamp_.floor(args.start, interval)
     )
-    current = floor_timestamp(now, interval)
-    end = current if args.end is None else floor_timestamp(args.end, interval)
+    current = Timestamp_.floor(now, interval)
+    end = current if args.end is None else Timestamp_.floor(args.end, interval)
 
     logging.info(
-        f"start {strftimestamp(start)} current {strftimestamp(current)} end "
-        f"{strftimestamp(end)}"
+        f"start {Timestamp_.format(start)} current {Timestamp_.format(current)} end "
+        f"{Timestamp_.format(end)}"
     )
 
     candles = []
@@ -71,8 +74,7 @@ async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None
             logging.info(f"{historical_or_future} candle {i}: {candle}")
 
     if DUMP_AS_JSON:
-        with open(f"{args.exchange}_{symbol}_{interval}_candles.json", "w") as f:
-            json.dump(candles, f, indent=4)
+        save_json_file(candles, f"{args.exchange}_{symbol}_{interval}_candles.json", indent=4)
 
 
 asyncio.run(main())

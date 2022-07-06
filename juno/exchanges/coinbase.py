@@ -33,19 +33,20 @@ from juno import (
     OrderType,
     OrderUpdate,
     Side,
+    Symbol_,
     Ticker,
     TimeInForce,
+    Timestamp_,
     Trade,
     json,
 )
+from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
 from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
 from juno.itertools import page_limit
 from juno.math import round_half_up
-from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
@@ -224,7 +225,7 @@ class Coinbase(Exchange):
         assert account == "spot"
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
-            base_asset, quote_asset = unpack_assets(symbol)
+            base_asset, quote_asset = Symbol_.assets(symbol)
             async for data in ws:
                 type_ = data["type"]
                 if type_ == "received":
@@ -591,7 +592,7 @@ def _from_datetime(dt: str) -> int:
     # - '%Y-%m-%dT%H:%M:%S.%fZ'
     # - '%Y-%m-%dT%H:%M:%SZ'
     dt_format = "%Y-%m-%dT%H:%M:%S.%fZ" if "." in dt else "%Y-%m-%dT%H:%M:%SZ"
-    return datetime_timestamp_ms(datetime.strptime(dt, dt_format).replace(tzinfo=UTC))
+    return Timestamp_.from_datetime_utc(datetime.strptime(dt, dt_format).replace(tzinfo=UTC))
 
 
 def _to_time_in_force(time_in_force: TimeInForce) -> str:

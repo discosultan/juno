@@ -2,9 +2,8 @@ import logging
 from decimal import Decimal
 from typing import Callable, Optional
 
-from juno import Fill, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, OrderResult, OrderStatus, OrderType, Side, Timestamp_
 from juno.components import Informant, Orderbook, User
-from juno.time import time_ms
 
 from .broker import Broker
 
@@ -17,7 +16,7 @@ class Market(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_time_ms: Callable[[], int] = time_ms,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook

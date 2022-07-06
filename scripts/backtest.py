@@ -4,14 +4,14 @@ import logging
 from decimal import Decimal
 from typing import Any
 
-from juno import json, serialization, stop_loss, strategies, take_profit
+from juno import Interval_, Timestamp_, json, serialization, stop_loss, strategies, take_profit
 from juno.asyncio import gather_dict
 from juno.components import Chandler, Informant
 from juno.exchanges import Exchange
 from juno.inspect import GenericConstructor
+from juno.path import save_json_file
 from juno.statistics import CoreStatistics
 from juno.storages import SQLite
-from juno.time import DAY_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
 
@@ -69,9 +69,9 @@ async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreSt
         BasicConfig(
             exchange=args.exchange,
             symbol="eth-btc",
-            interval=DAY_MS,
-            start=strptimestamp("2018-01-01"),
-            end=strptimestamp("2021-01-01"),
+            interval=Interval_.DAY,
+            start=Timestamp_.parse("2018-01-01"),
+            end=Timestamp_.parse("2021-01-01"),
             strategy=strategy,
             # stop_loss=TypeConstructor.from_type(stop_loss.Noop),
             # take_profit=TypeConstructor.from_type(take_profit.Noop),
@@ -97,13 +97,10 @@ async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreSt
 
 
 def dump(name: str, data: Any) -> None:
-    with open(name, "w") as file:
-        if name.endswith(".json"):
-            json.dump(data, file, indent=4)
-        # elif name.endswith('.yaml'):
-        #     yaml.dump(data, file, indent=4)
-        else:
-            raise NotImplementedError()
+    if name.endswith(".json"):
+        save_json_file(data, name, indent=4)
+    else:
+        raise NotImplementedError()
 
 
 asyncio.run(main())

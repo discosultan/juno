@@ -2,14 +2,14 @@ import argparse
 import asyncio
 import logging
 
+from juno import Interval_, Timestamp_
 from juno.exchanges import Exchange
-from juno.time import strpinterval, strptimestamp
 
 parser = argparse.ArgumentParser()
 parser.add_argument("symbol", nargs="?")
-parser.add_argument("interval", nargs="?", type=strpinterval)
-parser.add_argument("start", nargs="?", type=strptimestamp)
-parser.add_argument("end", nargs="?", type=strptimestamp)
+parser.add_argument("interval", nargs="?", type=Interval_.parse)
+parser.add_argument("start", nargs="?", type=Timestamp_.parse)
+parser.add_argument("end", nargs="?", type=Timestamp_.parse)
 parser.add_argument("-e", "--exchange", default="binance")
 args = parser.parse_args()
 

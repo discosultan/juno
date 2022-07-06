@@ -4,11 +4,10 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from juno import Candle, Fill
+from juno import Candle, Fill, Interval_
 from juno.components import Chandler, Events, Informant
-from juno.time import DAY_MS
+from juno.path import full_path
 from juno.trading import CloseReason, Position, TradingSummary
-from juno.utils import full_path
 
 
 @pytest.mark.manual
@@ -70,7 +69,7 @@ async def send_test_events(events: Events):
         ],
     )
     await events.emit("agent", "positions_opened", [open_pos], trading_summary)
-    candle = Candle(time=DAY_MS, close=Decimal("2.0"), volume=Decimal("10.0"))
+    candle = Candle(time=Interval_.DAY, close=Decimal("2.0"), volume=Decimal("10.0"))
     pos = open_pos.close(
         time=candle.time,
         fills=[
@@ -86,7 +85,7 @@ async def send_test_events(events: Events):
     )
     trading_summary = TradingSummary(
         start=0,
-        end=pos.close_time + DAY_MS,
+        end=pos.close_time + Interval_.DAY,
         starting_assets={
             "btc": Decimal("1.0"),
         },

@@ -14,20 +14,21 @@ from juno import (
     Candle,
     Depth,
     ExchangeInfo,
+    Interval_,
     OrderMissing,
     OrderType,
     SavingsProduct,
     Side,
     Ticker,
+    Timestamp_,
     Trade,
     exchanges,
 )
 from juno.asyncio import resolved_stream
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken, KuCoin
-from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
+from juno.inspect import list_concretes_from_module
 from juno.typing import types_match
-from juno.utils import list_concretes_from_module
 
 exchange_type_fixtures = {
     e: lazy_fixture(e.__name__.lower()) for e in list_concretes_from_module(exchanges, Exchange)
@@ -201,11 +202,11 @@ async def test_get_max_borrowable(request, exchange: Exchange) -> None:
 async def test_stream_historical_candles(request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    start = strptimestamp("2018-01-01")
+    start = Timestamp_.parse("2018-01-01")
 
     count = 0
     async for candle in exchange.stream_historical_candles(
-        symbol="eth-btc", interval=HOUR_MS, start=start, end=start + HOUR_MS
+        symbol="eth-btc", interval=Interval_.HOUR, start=start, end=start + Interval_.HOUR
     ):
         if count == 1:
             pytest.fail("Expected a single candle")
@@ -221,7 +222,7 @@ async def test_stream_historical_candles(request, exchange: Exchange) -> None:
 async def test_connect_stream_candles(request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    async with exchange.connect_stream_candles(symbol="eth-btc", interval=MIN_MS) as stream:
+    async with exchange.connect_stream_candles(symbol="eth-btc", interval=Interval_.MIN) as stream:
         async for candle in stream:
             assert types_match(candle, Candle)
             break
@@ -261,11 +262,11 @@ async def test_stream_historical_trades(request, exchange: Exchange) -> None:
 
     # Coinbase can only stream from most recent, hence we use current time.
     if isinstance(exchange, Coinbase):
-        end = time_ms()
-        start = end - 5 * MIN_MS
+        end = Timestamp_.now()
+        start = end - 5 * Interval_.MIN
     else:
-        start = strptimestamp("2018-01-01")
-        end = start + HOUR_MS
+        start = Timestamp_.parse("2018-01-01")
+        end = start + Interval_.HOUR
 
     stream = exchange.stream_historical_trades(symbol="eth-btc", start=start, end=end)
     async for trade in stream:

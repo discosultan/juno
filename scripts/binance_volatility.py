@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 from more_itertools import take
 
+from juno import Interval_, Timestamp_
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite
-from juno.time import MONTH_MS, YEAR_MS, floor_timestamp, strfinterval, time_ms
 
 
 async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end):
@@ -23,8 +23,8 @@ async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start
     # df['log_ret'] = np.log(df['price']) - np.log(df['price'].shift(1))
     # Find volatility.
     volatility = df["log_ret"].std(ddof=0)
-    annualized_volatility = volatility * ((YEAR_MS / interval) ** 0.5)
-    return symbol, strfinterval(interval), annualized_volatility
+    annualized_volatility = volatility * ((Interval_.YEAR / interval) ** 0.5)
+    return symbol, Interval_.format(interval), annualized_volatility
 
 
 async def main() -> None:
@@ -37,11 +37,11 @@ async def main() -> None:
     async with binance, informant, trades, chandler:
         symbols = informant.list_symbols(exchange)[:10]
         intervals = take(3, chandler.list_candle_intervals(exchange))
-        now = time_ms()
+        now = Timestamp_.now()
         tasks = []
         for interval in intervals:
-            end = floor_timestamp(now, interval)
-            start = end - MONTH_MS
+            end = Timestamp_.floor(now, interval)
+            start = end - Interval_.MONTH
             for symbol in symbols:
                 tasks.append(
                     find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end)

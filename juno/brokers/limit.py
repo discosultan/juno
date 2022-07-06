@@ -15,10 +15,10 @@ from juno import (
     OrderUpdate,
     OrderWouldBeTaker,
     Side,
+    Symbol_,
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User
-from juno.utils import unpack_assets
 
 from .broker import Broker
 
@@ -89,7 +89,7 @@ class Limit(Broker):
         assert not test
         Broker.validate_funds(size, quote)
 
-        base_asset, quote_asset = unpack_assets(symbol)
+        base_asset, quote_asset = Symbol_.assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         if size is not None:
@@ -139,7 +139,7 @@ class Limit(Broker):
         assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
-        base_asset, quote_asset = unpack_assets(symbol)
+        base_asset, quote_asset = Symbol_.assets(symbol)
         _log.info(
             f"selling {size} {base_asset} with limit orders at spread ({account} account) "
             f"following {self._order_placement_strategy} strategy"

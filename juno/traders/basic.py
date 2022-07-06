@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Literal, Optional, TypeVar, Union
 from uuid import uuid4
 
-from juno import Advice, BadOrder, Candle, CandleType, Interval, Timestamp
+from juno import Advice, BadOrder, Candle, CandleType, Interval, Symbol_, Timestamp, Timestamp_
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.common import CandleMeta
@@ -18,9 +18,7 @@ from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
 from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
-from juno.time import floor_timestamp, strftimestamp, time_ms
 from juno.trading import CloseReason, Position, StartMixin, TradingMode, TradingSummary
-from juno.utils import unpack_assets
 
 from .trader import Trader
 
@@ -53,11 +51,11 @@ class BasicConfig:
 
     @property
     def base_asset(self) -> str:
-        return unpack_assets(self.symbol)[0]
+        return Symbol_.assets(self.symbol)[0]
 
     @property
     def quote_asset(self) -> str:
-        return unpack_assets(self.symbol)[1]
+        return Symbol_.assets(self.symbol)[1]
 
 
 @dataclass
@@ -106,7 +104,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         broker: Optional[Broker] = None,  # Only required if not backtesting.
         custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
-        get_time_ms: Callable[[], int] = time_ms,
+        get_time_ms: Callable[[], int] = Timestamp_.now,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -222,11 +220,11 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
             next_ = max(next_ - num_historical_candles * config.interval, 0)
             _log.info(
                 f"fetching {num_historical_candles} candle(s) before start time to warm-up "
-                f"strategy; adjusted start set to {strftimestamp(next_)}"
+                f"strategy; adjusted start set to {Timestamp_.format(next_)}"
             )
         elif isinstance(config.adjusted_start, int):  # Timestamp
-            next_ = floor_timestamp(config.adjusted_start, config.interval)
-            _log.info(f"adjusted start set to {strftimestamp(next_)}")
+            next_ = Timestamp_.floor(config.adjusted_start, config.interval)
+            _log.info(f"adjusted start set to {Timestamp_.format(next_)}")
 
         return BasicState(
             config=config,

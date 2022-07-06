@@ -7,13 +7,11 @@ import pytest
 from asyncstdlib import list as list_async
 from pytest_mock import MockerFixture
 
-from juno import Candle, ExchangeException, Trade
+from juno import Candle, ExchangeException, Interval_, Timestamp_, Trade
 from juno.asyncio import cancel, resolved_stream
 from juno.components import Chandler
 from juno.exchanges import Exchange
 from juno.storages import Storage
-from juno.time import DAY_MS, WEEK_MS, strptimestamp
-from juno.utils import key
 
 from . import fakes
 
@@ -68,7 +66,7 @@ async def test_stream_candles(storage: fakes.Storage, start, end, efrom, eto, es
             end=end,
         )
     )
-    shard = key(EXCHANGE, SYMBOL, INTERVAL)
+    shard = Storage.key(EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
         list_async(storage.stream_time_series_spans(shard, "candle", start, end)),
         list_async(storage.stream_time_series(shard, "candle", Candle, start, end)),
@@ -98,7 +96,7 @@ async def test_stream_future_candles_span_stored_until_cancelled(storage: fakes.
     time.time = CANCEL_AT
     await cancel(task)
 
-    shard = key(EXCHANGE, SYMBOL, INTERVAL)
+    shard = Storage.key(EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
         list_async(storage.stream_time_series_spans(shard, "candle", START, END)),
         list_async(storage.stream_time_series(shard, "candle", Candle, START, END)),
@@ -149,7 +147,7 @@ async def test_stream_candles_cancel_does_not_store_twice(storage: fakes.Storage
     await cancel(stream_candles_task)
 
     stored_candles = await list_async(
-        storage.stream_time_series(key("exchange", "eth-btc", 1), "candle", Candle, 0, 2)
+        storage.stream_time_series(Storage.key("exchange", "eth-btc", 1), "candle", Candle, 0, 2)
     )
     assert stored_candles == candles
 
@@ -395,10 +393,10 @@ async def test_stream_historical_candles_bad_time_error_when_unadjustable(storag
 
 
 async def test_stream_historical_candles_do_not_adjust_over_daily_interval(storage) -> None:
-    start = strptimestamp("2019-12-26")
-    end = strptimestamp("2020-01-02")
+    start = Timestamp_.parse("2019-12-26")
+    end = Timestamp_.parse("2020-01-02")
     exchange = fakes.Exchange(
-        candle_intervals={WEEK_MS: 0},
+        candle_intervals={Interval_.WEEK: 0},
         historical_candles=[Candle(time=start)],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
@@ -407,7 +405,7 @@ async def test_stream_historical_candles_do_not_adjust_over_daily_interval(stora
         chandler.stream_candles(
             "exchange",
             "eth-btc",
-            WEEK_MS,
+            Interval_.WEEK,
             start,
             end,
         )
@@ -614,25 +612,25 @@ async def test_stream_concurrent_historical_candles_with_offset_time(
     storage: fakes.Storage,
     mocker: MockerFixture,
 ) -> None:
-    time = fakes.Time(strptimestamp("2018-01-08"))
+    time = fakes.Time(Timestamp_.parse("2018-01-08"))
     exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.can_stream_historical_candles.return_value = True
-    exchange.list_candle_intervals.return_value = [DAY_MS, WEEK_MS]
+    exchange.list_candle_intervals.return_value = [Interval_.DAY, Interval_.WEEK]
 
     def stream_historical_candles(symbol: str, interval: int, start: int, end: int):
-        if interval == DAY_MS:
+        if interval == Interval_.DAY:
             return resolved_stream(
-                Candle(time=strptimestamp("2018-01-01"), close=Decimal("1.0")),  # Mon
-                Candle(time=strptimestamp("2018-01-02"), close=Decimal("1.0")),
-                Candle(time=strptimestamp("2018-01-03"), close=Decimal("1.0")),
-                Candle(time=strptimestamp("2018-01-04"), close=Decimal("1.0")),
-                Candle(time=strptimestamp("2018-01-05"), close=Decimal("1.0")),
-                Candle(time=strptimestamp("2018-01-06"), close=Decimal("1.0")),
-                Candle(time=strptimestamp("2018-01-07"), close=Decimal("1.0")),  # Sun
+                Candle(time=Timestamp_.parse("2018-01-01"), close=Decimal("1.0")),  # Mon
+                Candle(time=Timestamp_.parse("2018-01-02"), close=Decimal("1.0")),
+                Candle(time=Timestamp_.parse("2018-01-03"), close=Decimal("1.0")),
+                Candle(time=Timestamp_.parse("2018-01-04"), close=Decimal("1.0")),
+                Candle(time=Timestamp_.parse("2018-01-05"), close=Decimal("1.0")),
+                Candle(time=Timestamp_.parse("2018-01-06"), close=Decimal("1.0")),
+                Candle(time=Timestamp_.parse("2018-01-07"), close=Decimal("1.0")),  # Sun
             )
-        elif interval == WEEK_MS:
+        elif interval == Interval_.WEEK:
             return resolved_stream(
-                Candle(time=strptimestamp("2018-01-01"), close=Decimal("7.0")),
+                Candle(time=Timestamp_.parse("2018-01-01"), close=Decimal("7.0")),
             )
         raise ValueError()
 
@@ -646,44 +644,47 @@ async def test_stream_concurrent_historical_candles_with_offset_time(
     output = await list_async(
         chandler.stream_concurrent_candles(
             exchange="magicmock",
-            entries=[("eth-btc", DAY_MS, "regular"), ("eth-btc", WEEK_MS, "regular")],
-            start=strptimestamp("2018-01-01"),
-            end=strptimestamp("2018-01-08"),
+            entries=[
+                ("eth-btc", Interval_.DAY, "regular"),
+                ("eth-btc", Interval_.WEEK, "regular"),
+            ],
+            start=Timestamp_.parse("2018-01-01"),
+            end=Timestamp_.parse("2018-01-08"),
         )
     )
 
     assert output == [
         (
-            Candle(time=strptimestamp("2018-01-01"), close=Decimal("1.0")),
-            ("eth-btc", DAY_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-01"), close=Decimal("1.0")),
+            ("eth-btc", Interval_.DAY, "regular"),
         ),
         (
-            Candle(time=strptimestamp("2018-01-02"), close=Decimal("1.0")),
-            ("eth-btc", DAY_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-02"), close=Decimal("1.0")),
+            ("eth-btc", Interval_.DAY, "regular"),
         ),
         (
-            Candle(time=strptimestamp("2018-01-03"), close=Decimal("1.0")),
-            ("eth-btc", DAY_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-03"), close=Decimal("1.0")),
+            ("eth-btc", Interval_.DAY, "regular"),
         ),
         (
-            Candle(time=strptimestamp("2018-01-04"), close=Decimal("1.0")),
-            ("eth-btc", DAY_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-04"), close=Decimal("1.0")),
+            ("eth-btc", Interval_.DAY, "regular"),
         ),
         (
-            Candle(time=strptimestamp("2018-01-05"), close=Decimal("1.0")),
-            ("eth-btc", DAY_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-05"), close=Decimal("1.0")),
+            ("eth-btc", Interval_.DAY, "regular"),
         ),
         (
-            Candle(time=strptimestamp("2018-01-06"), close=Decimal("1.0")),
-            ("eth-btc", DAY_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-06"), close=Decimal("1.0")),
+            ("eth-btc", Interval_.DAY, "regular"),
         ),
         (
-            Candle(time=strptimestamp("2018-01-01"), close=Decimal("7.0")),
-            ("eth-btc", WEEK_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-01"), close=Decimal("7.0")),
+            ("eth-btc", Interval_.WEEK, "regular"),
         ),
         (
-            Candle(time=strptimestamp("2018-01-07"), close=Decimal("1.0")),
-            ("eth-btc", DAY_MS, "regular"),
+            Candle(time=Timestamp_.parse("2018-01-07"), close=Decimal("1.0")),
+            ("eth-btc", Interval_.DAY, "regular"),
         ),
     ]
 

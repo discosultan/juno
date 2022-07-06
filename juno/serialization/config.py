@@ -4,9 +4,8 @@ from enum import Enum
 from types import NoneType
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
-from juno import Interval, Timestamp
+from juno import Interval, Interval_, Timestamp, Timestamp_
 from juno.inspect import isenum, isnamedtuple
-from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
 
 
 def deserialize(value: Any, type_: Any) -> Any:
@@ -14,9 +13,9 @@ def deserialize(value: Any, type_: Any) -> Any:
     if type_ is Any:
         return value
     if type_ is Interval:
-        return strpinterval(value)
+        return Interval_.parse(value)
     if type_ is Timestamp:
-        return strptimestamp(value)
+        return Timestamp_.parse(value)
     if type_ is NoneType:
         if value is None:
             return None
@@ -61,9 +60,9 @@ def serialize(value: Any, type_: Any = None) -> Any:
     if type_ is Any:
         return value
     if type_ is Interval:
-        return strfinterval(value)
+        return Interval_.format(value)
     if type_ is Timestamp:
-        return strftimestamp(value)
+        return Timestamp_.format(value)
     if type_ is NoneType:
         if value is None:
             return None
