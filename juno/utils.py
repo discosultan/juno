@@ -1,45 +1,23 @@
 import asyncio
 import base64
-import contextlib
 import inspect
 import itertools
 import logging
 import random
 import traceback
-from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterator, Optional, Sequence, TypeVar, get_type_hints
+from typing import Any, Iterator, Optional, TypeVar
 from uuid import uuid4
 
 import aiolimiter
 
 from juno import json
-from juno.inspect import isnamedtuple
-from juno.typing import ExcType, ExcValue, Traceback
 
 T = TypeVar("T")
 
 _log = logging.getLogger(__name__)
-
-
-def _asdict(a: Any) -> dict:
-    if isinstance(a, dict):
-        return a
-    if is_dataclass(a):
-        return asdict(a)
-    if isnamedtuple(a):
-        return a._asdict()
-    return a.__dict__
-
-
-def construct(type_: type[T], *args, **kwargs) -> T:
-    type_hints = get_type_hints(type_)
-    final_kwargs = {}
-    for d in itertools.chain(map(_asdict, args), [kwargs]):
-        final_kwargs.update({k: v for k, v in d.items() if k in type_hints.keys()})
-    return type_(**final_kwargs)  # type: ignore
 
 
 def key(*items: Any) -> str:
@@ -84,42 +62,6 @@ def full_path(root: str, rel_path: str) -> str:
 def load_json_file(root: str, rel_path: str) -> Any:
     with open(full_path(root, rel_path)) as f:
         return json.load(f)
-
-
-def extract_public(obj: Any, exclude: Sequence[str] = []) -> Any:
-    """Turns all public fields and properties of an object into typed output. Non-recursive."""
-
-    type_ = type(obj)
-
-    # TODO: We can cache the generated type based on input type.
-    attrs = []
-    vals = []
-
-    # Fields.
-    fields = (
-        (n, v)
-        for (n, v) in get_type_hints(type_).items()
-        if not n.startswith("_") and n not in exclude
-    )
-    for name, field_type in fields:
-        attrs.append((name, field_type))
-        vals.append(getattr(obj, name))
-
-    # Properties.
-    props = [(n, v) for (n, v) in inspect.getmembers(type_, _isprop) if not n.startswith("_")]
-    # Inspect orders members alphabetically. We want to preserve source ordering.
-    props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
-    for name, prop in props:
-        prop_type = get_type_hints(prop.fget)["return"]
-        attrs.append((name, prop_type))
-        vals.append(prop.fget(obj))
-
-    output_type = make_dataclass(type_.__name__, attrs)
-    return output_type(*vals)
-
-
-def _isprop(v: object) -> bool:
-    return isinstance(v, property)
 
 
 def exc_traceback(exc: Exception) -> str:
@@ -200,8 +142,3 @@ class AsyncLimiter(aiolimiter.AsyncLimiter):
         self._waiters.pop(task, None)
 
         self._level += amount
-
-
-class AbstractAsyncContextManager(contextlib.AbstractAsyncContextManager):
-    async def __aexit__(self, exc_type: ExcType, exc_value: ExcValue, tb: Traceback) -> None:
-        pass

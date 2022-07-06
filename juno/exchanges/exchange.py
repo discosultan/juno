@@ -22,10 +22,11 @@ from juno import (
     config,
     exchanges,
 )
-from juno.utils import AbstractAsyncContextManager, get_module_type
+from juno.contextlib import AsyncContextManager
+from juno.utils import get_module_type
 
 
-class Exchange(AbstractAsyncContextManager, ABC):
+class Exchange(AsyncContextManager, ABC):
     # Capabilities.
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.

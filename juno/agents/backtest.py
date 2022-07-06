@@ -6,12 +6,12 @@ from typing import Any, Callable, Optional
 from juno import Interval, Timestamp, json, serialization, stop_loss, strategies, take_profit
 from juno.components import Chandler, Events, Prices
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+from juno.inspect import construct
 from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, ceil_timestamp, strftimestamp, time_ms
 from juno.traders import Trader
 from juno.trading import TradingMode, TradingSummary
-from juno.utils import construct
 
 from .agent import Agent, AgentStatus
 

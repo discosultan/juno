@@ -9,9 +9,10 @@ from typing import Any, Optional
 
 from juno import json, serialization
 from juno.components import Events
+from juno.inspect import extract_public
 from juno.plugins import Plugin
 from juno.storages import Memory, Storage
-from juno.utils import exc_traceback, extract_public, generate_random_words
+from juno.utils import exc_traceback, generate_random_words
 
 _log = logging.getLogger(__name__)
 

@@ -9,19 +9,20 @@ from asyncstdlib import list as list_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
 from juno import ExchangeException, Trade
+from juno.contextlib import AsyncContextManager
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import strfspan, time_ms
-from juno.utils import AbstractAsyncContextManager, key
+from juno.utils import key
 
 _log = logging.getLogger(__name__)
 
 TRADE_KEY = Trade.__name__.lower()
 
 
-class Trades(AbstractAsyncContextManager):
+class Trades(AsyncContextManager):
     def __init__(
         self,
         storage: Storage,

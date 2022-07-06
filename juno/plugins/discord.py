@@ -12,12 +12,13 @@ from nextcord.ext.commands.bot import Bot, Context
 from juno import json, serialization
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
+from juno.inspect import extract_public
 from juno.positioner import SimulatedPositioner
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader
 from juno.trading import CloseReason, Position, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import exc_traceback, extract_public
+from juno.utils import exc_traceback
 
 from .plugin import Plugin
 

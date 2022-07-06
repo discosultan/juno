@@ -56,3 +56,23 @@ def test_get_type_by_fully_qualified_name(input_: str, expected_output: type[Any
 
 #     name = inspect.get_fully_qualified_name(Local)
 #     assert inspect.get_type_by_fully_qualified_name(name) is Local
+
+
+def test_extract_public() -> None:
+    class Foo:
+        a: int = 1
+        b: int = 2
+        _c: int = 3
+
+        @property
+        def d(self) -> int:
+            return 4
+
+    foo = Foo()
+    x = inspect.extract_public(foo, exclude=["b"])
+
+    assert x.a == 1
+    assert not getattr(x, "b", None)
+    assert not getattr(x, "c", None)
+    assert x.d == 4
+    inspect.extract_public(foo, exclude=["b"])  # Ensure can be called twice.

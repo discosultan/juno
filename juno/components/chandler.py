@@ -15,6 +15,7 @@ from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 from juno import Candle, CandleMeta, ExchangeException
 from juno.asyncio import aclose, first_async, stream_with_timeout
 from juno.common import CandleType
+from juno.contextlib import AsyncContextManager
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
@@ -30,7 +31,7 @@ from juno.time import (
     strftimestamp,
     time_ms,
 )
-from juno.utils import AbstractAsyncContextManager, key, unpack_assets
+from juno.utils import key, unpack_assets
 
 from .trades import Trades
 
@@ -40,7 +41,7 @@ _CANDLE_KEY = Candle.__name__.lower()
 _FIRST_CANDLE_KEY = f"first_{_CANDLE_KEY}"
 
 
-class Chandler(AbstractAsyncContextManager):
+class Chandler(AsyncContextManager):
     def __init__(
         self,
         storage: Storage,

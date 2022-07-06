@@ -16,10 +16,11 @@ from juno import BadOrder, Balance, Fill, Filters, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
 from juno.custodians import Custodian
+from juno.inspect import extract_public
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, strftimestamp, time_ms
 from juno.trading import CloseReason, Position, TradingMode
-from juno.utils import extract_public, unpack_assets, unpack_base_asset, unpack_quote_asset
+from juno.utils import unpack_assets, unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
 
