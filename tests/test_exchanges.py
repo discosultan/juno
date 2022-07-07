@@ -309,7 +309,7 @@ async def test_place_order_bad_order(request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Binance, Coinbase, GateIO, KuCoin])  # TODO: Add kraken
+@parametrize_exchange([Binance, Coinbase, GateIO, Kraken, KuCoin])
 async def test_cancel_order_order_missing(request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 

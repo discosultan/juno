@@ -20,6 +20,7 @@ from juno import (
     Fees,
     Filters,
     Interval_,
+    OrderMissing,
     OrderResult,
     OrderType,
     OrderUpdate,
@@ -33,6 +34,7 @@ from juno import (
 )
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
+from juno.common import OrderStatus
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.typing import ExcType, ExcValue, Traceback
 
@@ -135,6 +137,8 @@ class Kraken(Exchange):
         )
 
     async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
+        """https://docs.kraken.com/rest/#operation/getTickerInformation"""
+
         if not symbols:
             raise ValueError("Empty symbols list not supported")
 
@@ -151,11 +155,16 @@ class Kraken(Exchange):
         }
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+        """https://docs.kraken.com/rest/#operation/getAccountBalance"""
+
         result = {}
         if account == "spot":
             res = await self._request_private("/0/private/Balance")
             result["spot"] = {
-                _from_asset(a): Balance(available=Decimal(v), hold=Decimal("0.0"))
+                _from_asset(a): Balance(
+                    available=Decimal(v),
+                    hold=Decimal("0.0"),  # Not supported.
+                )
                 for a, v in res["result"].items()
             }
         else:
@@ -251,8 +260,28 @@ class Kraken(Exchange):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
     ) -> OrderResult:
+        """https://docs.kraken.com/rest/#operation/addOrder"""
         # TODO: use order placing limiter instead of default.
-        pass
+
+        assert account == "spot"
+        assert quote is None
+
+        data = {
+            "userref": client_id,
+            "ordertype": _to_order_type(type_),
+            "type": _to_side(side),
+            "pair": _to_http_symbol(symbol),
+        }
+        if price is not None:
+            data["price"] = str(price)
+        if size is not None:
+            data["size"] = str(size)
+        if time_in_force is not None:
+            data["timeinforce"] = _to_time_in_force(time_in_force)
+
+        await self._request_private("/0/private/CancelOrder", data)
+        # TODO: Just a dummy result.
+        return OrderResult(time=Timestamp_.now(), status=OrderStatus.NEW)
 
     async def cancel_order(
         self,
@@ -260,7 +289,22 @@ class Kraken(Exchange):
         symbol: str,
         client_id: str,
     ) -> None:
-        pass
+        """https://docs.kraken.com/rest/#operation/cancelOrder"""
+        # TODO: use order placing limiter instead of default.
+
+        assert account == "spot"
+
+        try:
+            await self._request_private(
+                "/0/private/CancelOrder",
+                {
+                    "txid": client_id,
+                },
+            )
+        except KrakenException as exc:
+            if len(exc.errors) == 1 and (msg := exc.errors[0]).startswith("EOrder:"):
+                raise OrderMissing(msg)
+            raise
 
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int
@@ -368,7 +412,7 @@ class Kraken(Exchange):
             result = await res.json()
             errors = result["error"]
             if len(errors) > 0:
-                raise Exception(errors)
+                raise KrakenException("Received error(s) from Kraken", errors)
             return result
 
 
@@ -494,6 +538,12 @@ class KrakenPrivateFeed(KrakenPublicFeed):
         else:  # List.
             channel_id = data[1]
             self.channels[channel_id].put_nowait(data[0])  # type: ignore
+
+
+class KrakenException(Exception):
+    def __init__(self, message: str, errors: list[str]) -> None:
+        super().__init__(message)
+        self.errors = errors
 
 
 def _validate_subscription_status(data: Any) -> None:
@@ -653,3 +703,27 @@ def _to_http_symbol(symbol: str) -> str:
     quote = _REVERSE_ASSET_ALIAS_MAP.get(quote, quote)
     # 2. Transform to uppercase.
     return (f"{base}{quote}").upper()
+
+
+def _to_order_type(order_type: OrderType) -> str:
+    if order_type in {OrderType.LIMIT, OrderType.LIMIT_MAKER}:
+        return "limit"
+    if order_type is OrderType.MARKET:
+        return "market"
+    raise NotImplementedError()
+
+
+def _to_side(side: Side) -> str:
+    if side is Side.BUY:
+        return "buy"
+    if side is Side.SELL:
+        return "sell"
+    raise NotImplementedError()
+
+
+def _to_time_in_force(time_in_force: TimeInForce) -> str:
+    if time_in_force is TimeInForce.GTC:
+        return "GTC"
+    if time_in_force is TimeInForce.IOC:
+        return "IOC"
+    raise NotImplementedError()
