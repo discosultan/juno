@@ -19,7 +19,7 @@ class PineScript(Plugin):
     async def activate(self, agent_name: str, agent_type: str) -> None:
         @self._events.on(agent_name, "finished")
         async def on_finished(summary: TradingSummary) -> None:
-            save_text_file(get_script(summary), "script.pine")
+            save_text_file(get_script(summary), "strategy.pine")
 
         _log.info(f"activated for {agent_name} ({agent_type})")
 

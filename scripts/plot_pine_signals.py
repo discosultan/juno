@@ -80,7 +80,7 @@ async def main() -> None:
         "color=color.red)"
     )
 
-    save_text_file("\n".join(lines), "script.pine")
+    save_text_file("\n".join(lines), "strategy.pine")
 
 
 asyncio.run(main())
