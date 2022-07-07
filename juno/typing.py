@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from collections import deque
 from types import TracebackType
-from typing import Any, Iterable, Literal, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
+from typing import (
+    Any,
+    Iterable,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 ExcType = Optional[type[BaseException]]
 ExcValue = Optional[BaseException]
