@@ -6,6 +6,7 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-e", "--exchange", default="binance")
 parser.add_argument("-a", "--account", default="spot")
 parser.add_argument("-s", "--symbol", default=None)
 args = parser.parse_args()

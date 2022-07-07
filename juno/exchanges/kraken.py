@@ -20,6 +20,7 @@ from juno import (
     Fees,
     Filters,
     Interval_,
+    Order,
     OrderMissing,
     OrderResult,
     OrderType,
@@ -231,6 +232,8 @@ class Kraken(Exchange):
         account: str,
         symbol: str,
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        """https://docs.kraken.com/websockets/#message-openOrders"""
+
         assert account == "spot"
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
@@ -247,6 +250,23 @@ class Kraken(Exchange):
 
         async with self._private_ws.subscribe({"name": "openOrders"}) as ws:
             yield inner(ws)
+
+    async def list_orders(self, account: str, symbol: Optional[str] = None) -> list[Order]:
+        """https://docs.kraken.com/rest/#operation/getOpenOrders"""
+
+        assert account == "spot"
+
+        res = await self._request_private("/0/private/OpenOrders")
+        return [
+            Order(
+                client_id=o["userref"],
+                symbol=order_symbol,
+                price=Decimal(o["price"]),
+                size=Decimal(o["vol"]),
+            )
+            for o in res["result"]["open"].values()
+            if symbol is None or (order_symbol := _from_symbol(o["descr"]["pair"])) == symbol
+        ]
 
     async def place_order(
         self,
