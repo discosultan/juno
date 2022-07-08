@@ -29,7 +29,7 @@ _CANCELLED_EVENT_WAIT_TIMEOUT = 60
 
 
 class _Context:
-    def __init__(self, available: Decimal, use_quote: bool, client_id: str) -> None:
+    def __init__(self, available: Decimal, use_quote: bool, client_id: str | int) -> None:
         self.original = available
         self.available = available
         self.use_quote = use_quote
@@ -264,7 +264,7 @@ class Limit(Broker):
                 price = self._find_order_placement_price(
                     side, ob_side, ob_other_side, filters, ctx.active_order
                 )
-                if price is None:
+                if price is None:  # None means we don't need to reposition our order.
                     continue
 
                 if ctx.active_order:
@@ -388,7 +388,7 @@ class Limit(Broker):
                 raise NotImplementedError(order)
 
     async def _cancel_order(
-        self, exchange: str, account: str, symbol: str, client_id: str
+        self, exchange: str, account: str, symbol: str, client_id: str | int
     ) -> bool:
         try:
             await self._user.cancel_order(

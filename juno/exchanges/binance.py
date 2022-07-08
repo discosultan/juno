@@ -576,7 +576,7 @@ class Binance(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str] = None,
+        client_id: Optional[str | int] = None,
     ) -> OrderResult:
         data: dict[str, Any] = {
             "symbol": _to_http_symbol(symbol),
@@ -638,7 +638,7 @@ class Binance(Exchange):
         self,
         account: str,
         symbol: str,
-        client_id: str,
+        client_id: str | int,
     ) -> None:
         url = "/api/v3/order" if account == "spot" else "/sapi/v1/margin/order"
         data = {

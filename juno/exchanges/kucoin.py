@@ -300,7 +300,7 @@ class KuCoin(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str] = None,
+        client_id: Optional[str | int] = None,
     ) -> OrderResult:
         if account != "spot":
             raise NotImplementedError()
@@ -340,7 +340,7 @@ class KuCoin(Exchange):
         self,
         account: str,
         symbol: str,
-        client_id: str,
+        client_id: str | int,
     ) -> None:
         if account != "spot":
             raise NotImplementedError()

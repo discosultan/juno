@@ -251,7 +251,7 @@ class OrderType(IntEnum):
 
 @dataclass(frozen=True)
 class Order:
-    client_id: str
+    client_id: str | int
     symbol: str
     price: Decimal
     size: Decimal
@@ -265,19 +265,19 @@ class Order:
 
 class OrderUpdate(ModuleType):
     class New(NamedTuple):
-        client_id: str
+        client_id: str | int
 
     class Match(NamedTuple):
-        client_id: str
+        client_id: str | int
         fill: Fill
 
     class Cancelled(NamedTuple):
         time: Timestamp
-        client_id: str
+        client_id: str | int
 
     class Done(NamedTuple):
         time: Timestamp
-        client_id: str
+        client_id: str | int
 
     Any = Union[New, Match, Cancelled, Done]
 

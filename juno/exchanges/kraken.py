@@ -18,6 +18,7 @@ from juno import (
     Depth,
     ExchangeInfo,
     Fees,
+    Fill,
     Filters,
     Interval_,
     Order,
@@ -36,7 +37,9 @@ from juno import (
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.common import OrderStatus
+from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
+from juno.math import precision_to_decimal
 from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
@@ -72,7 +75,7 @@ class Kraken(Exchange):
         # Rate limiters.
         # TODO: This is Starter rate. The rate differs for Intermediate and Pro users.
         self._reqs_limiter = AsyncLimiter(15, 45)
-        self._order_placing_limiter = AsyncLimiter(1, 1)
+        self._order_placing_limiter = AsyncLimiter(1, 1.5)  # Originally 1, 1
 
         self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
         await self._session.__aenter__()
@@ -92,6 +95,10 @@ class Kraken(Exchange):
             self._public_ws.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
+
+    def generate_client_id(self) -> int | str:
+        # Have to convert to seconds because only 32 bits are allowed.
+        return Timestamp_.now() // 1000
 
     def list_candle_intervals(self) -> list[int]:
         return [
@@ -127,8 +134,14 @@ class Kraken(Exchange):
                 maker=maker_fees[0][1] / 100 if maker_fees else taker_fee, taker=taker_fee
             )
             filters[name] = Filters(
-                base_precision=val["lot_decimals"],
-                quote_precision=val["pair_decimals"],
+                base_precision=(base_precision := val["lot_decimals"]),
+                quote_precision=(quote_precision := val["pair_decimals"]),
+                size=Size(
+                    step=precision_to_decimal(base_precision),  # type: ignore
+                ),
+                price=Price(
+                    step=precision_to_decimal(quote_precision),  # type: ignore
+                ),
             )
 
         return ExchangeInfo(
@@ -236,17 +249,49 @@ class Kraken(Exchange):
 
         assert account == "spot"
 
+        quote_asset = Symbol_.quote_asset(symbol)
+
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
+            is_first = True
             async for o in ws:
-                yield o
-                # updates = o[0]
-                # for update in updates.values():
-                #     client_id = update["refid"]
-                #     status = update["status"]
-                #     if status == ""
-                #     yield OrderUpdate.New(
-                #         client_id=client_id,
-                #     )
+                # The first message lists all existing open orders. Discard it.
+                # TODO: Fails if we have multiple consumers
+                if is_first:
+                    is_first = False
+                    continue
+                updates = o[0]
+                for update in updates.values():
+                    client_id = update["userref"]
+                    status = update.get("status")
+                    if status == "open":
+                        yield OrderUpdate.New(
+                            client_id=client_id,
+                        )
+                    elif status == "canceled":
+                        yield OrderUpdate.Cancelled(
+                            time=_from_ws_time(update["lastupdated"]),
+                            client_id=client_id,
+                        )
+                    elif status == "closed":
+                        yield OrderUpdate.Done(
+                            time=_from_ws_time(update["lastupdated"]),
+                            client_id=client_id,
+                        )
+                    elif status == "pending":
+                        pass
+                    elif status is None:  # Match.
+                        yield OrderUpdate.Match(
+                            client_id=client_id,
+                            fill=Fill(
+                                price=Decimal(update["avg_price"]),
+                                size=Decimal(update["vol_exec"]),
+                                quote=Decimal(update["cost"]),
+                                fee=Decimal(update["fee"]),
+                                fee_asset=quote_asset,
+                            ),
+                        )
+                    else:
+                        raise NotImplementedError(f"Unhandled status: {status}")
 
         async with self._private_ws.subscribe({"name": "openOrders"}) as ws:
             yield inner(ws)
@@ -278,7 +323,7 @@ class Kraken(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str] = None,
+        client_id: Optional[str | int] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
         # TODO: use order placing limiter instead of default.
@@ -286,20 +331,31 @@ class Kraken(Exchange):
         assert account == "spot"
         assert quote is None
 
-        data = {
-            "userref": client_id,
+        flags = []
+        if type_ is OrderType.LIMIT_MAKER:
+            flags.append("post")
+
+        data: dict[str, Any] = {
             "ordertype": _to_order_type(type_),
             "type": _to_side(side),
             "pair": _to_http_symbol(symbol),
         }
+        if client_id is not None:
+            data["userref"] = client_id
         if price is not None:
             data["price"] = str(price)
         if size is not None:
-            data["size"] = str(size)
+            data["volume"] = str(size)
         if time_in_force is not None:
             data["timeinforce"] = _to_time_in_force(time_in_force)
+        if len(flags) > 0:
+            data["oflags"] = ",".join(flags)
 
-        await self._request_private("/0/private/CancelOrder", data)
+        await self._request_private(
+            url="/0/private/AddOrder",
+            data=data,
+            limiter=self._order_placing_limiter,
+        )
         # TODO: Just a dummy result.
         return OrderResult(time=Timestamp_.now(), status=OrderStatus.NEW)
 
@@ -307,7 +363,7 @@ class Kraken(Exchange):
         self,
         account: str,
         symbol: str,
-        client_id: str,
+        client_id: str | int,
     ) -> None:
         """https://docs.kraken.com/rest/#operation/cancelOrder"""
         # TODO: use order placing limiter instead of default.
@@ -316,10 +372,11 @@ class Kraken(Exchange):
 
         try:
             await self._request_private(
-                "/0/private/CancelOrder",
-                {
+                url="/0/private/CancelOrder",
+                data={
                     "txid": client_id,
                 },
+                limiter=self._order_placing_limiter,
             )
         except KrakenException as exc:
             if len(exc.errors) == 1 and (msg := exc.errors[0]).startswith("EOrder:"):
@@ -383,7 +440,7 @@ class Kraken(Exchange):
     async def _request_private(
         self,
         url: str,
-        data: Optional[Any] = None,
+        data: Optional[dict[str, Any]] = None,
         cost: int = 1,
         limiter: Optional[AsyncLimiter] = None,
     ) -> Any:
@@ -432,7 +489,7 @@ class Kraken(Exchange):
             result = await res.json()
             errors = result["error"]
             if len(errors) > 0:
-                raise KrakenException("Received error(s) from Kraken", errors)
+                raise KrakenException(f"Received error(s) from Kraken: {errors}", errors)
             return result
 
 

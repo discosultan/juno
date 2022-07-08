@@ -39,7 +39,7 @@ class Exchange(AsyncContextManager, ABC):
     can_place_market_order_quote: bool = False  # Whether market order accepts quote param.
     # TODO: Add can_receive_market_order_result_sync
 
-    def generate_client_id(self) -> str:
+    def generate_client_id(self) -> int | str:
         return str(uuid4())
 
     def list_candle_intervals(self) -> list[int]:
@@ -102,7 +102,7 @@ class Exchange(AsyncContextManager, ABC):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str] = None,
+        client_id: Optional[str | int] = None,
     ) -> OrderResult:
         raise NotImplementedError()
 
@@ -110,7 +110,7 @@ class Exchange(AsyncContextManager, ABC):
         self,
         account: str,
         symbol: str,
-        client_id: str,
+        client_id: str | int,
     ) -> None:
         raise NotImplementedError()
 

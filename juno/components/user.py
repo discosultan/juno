@@ -60,7 +60,7 @@ class User:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._wallet_sync_tasks.values())
 
-    def generate_client_id(self, exchange: str) -> str:
+    def generate_client_id(self, exchange: str) -> str | int:
         return self._exchanges[exchange].generate_client_id()
 
     def can_place_market_order(self, exchange: str) -> bool:
@@ -187,7 +187,7 @@ class User:
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str] = None,
+        client_id: Optional[str | int] = None,
     ) -> OrderResult:
         return await self._exchanges[exchange].place_order(
             account=account,
@@ -212,7 +212,7 @@ class User:
         exchange: str,
         account: str,
         symbol: str,
-        client_id: str,
+        client_id: str | int,
     ) -> None:
         await self._exchanges[exchange].cancel_order(
             account=account,

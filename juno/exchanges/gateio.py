@@ -45,7 +45,7 @@ class GateIO(Exchange):
         self._high_precision = high_precision
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
 
-    def generate_client_id(self) -> str:
+    def generate_client_id(self) -> int | str:
         return short_uuid4()
 
     async def __aenter__(self) -> GateIO:
@@ -156,7 +156,7 @@ class GateIO(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str] = None,
+        client_id: Optional[str | int] = None,
     ) -> OrderResult:
         assert account == "spot"
         assert type_ in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -196,7 +196,7 @@ class GateIO(Exchange):
         self,
         account: str,
         symbol: str,
-        client_id: str,
+        client_id: str | int,
     ) -> None:
         # NB! Custom client id will not be available anymore if the order has been up for more than
         # 30 min.
