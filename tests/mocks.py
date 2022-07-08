@@ -6,7 +6,7 @@ from uuid import uuid4
 from pytest_mock import MockerFixture
 
 from juno.asyncio import stream_queue
-from juno.common import Depth, ExchangeInfo, OrderUpdate, Ticker
+from juno.common import Depth, ExchangeInfo, OrderResult, OrderStatus, OrderUpdate, Ticker
 from juno.exchanges import Exchange
 
 
@@ -14,10 +14,11 @@ def mock_exchange(
     mocker: MockerFixture,
     client_id=str(uuid4()),
     exchange_info: ExchangeInfo = ExchangeInfo(),
-    depth: Depth.Snapshot = Depth.Snapshot(),
     tickers: dict[str, Ticker] = {},
+    depth: Depth.Snapshot = Depth.Snapshot(),
     stream_depth: list[Depth.Any] = [],
     stream_orders: list[OrderUpdate.Any] = [],
+    place_order_result: OrderResult = OrderResult(time=0, status=OrderStatus.NEW),
     can_stream_balances: bool = True,
     can_stream_depth_snapshot: bool = True,
     can_stream_historical_earliest_candle: bool = True,
@@ -45,6 +46,7 @@ def mock_exchange(
     exchange.get_exchange_info.return_value = exchange_info
     exchange.get_depth.return_value = depth
     exchange.map_tickers.return_value = tickers
+    exchange.place_order.return_value = place_order_result
 
     stream_depth_queue: asyncio.Queue[Depth.Any] = asyncio.Queue()
     for d in stream_depth:
@@ -67,3 +69,7 @@ def _connect_stream_queue(queue):
         yield stream_queue(queue)
 
     return inner
+
+
+def _stream_values(values):
+    yield from values
