@@ -2,7 +2,7 @@ import asyncio
 import logging
 import operator
 from decimal import Decimal
-from typing import AsyncIterable, NamedTuple, Optional
+from typing import AsyncIterable, Literal, NamedTuple, Optional
 
 from juno import (
     BadOrder,
@@ -28,22 +28,26 @@ _NEW_EVENT_WAIT_TIMEOUT = 60
 _CANCELLED_EVENT_WAIT_TIMEOUT = 60
 
 
+class _ActiveOrder(NamedTuple):
+    price: Decimal
+    size: Decimal
+
+
 class _Context:
     def __init__(self, available: Decimal, use_quote: bool, client_id: str | int) -> None:
+        # Owned by tracker task.
         self.original = available
         self.available = available
         self.use_quote = use_quote
         self.client_id = client_id
         self.new_event: Event[None] = Event(autoclear=True)
-        self.cancelled_event: Event[list[Fill]] = Event(autoclear=True)
+        self.cancelled_event: Event[None] = Event(autoclear=True)
         self.fills: list[Fill] = []  # Fills from aggregated trades.
         self.time: int = -1
         self.active_order: Optional[_ActiveOrder] = None
 
-
-class _ActiveOrder(NamedTuple):
-    price: Decimal
-    size: Decimal
+    def set_active_order(self, active_order: Optional[_ActiveOrder]) -> None:
+        self.active_order = active_order
 
 
 class _FilledFromTrack(Exception):
@@ -61,7 +65,7 @@ class Limit(Broker):
         orderbook: Orderbook,
         user: User,
         cancel_order_on_error: bool = True,
-        order_placement_strategy: str = "matching",  # leading or matching
+        order_placement_strategy: Literal["leading", "matching"] = "matching",
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
@@ -190,6 +194,7 @@ class Limit(Broker):
             # Listens for fill events for an existing Order.
             track_fills_task = asyncio.create_task(
                 self._track_fills(
+                    exchange=exchange,
                     symbol=symbol,
                     stream=stream,
                     side=side,
@@ -281,7 +286,7 @@ class Limit(Broker):
                         f"waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled"
                     )
                     try:
-                        fills_since_last_order = await asyncio.wait_for(
+                        await asyncio.wait_for(
                             ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT
                         )
                     except TimeoutError:
@@ -290,19 +295,6 @@ class Limit(Broker):
                             "be cancelled"
                         )
                         raise
-                    filled_size_since_last_order = Fill.total_size(fills_since_last_order)
-                    add_back_size = ctx.active_order.size - filled_size_since_last_order
-                    add_back = (
-                        add_back_size * ctx.active_order.price if ctx.use_quote else add_back_size
-                    )
-                    _log.info(
-                        f"last {symbol} {side.name} order size {ctx.active_order.size} but filled "
-                        f"{filled_size_since_last_order}; {add_back_size} still to be filled"
-                    )
-                    ctx.available += add_back
-                    # Use a new client ID for new order.
-                    ctx.client_id = self._user.generate_client_id(exchange)
-                    ctx.active_order = None
 
                 # No need to round price as we take it from existing orders.
                 size = ctx.available / price if ctx.use_quote else ctx.available
@@ -327,6 +319,7 @@ class Limit(Broker):
                             raise _FilledFromKeepAtBest()
 
                 _log.info(f"placing {symbol} {side.name} order at price {price} for size {size}")
+                ctx.set_active_order(_ActiveOrder(price=price, size=size))
                 try:
                     await self._user.place_order(
                         exchange=exchange,
@@ -340,6 +333,7 @@ class Limit(Broker):
                     )
                 except OrderWouldBeTaker:
                     # Order would immediately match and take. Retry.
+                    ctx.set_active_order(None)
                     continue
 
                 try:
@@ -350,12 +344,14 @@ class Limit(Broker):
                         "confirmed"
                     )
                     raise
-                deduct = price * size if ctx.use_quote else size
-                ctx.available -= deduct
-                ctx.active_order = _ActiveOrder(price=price, size=size)
 
     async def _track_fills(
-        self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context
+        self,
+        exchange: str,
+        symbol: str,
+        stream: AsyncIterable[OrderUpdate.Any],
+        side: Side,
+        ctx: _Context,
     ) -> None:
         fills_since_last_order: list[Fill] = []
         async for order in stream:
@@ -367,18 +363,42 @@ class Limit(Broker):
                 continue
 
             if isinstance(order, OrderUpdate.New):
+                assert ctx.active_order
                 _log.info(f"new {symbol} {side.name} order {ctx.client_id} confirmed")
                 fills_since_last_order.clear()
+                deduct = (
+                    ctx.active_order.price * ctx.active_order.size
+                    if ctx.use_quote
+                    else ctx.active_order.size
+                )
+                ctx.available -= deduct
                 ctx.new_event.set()
             elif isinstance(order, OrderUpdate.Match):
+                assert ctx.active_order
                 _log.info(f"existing {symbol} {side.name} order {ctx.client_id} matched")
                 fills_since_last_order.append(order.fill)
             elif isinstance(order, OrderUpdate.Cancelled):
+                assert ctx.active_order
                 _log.info(f"existing {symbol} {side.name} order {ctx.client_id} cancelled")
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time
-                ctx.cancelled_event.set(fills_since_last_order)
+
+                filled_size_since_last_order = Fill.total_size(fills_since_last_order)
+                add_back_size = ctx.active_order.size - filled_size_since_last_order
+                add_back = (
+                    add_back_size * ctx.active_order.price if ctx.use_quote else add_back_size
+                )
+                _log.info(
+                    f"last {symbol} {side.name} order size {ctx.active_order.size} but filled "
+                    f"{filled_size_since_last_order}; {add_back_size} still to be filled"
+                )
+                ctx.available += add_back
+                # Use a new client ID for new order.
+                ctx.client_id = self._user.generate_client_id(exchange)
+                ctx.active_order = None
+                ctx.cancelled_event.set()
             elif isinstance(order, OrderUpdate.Done):
+                assert ctx.active_order
                 _log.info(f"existing {symbol} {side.name} order {ctx.client_id} filled")
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time

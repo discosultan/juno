@@ -75,7 +75,7 @@ class Kraken(Exchange):
         # Rate limiters.
         # TODO: This is Starter rate. The rate differs for Intermediate and Pro users.
         self._reqs_limiter = AsyncLimiter(15, 45)
-        self._order_placing_limiter = AsyncLimiter(1, 1.5)  # Originally 1, 1
+        self._order_placing_limiter = AsyncLimiter(1, 2)  # Originally 1, 1
 
         self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
         await self._session.__aenter__()
