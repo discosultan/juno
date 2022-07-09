@@ -93,7 +93,7 @@ class Market(Broker):
         quote: Optional[Decimal] = None,
         test: bool = True,
     ) -> OrderResult:
-        assert size  # TODO: support by quote
+        assert size is not None  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
         if not self._user.can_place_market_order(exchange):

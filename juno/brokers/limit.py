@@ -19,6 +19,7 @@ from juno import (
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User
+from juno.math import round_up
 
 from .broker import Broker
 
@@ -122,6 +123,8 @@ class Limit(Broker):
         fee = Fill.total_fee(res.fills, base_asset)
         if fee != expected_fee:
             # TODO: Always warns when a different fee asset (such as BNB) is involved.
+            # TODO: Buy fee is not always based on base asset. While that's the case of Binance,
+            #       Kraken fees are usually based on quote asset regardless of buy or sell.
             _log.warning(
                 f"total_fee={fee} != {expected_fee=} (total_size={Fill.total_size(res.fills)}, "
                 f"{fees.maker=}, {filters.base_precision=})"
@@ -141,7 +144,7 @@ class Limit(Broker):
         test: bool = True,
     ) -> OrderResult:
         assert not test
-        assert size  # TODO: support by quote
+        assert size is not None  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
         base_asset, quote_asset = Symbol_.assets(symbol)
@@ -256,6 +259,10 @@ class Limit(Broker):
         ensure_size: bool,
         ctx: _Context,
     ) -> None:
+        _log.info(
+            f"managing {exchange} {symbol} limit order based on {self._order_placement_strategy} "
+            "strategy"
+        )
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         is_first = True
         can_edit_order = self._user.can_edit_order(exchange)
@@ -310,7 +317,8 @@ class Limit(Broker):
         side: Side,
         ctx: _Context,
     ) -> None:
-        quote_info = self._informant.get_asset_info(exchange, Symbol_.quote_asset(symbol))
+        _log.info(f"tracking order updates for {exchange} {symbol}")
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
         async for order in stream:
             if not ctx.active_order:
                 _log.debug(f"skipping {symbol} {side.name} order tracking; no active order")
@@ -327,7 +335,9 @@ class Limit(Broker):
                 _log.info(f"new {symbol} {side.name} order {client_id} confirmed")
                 ctx.fills_since_last_order.clear()
                 deduct = (
-                    quote_info.round_up(ctx.active_order.price * ctx.active_order.size)
+                    round_up(
+                        ctx.active_order.price * ctx.active_order.size, filters.quote_precision
+                    )
                     if ctx.use_quote
                     else ctx.active_order.size
                 )
@@ -344,7 +354,7 @@ class Limit(Broker):
                 filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
                 add_back_size = ctx.active_order.size - filled_size_since_last_order
                 add_back = (
-                    quote_info.round_up(add_back_size * ctx.active_order.price)
+                    round_up(add_back_size * ctx.active_order.price, filters.quote_precision)
                     if ctx.use_quote
                     else add_back_size
                 )
@@ -419,14 +429,12 @@ class Limit(Broker):
     ) -> None:
         assert ctx.active_order
         client_id = ctx.active_order.client_id
-        quote_asset = Symbol_.quote_asset(symbol)
-        quote_info = self._informant.get_asset_info(exchange, quote_asset)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
 
         filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
         add_back_size = ctx.active_order.size - filled_size_since_last_order
         add_back = (
-            quote_info.round_up(add_back_size * ctx.active_order.price)
+            round_up(add_back_size * ctx.active_order.price, filters.quote_precision)
             if ctx.use_quote
             else add_back_size
         )

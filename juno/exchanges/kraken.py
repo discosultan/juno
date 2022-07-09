@@ -37,7 +37,7 @@ from juno import (
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.common import OrderStatus
-from juno.errors import OrderWouldBeTaker
+from juno.errors import ExchangeException, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.math import precision_to_decimal
@@ -52,6 +52,10 @@ _API_URL = "https://api.kraken.com"
 # https://support.kraken.com/hc/en-us/articles/360022326871-Public-WebSockets-API-common-questions
 _PUBLIC_WS_URL = "wss://ws.kraken.com"
 _PRIVATE_WS_URL = "wss://ws-auth.kraken.com"
+
+_ERR_UNKNOWN_ORDER = "EOrder:Unknown order"
+_ERR_RATE_LIMIT_EXCEEDED = "EOrder:Rate limit exceeded"
+_ERR_POST_ONLY_ORDER = "EOrder:Post only order"
 
 _log = logging.getLogger(__name__)
 
@@ -362,9 +366,9 @@ class Kraken(Exchange):
         except KrakenException as exc:
             if len(exc.errors) == 1:
                 msg = exc.errors[0]
-                if msg == "EOrder:Unknown order":
+                if msg == _ERR_UNKNOWN_ORDER:
                     raise OrderMissing(msg)
-                elif msg == "EOrder:Post only order":
+                elif msg == _ERR_POST_ONLY_ORDER:
                     raise OrderWouldBeTaker(msg)
             raise
         # TODO: Just a dummy result.
@@ -411,9 +415,9 @@ class Kraken(Exchange):
         except KrakenException as exc:
             if len(exc.errors) == 1:
                 msg = exc.errors[0]
-                if msg == "EOrder:Unknown order":
+                if msg == _ERR_UNKNOWN_ORDER:
                     raise OrderMissing(msg)
-                elif msg == "EOrder:Post only order":
+                elif msg == _ERR_POST_ONLY_ORDER:
                     raise OrderWouldBeTaker(msg)
             raise
 
@@ -435,7 +439,7 @@ class Kraken(Exchange):
                 limiter=self._order_placing_limiter,
             )
         except KrakenException as exc:
-            if len(exc.errors) == 1 and (msg := exc.errors[0]) == "EOrder:Unknown order":
+            if len(exc.errors) == 1 and (msg := exc.errors[0]) == _ERR_UNKNOWN_ORDER:
                 raise OrderMissing(msg)
             raise
 
@@ -545,6 +549,8 @@ class Kraken(Exchange):
             result = await res.json()
             errors = result["error"]
             if len(errors) > 0:
+                if len(errors) == 1 and errors[0] == _ERR_RATE_LIMIT_EXCEEDED:
+                    raise ExchangeException(errors[0])
                 raise KrakenException(f"Received error(s) from Kraken: {errors}", errors)
             return result
 
@@ -718,11 +724,29 @@ def _to_ws_symbol(symbol: str) -> str:
 # We always go first from 1. -> 2. and then from 2. -> 3..
 
 _OLD_SYMBOL_TO_NEW_SYMBOL = {
+    "usdtzusd": "usdtusd",
+    "xetcxeth": "etceth",
     "xetcxxbt": "etcxbt",
+    "xetczeur": "etceur",
+    "xetczusd": "etcusd",
     "xethxxbt": "ethxbt",
+    "xethzcad": "ethcad",
+    "xethzeur": "etheur",
+    "xethzgbp": "ethgbp",
+    "xethzjpy": "ethjpy",
+    "xethzusd": "ethusd",
     "xltcxxbt": "ltcxbt",
+    "xltczeur": "ltceur",
+    "xltczjpy": "ltcjpy",
+    "xltczusd": "ltcusd",
+    "xmlnxeth": "mlneth",
     "xmlnxxbt": "mlnxbt",
+    "xmlnzeur": "mlneur",
+    "xmlnzusd": "mlnusd",
+    "xrepxeth": "repeth",
     "xrepxxbt": "repxbt",
+    "xrepzeur": "repeur",
+    "xrepzusd": "repusd",
     "xxbtzcad": "xbtcad",
     "xxbtzeur": "xbteur",
     "xxbtzgbp": "xbtgbp",
@@ -730,34 +754,25 @@ _OLD_SYMBOL_TO_NEW_SYMBOL = {
     "xxbtzusd": "xbtusd",
     "xxdgxxbt": "xdgxbt",
     "xxlmxxbt": "xlmxbt",
-    "xxmrxxbt": "xmrxbt",
-    "xxrpxxbt": "xrpxbt",
-    "xzecxxbt": "zecxbt",
-    "xetcxeth": "etceth",
-    "xethzcad": "ethcad",
-    "xethzeur": "etheur",
-    "xethzgbp": "ethgbp",
-    "xethzjpy": "ethjpy",
-    "xethzusd": "ethusd",
-    "xmlnxeth": "mlneth",
-    "xrepxeth": "repeth",
-    "xetczeur": "etceur",
-    "xetczusd": "etcusd",
-    "xltczeur": "ltceur",
-    "xltczjpy": "ltcjpy",
-    "xltczusd": "ltcusd",
-    "xmlnzeur": "mlneur",
-    "xmlnzusd": "mlnusd",
-    "xrepzeur": "repeur",
-    "xrepzusd": "repusd",
     "xxlmzaud": "xlmaud",
     "xxlmzeur": "xlmeur",
     "xxlmzgbp": "xlmgbp",
     "xxlmzusd": "xlmusd",
+    "xxmrxxbt": "xmrxbt",
     "xxmrzeur": "xmreur",
     "xxmrzusd": "xmrusd",
+    "xxrpxxbt": "xrpxbt",
+    "xxrpzcad": "xrpcad",
+    "xxrpzeur": "xrpeur",
+    "xxrpzjpy": "xrpjpy",
+    "xxrpzusd": "xrpusd",
+    "xzecxxbt": "zecxbt",
     "xzeczeur": "zeceur",
     "xzeczusd": "zecusd",
+    "zeurzusd": "eurusd",
+    "zgbpzusd": "gbpusd",
+    "zusdzcad": "usdcad",
+    "zusdzjpy": "usdjpy",
 }
 
 _OLD_ASSET_TO_NEW_ASSET = {
@@ -798,6 +813,7 @@ _KNOWN_NEW_QUOTE_ASSETS = [
 _ASSET_ALIAS_MAP = {
     "xbt": "btc",
     "xdg": "doge",
+    "xrep": "rep",
 }
 _REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in _ASSET_ALIAS_MAP.items()}
 
@@ -815,16 +831,16 @@ def _from_symbol(symbol: str) -> str:
     # 1. Normalize to lowercase.
     symbol = symbol.lower()
     # 2. Go from Kraken old format to new format.
-    symbol = _OLD_SYMBOL_TO_NEW_SYMBOL.get(symbol, symbol)
+    new_symbol = _OLD_SYMBOL_TO_NEW_SYMBOL.get(symbol, symbol)
     # 3. Go from Kraken new format to Juno format.
     for asset in _KNOWN_NEW_QUOTE_ASSETS:
-        if symbol.endswith(asset):
-            base = symbol[: -len(asset)]
+        if new_symbol.endswith(asset):
+            base = new_symbol[: -len(asset)]
             base = _ASSET_ALIAS_MAP.get(base, base)
             quote = _ASSET_ALIAS_MAP.get(asset, asset)
             break
     else:
-        raise NotImplementedError(f"unknown quote asset found in symbol: {symbol}")
+        raise NotImplementedError(f"unknown quote asset found in symbol: {new_symbol}")
 
     return f"{base}-{quote}"
 
