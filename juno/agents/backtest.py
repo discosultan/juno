@@ -5,7 +5,6 @@ from typing import Any, Callable, Optional
 
 from juno import (
     Interval,
-    Interval_,
     Timestamp,
     Timestamp_,
     json,
@@ -14,10 +13,10 @@ from juno import (
     strategies,
     take_profit,
 )
-from juno.components import Chandler, Events, Prices
+from juno.components import Chandler, Events
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.inspect import construct
-from juno.statistics import CoreStatistics, ExtendedStatistics
+from juno.statistics import CoreStatistics, Statistician
 from juno.storages import Memory, Storage
 from juno.traders import Trader
 from juno.trading import TradingMode, TradingSummary
@@ -54,14 +53,14 @@ class Backtest(Agent):
         self,
         traders: list[Trader],
         chandler: Chandler,
-        prices: Optional[Prices] = None,
+        statistician: Optional[Statistician] = None,
         events: Events = Events(),
         storage: Storage = Memory(),
         get_time_ms: Callable[[], int] = Timestamp_.now,
     ) -> None:
         self._traders = {type(t).__name__.lower(): t for t in traders}
         self._chandler = chandler
-        self._prices = prices
+        self._statistician = statistician
         self._events = events
         self._storage = storage
         self._get_time_ms = get_time_ms
@@ -114,27 +113,17 @@ class Backtest(Agent):
 
         summary = await trader.run(state.result)
 
-        if not self._prices:
-            _log.warning("skipping analysis; prices component not available")
+        if not self._statistician:
+            _log.warning("skipping analysis; statistician not available")
             return
 
-        # Fetch necessary market data.
-        symbols = [p.symbol for p in summary.positions] + [
-            f"btc-{config.fiat_asset}"
-        ]  # Use BTC as benchmark.
-        fiat_prices = await self._prices.map_asset_prices(
-            exchange=config.exchange,
-            symbols=symbols,
-            start=summary.start,
-            end=Timestamp_.ceil(summary.end, Interval_.DAY),
-            interval=Interval_.DAY,
-            fiat_asset=config.fiat_asset,
-            fiat_exchange=config.fiat_exchange,
+        stats = await self._statistician.get_statistics(
+            summary=summary,
+            exchange=config.fiat_exchange or config.exchange,
+            target_asset=config.fiat_asset,
         )
 
-        _log.info(f"calculating benchmark and portfolio statistics ({config.fiat_asset})")
-        stats = ExtendedStatistics.compose(summary=summary, asset_prices=fiat_prices)
-        _log.info(json.dumps(serialization.config.serialize(stats), indent=4))
+        _log.info(json.dumps(serialization.config.serialize(stats.extended), indent=4))
 
     async def on_finally(self, config: Config, state: State) -> Any:
         summary = self.build_summary(config, state)

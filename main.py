@@ -19,6 +19,7 @@ from juno.inspect import map_concrete_module_types
 from juno.logging import create_handlers
 from juno.path import full_path
 from juno.plugins import Plugin, map_plugin_types
+from juno.statistics import Statistician
 from juno.storages import Storage
 from juno.traders import Trader
 
@@ -82,6 +83,7 @@ async def main() -> None:
         list[Custodian], lambda: list(map(container.resolve, custodian_types))
     )
     container.add_singleton_types(map_concrete_module_types(components).values())
+    container.add_singleton_type(Statistician)
 
     # Load agents and plugins.
     agent_types: dict[str, type[Agent]] = map_concrete_module_types(agents)

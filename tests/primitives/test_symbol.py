@@ -11,3 +11,7 @@ def test_base_asset() -> None:
 
 def test_quote_asset() -> None:
     assert Symbol_.quote_asset("eth-btc") == "btc"
+
+
+def test_iter_assets() -> None:
+    assert list(Symbol_.iter_assets(["eth-btc", "ltc-btc"])) == ["eth", "btc", "ltc", "btc"]
