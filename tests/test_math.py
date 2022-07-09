@@ -49,8 +49,19 @@ def test_floor_multiple_offset() -> None:
     ) == Decimal("3.00")
 
 
-def test_round_half_up() -> None:
-    assert math.round_half_up(Decimal("0.123"), 2) == Decimal("0.12")
+@pytest.mark.parametrize(
+    "value,expected_output",
+    [
+        (Decimal("0.123"), Decimal("0.12")),
+        (Decimal("0.125"), Decimal("0.13")),
+    ],
+)
+def test_round_half_up(value: Decimal, expected_output: Decimal) -> None:
+    assert math.round_half_up(value, 2) == expected_output
+
+
+def test_round_up() -> None:
+    assert math.round_up(Decimal("0.123"), 2) == Decimal("0.13")
 
 
 def test_round_down() -> None:

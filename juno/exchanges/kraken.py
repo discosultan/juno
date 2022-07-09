@@ -37,6 +37,7 @@ from juno import (
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.common import OrderStatus
+from juno.errors import OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.math import precision_to_decimal
@@ -127,21 +128,23 @@ class Kraken(Exchange):
 
         fees, filters = {}, {}
         for key, val in symbols_res["result"].items():
-            name = _from_symbol(key)
+            symbol = _from_symbol(key)
+            base_asset, quote_asset = Symbol_.assets(symbol)
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val["fees"][0][1] / 100
             maker_fees = val.get("fees_maker")
-            fees[name] = Fees(
+            fees[symbol] = Fees(
                 maker=maker_fees[0][1] / 100 if maker_fees else taker_fee, taker=taker_fee
             )
-            filters[name] = Filters(
-                base_precision=(base_precision := val["lot_decimals"]),
-                quote_precision=(quote_precision := val["pair_decimals"]),
+            filters[symbol] = Filters(
+                base_precision=assets[base_asset].precision,
+                quote_precision=assets[quote_asset].precision,
                 size=Size(
-                    step=precision_to_decimal(base_precision),  # type: ignore
+                    min=Decimal(val["ordermin"]),
+                    step=precision_to_decimal(val["lot_decimals"]),  # type: ignore
                 ),
                 price=Price(
-                    step=precision_to_decimal(quote_precision),  # type: ignore
+                    step=precision_to_decimal(val["pair_decimals"]),  # type: ignore
                 ),
             )
 
@@ -307,11 +310,11 @@ class Kraken(Exchange):
             Order(
                 client_id=o["userref"],
                 symbol=order_symbol,
-                price=Decimal(o["price"]),
+                price=Decimal(o["descr"]["price"]),
                 size=Decimal(o["vol"]),
             )
             for o in res["result"]["open"].values()
-            if symbol is None or (order_symbol := _from_symbol(o["descr"]["pair"])) == symbol
+            if (order_symbol := _from_symbol(o["descr"]["pair"])) == symbol or symbol is None
         ]
 
     async def place_order(
@@ -350,11 +353,20 @@ class Kraken(Exchange):
         if len(flags) > 0:
             data["oflags"] = ",".join(flags)
 
-        await self._request_private(
-            url="/0/private/AddOrder",
-            data=data,
-            limiter=self._order_placing_limiter,
-        )
+        try:
+            await self._request_private(
+                url="/0/private/AddOrder",
+                data=data,
+                limiter=self._order_placing_limiter,
+            )
+        except KrakenException as exc:
+            if len(exc.errors) == 1:
+                msg = exc.errors[0]
+                if msg == "EOrder:Unknown order":
+                    raise OrderMissing(msg)
+                elif msg == "EOrder:Post only order":
+                    raise OrderWouldBeTaker(msg)
+            raise
         # TODO: Just a dummy result.
         return OrderResult(time=Timestamp_.now(), status=OrderStatus.NEW)
 
@@ -397,8 +409,12 @@ class Kraken(Exchange):
                 limiter=self._order_placing_limiter,
             )
         except KrakenException as exc:
-            if len(exc.errors) == 1 and (msg := exc.errors[0]).startswith("EOrder:"):
-                raise OrderMissing(msg)
+            if len(exc.errors) == 1:
+                msg = exc.errors[0]
+                if msg == "EOrder:Unknown order":
+                    raise OrderMissing(msg)
+                elif msg == "EOrder:Post only order":
+                    raise OrderWouldBeTaker(msg)
             raise
 
     async def cancel_order(
@@ -419,7 +435,7 @@ class Kraken(Exchange):
                 limiter=self._order_placing_limiter,
             )
         except KrakenException as exc:
-            if len(exc.errors) == 1 and (msg := exc.errors[0]).startswith("EOrder:"):
+            if len(exc.errors) == 1 and (msg := exc.errors[0]) == "EOrder:Unknown order":
                 raise OrderMissing(msg)
             raise
 

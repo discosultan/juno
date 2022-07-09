@@ -8,7 +8,7 @@ from types import ModuleType
 from typing import Literal, NamedTuple, Optional, Union
 
 from juno.filters import Filters
-from juno.math import round_down, round_half_up
+from juno.math import round_down, round_half_up, round_up
 from juno.primitives import Interval, Timestamp, Timestamp_
 
 
@@ -344,6 +344,12 @@ class AssetInfo:
     def __post_init__(self) -> None:
         if self.precision <= 0:
             raise ValueError("Precision cannot be zero or negative")
+
+    def round_half_up(self, value: Decimal) -> Decimal:
+        return round_half_up(value, self.precision)
+
+    def round_up(self, value: Decimal) -> Decimal:
+        return round_up(value, self.precision)
 
 
 @dataclass(frozen=True)

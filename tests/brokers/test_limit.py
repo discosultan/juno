@@ -37,6 +37,7 @@ async def test_fill(mocker: MockerFixture) -> None:
         depth=snapshot,
         client_id=order_client_id,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
 
     def place_order(*args, **kwargs):
@@ -91,6 +92,7 @@ async def test_insufficient_balance(mocker: MockerFixture) -> None:
         depth=snapshot,
         exchange_info=exchange_info,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
     async with init_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
@@ -115,6 +117,7 @@ async def test_partial_fill_adjust_fill(mocker: MockerFixture) -> None:
         exchange_info=exchange_info,
         client_id=order_client_id,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
 
     def place_order(*args, **kwargs):
@@ -208,6 +211,7 @@ async def test_multiple_cancels(mocker: MockerFixture) -> None:
         exchange_info=exchange_info,
         client_id=order_client_id,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
     async with init_broker(exchange) as broker:
         task = asyncio.create_task(
@@ -319,6 +323,7 @@ async def test_partial_fill_cancel_min_notional(mocker: MockerFixture) -> None:
         exchange_info=exchange_info,
         client_id=order_client_id,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
     async with init_broker(exchange) as broker:
         task = asyncio.create_task(
@@ -388,6 +393,7 @@ async def test_buy_places_at_highest_bid_if_no_spread(mocker: MockerFixture) -> 
         exchange_info=exchange_info,
         client_id=order_client_id,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
     async with init_broker(exchange) as broker:
         task = asyncio.create_task(
@@ -446,6 +452,7 @@ async def test_cancels_open_order_on_error(mocker: MockerFixture) -> None:
         exchange_info=exchange_info,
         client_id=order_client_id,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
 
     def place_order(*args, **kwargs):
@@ -493,6 +500,7 @@ async def test_buy_does_not_place_higher_bid_if_highest_only_self(mocker: Mocker
         depth=snapshot,
         exchange_info=exchange_info,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
     async with init_broker(exchange, cancel_order_on_error=False) as broker:
         task = asyncio.create_task(
@@ -539,6 +547,7 @@ async def test_buy_matching_order_placement_strategy(mocker: MockerFixture) -> N
         exchange_info=exchange_info,
         client_id=order_client_id,
         can_stream_depth_snapshot=False,
+        can_edit_order=False,
     )
 
     def place_order(*args, **kwargs):

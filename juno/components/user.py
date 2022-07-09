@@ -201,6 +201,39 @@ class User:
             client_id=client_id,
         )
 
+    def can_edit_order(self, exchange: str) -> bool:
+        return self._exchanges[exchange].can_edit_order
+
+    @retry(
+        stop=stop_after_attempt(10),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(ExchangeException),
+        before_sleep=before_sleep_log(_log, logging.WARNING),
+    )
+    async def edit_order(
+        self,
+        exchange: str,
+        account: str,
+        symbol: str,
+        type_: OrderType,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        price: Optional[Decimal] = None,
+        client_id: Optional[str | int] = None,
+    ) -> None:
+        exchange_instance = self._exchanges[exchange]
+        if not exchange_instance.can_edit_order:
+            raise RuntimeError("Not supported")
+        return await exchange_instance.edit_order(
+            account=account,
+            symbol=symbol,
+            type_=type_,
+            size=size,
+            quote=quote,
+            price=price,
+            client_id=client_id,
+        )
+
     @retry(
         stop=stop_after_attempt(10),
         wait=wait_exponential(),
