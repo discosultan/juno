@@ -138,3 +138,7 @@ def test_rpstdev() -> None:
 )
 def test_precision_to_decimal(precision: int, expected_output: Decimal) -> None:
     assert math.precision_to_decimal(precision) == expected_output
+
+
+def test_decimal_to_precision() -> None:
+    assert math.decimal_to_precision(Decimal("0.0001")) == 4

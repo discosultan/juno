@@ -254,7 +254,6 @@ class Binance(Exchange):
         # Process symbol info.
         isolated_pairs_set = set(isolated_pairs)
         filters = {}
-        assets = {}
         for symbol_info in filters_res["symbols"]:
             price = None
             percent_price = None
@@ -315,13 +314,8 @@ class Binance(Exchange):
                 isolated_margin=(symbol in isolated_pairs_set) and (symbol in borrow_info),
             )
 
-            if base_asset not in assets:
-                assets[base_asset] = AssetInfo(precision=symbol_info["baseAssetPrecision"])
-            if quote_asset not in assets:
-                assets[quote_asset] = AssetInfo(precision=symbol_info["quoteAssetPrecision"])
-
         return ExchangeInfo(
-            assets=assets,
+            assets={"__all__": AssetInfo(precision=8)},
             fees=fees,
             filters=filters,
             borrow_info=borrow_info,

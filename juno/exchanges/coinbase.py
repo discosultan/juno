@@ -45,7 +45,7 @@ from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_a
 from juno.filters import Price, Size
 from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
 from juno.itertools import page_limit
-from juno.math import round_half_up
+from juno.math import decimal_to_precision, round_half_up
 from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
@@ -111,9 +111,19 @@ class Coinbase(Exchange):
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
         fees = {"__all__": Fees(maker=Decimal("0.005"), taker=Decimal("0.005"))}
 
-        content = await self._public_request_json("GET", "/products")
+        currencies_content, products_content = await asyncio.gather(
+            self._public_request_json("GET", "/currencies"),
+            self._public_request_json("GET", "/products"),
+        )
+
+        assets = {}
+        for currency in currencies_content:
+            assets[_from_currency(currency["id"])] = AssetInfo(
+                precision=decimal_to_precision(Decimal(currency["max_precision"]))
+            )
+
         filters = {}
-        for product in content:
+        for product in products_content:
             price_step = Decimal(product["quote_increment"])
             size_step = Decimal(product["base_increment"])
             filters[product["id"].lower()] = Filters(
@@ -129,7 +139,7 @@ class Coinbase(Exchange):
             )
 
         return ExchangeInfo(
-            assets={"__all__": AssetInfo(precision=8)},
+            assets=assets,
             fees=fees,
             filters=filters,
         )
@@ -570,6 +580,10 @@ def _is_subscribed(
             if symbol not in channel_sub:
                 return False
     return True
+
+
+def _from_currency(currency: str) -> str:
+    return currency.lower()
 
 
 def _to_product(symbol: str) -> str:
