@@ -104,6 +104,7 @@ class Binance(Exchange):
     can_margin_trade: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
+    can_edit_order: bool = False
 
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
         if not high_precision:

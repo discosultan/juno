@@ -66,6 +66,7 @@ class Kraken(Exchange):
     can_margin_trade: bool = False  # TODO: Actually can; need impl
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
+    can_edit_order: bool = True
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -326,8 +327,6 @@ class Kraken(Exchange):
         client_id: Optional[str | int] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
-        # TODO: use order placing limiter instead of default.
-
         assert account == "spot"
         assert quote is None
 
@@ -359,6 +358,49 @@ class Kraken(Exchange):
         # TODO: Just a dummy result.
         return OrderResult(time=Timestamp_.now(), status=OrderStatus.NEW)
 
+    async def edit_order(
+        self,
+        account: str,
+        symbol: str,
+        type_: OrderType,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        price: Optional[Decimal] = None,
+        client_id: Optional[str | int] = None,
+    ) -> None:
+        """https://docs.kraken.com/rest/#operation/editOrder"""
+        assert account == "spot"
+        assert quote is None
+        assert client_id
+
+        flags = []
+        if type_ is OrderType.LIMIT_MAKER:
+            flags.append("post")
+
+        data: dict[str, Any] = {
+            "txid": client_id,
+            "userref": client_id,
+            "pair": _to_http_symbol(symbol),
+            "cancel_response": False,
+        }
+        if price is not None:
+            data["price"] = str(price)
+        if size is not None:
+            data["volume"] = str(size)
+        if len(flags) > 0:
+            data["oflags"] = ",".join(flags)
+
+        try:
+            await self._request_private(
+                url="/0/private/EditOrder",
+                data=data,
+                limiter=self._order_placing_limiter,
+            )
+        except KrakenException as exc:
+            if len(exc.errors) == 1 and (msg := exc.errors[0]).startswith("EOrder:"):
+                raise OrderMissing(msg)
+            raise
+
     async def cancel_order(
         self,
         account: str,
@@ -366,8 +408,6 @@ class Kraken(Exchange):
         client_id: str | int,
     ) -> None:
         """https://docs.kraken.com/rest/#operation/cancelOrder"""
-        # TODO: use order placing limiter instead of default.
-
         assert account == "spot"
 
         try:

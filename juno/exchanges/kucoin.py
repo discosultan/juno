@@ -48,6 +48,7 @@ _log = logging.getLogger(__name__)
 class KuCoin(Exchange):
     """https://docs.kucoin.com"""
 
+    # Capabilities
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = False
     # can_stream_historical_candles: bool = False
@@ -57,6 +58,7 @@ class KuCoin(Exchange):
     # can_margin_trade: bool = False
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
+    can_edit_order: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key

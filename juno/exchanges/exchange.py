@@ -28,15 +28,21 @@ from juno.inspect import get_module_type
 
 class Exchange(AsyncContextManager, ABC):
     # Capabilities.
+
     can_stream_balances: bool = False
-    can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.
+    # Streams snapshot as first depth WS message.
+    can_stream_depth_snapshot: bool = False
     can_stream_historical_candles: bool = False
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
-    can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
+    # Accepts empty symbols filter to retrieve all tickers.
+    can_list_all_tickers: bool = False
     can_margin_trade: bool = False
     can_place_market_order: bool = False
-    can_place_market_order_quote: bool = False  # Whether market order accepts quote param.
+    # Whether market order accepts quote param.
+    can_place_market_order_quote: bool = False
+    # If order can be edited directly or has to be cancelled and recreated.
+    can_edit_order: bool = False
     # TODO: Add can_receive_market_order_result_sync
 
     def generate_client_id(self) -> int | str:
@@ -104,6 +110,18 @@ class Exchange(AsyncContextManager, ABC):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str | int] = None,
     ) -> OrderResult:
+        raise NotImplementedError()
+
+    async def edit_order(
+        self,
+        account: str,
+        symbol: str,
+        type_: OrderType,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        price: Optional[Decimal] = None,
+        client_id: Optional[str | int] = None,
+    ) -> None:
         raise NotImplementedError()
 
     async def cancel_order(

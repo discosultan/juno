@@ -67,6 +67,7 @@ class Coinbase(Exchange):
     can_margin_trade: bool = False  # TODO: Actually can; need impl
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
+    can_edit_order: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key

@@ -39,6 +39,9 @@ _WS_URL = "wss://api.gateio.ws/ws/v4/"
 
 
 class GateIO(Exchange):
+    # Capabilities.
+    can_edit_order: bool = False
+
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode("utf-8")

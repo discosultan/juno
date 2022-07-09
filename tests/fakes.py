@@ -29,6 +29,7 @@ class Exchange(exchanges.Exchange):
     can_margin_trade: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
+    can_edit_order: bool = True
 
     def __init__(
         self,

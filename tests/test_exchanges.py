@@ -309,6 +309,23 @@ async def test_place_order_bad_order(request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
+@parametrize_exchange([Kraken])
+async def test_edit_order_order_missing(request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+
+    with pytest.raises(OrderMissing):
+        await exchange.edit_order(
+            account="spot",
+            symbol="eth-btc",
+            type_=OrderType.LIMIT,
+            size=Decimal("1.0"),
+            price=Decimal("1.0"),
+            client_id=exchange.generate_client_id(),
+        )
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
 @parametrize_exchange([Binance, Coinbase, GateIO, Kraken, KuCoin])
 async def test_cancel_order_order_missing(request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
