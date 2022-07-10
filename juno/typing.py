@@ -50,8 +50,8 @@ def types_match(obj: Any, type_: type[Any]) -> bool:
         return obj in args
 
     if origin is Union:
-        sub_type, _ = get_args(type_)
-        return obj is None or types_match(obj, sub_type)
+        args = get_args(type_)
+        return any(types_match(obj, sub_type) for sub_type in args)
 
     if type(origin) is TypeVar:
         return types_match(obj, type(obj))

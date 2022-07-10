@@ -11,7 +11,7 @@ from juno.filters import Filters
 from juno.math import round_down, round_half_up, round_up
 from juno.primitives import Asset, Interval, Symbol, Timestamp, Timestamp_
 
-Account = Literal["spot", "margin", "isolated"] | Symbol
+Account = Union[Literal["spot", "margin", "isolated"], Symbol]
 ClientId = int | str
 
 
@@ -54,7 +54,7 @@ class Balance(NamedTuple):
 @dataclass(frozen=True)
 class BorrowInfo:
     daily_interest_rate: Decimal = Decimal("0.0")
-    limit: Decimal = Decimal("0.0")
+    limit: Decimal = Decimal("Infinity")
 
     def __post_init__(self) -> None:
         if self.daily_interest_rate < 0:
@@ -354,14 +354,10 @@ class Trade(NamedTuple):
 class ExchangeInfo:
     # Note that we use the "__all__" key convention and a regular dict instead of defaultdict for
     # easier (de)serialization.
-    # Key: asset
-    assets: dict[str, AssetInfo] = field(default_factory=lambda: {"__all__": AssetInfo()})
-    # Key: symbol
-    fees: dict[str, Fees] = field(default_factory=lambda: {"__all__": Fees()})
-    # Key: symbol
-    filters: dict[str, Filters] = field(default_factory=lambda: {"__all__": Filters()})
-    # Keys: account, asset
-    borrow_info: dict[str, dict[str, BorrowInfo]] = field(
+    assets: dict[Asset, AssetInfo] = field(default_factory=lambda: {"__all__": AssetInfo()})
+    fees: dict[Symbol, Fees] = field(default_factory=lambda: {"__all__": Fees()})
+    filters: dict[Symbol, Filters] = field(default_factory=lambda: {"__all__": Filters()})
+    borrow_info: dict[Account, dict[Asset, BorrowInfo]] = field(
         default_factory=lambda: {"__all__": {"__all__": BorrowInfo()}}
     )
 
