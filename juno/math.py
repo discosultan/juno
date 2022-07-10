@@ -95,5 +95,7 @@ def precision_to_decimal(precision: int) -> Decimal:
 
 
 def decimal_to_precision(decimal: Decimal) -> int:
+    if decimal == 1:
+        return 0
     # For example, 0.0001 => 4
     return len(str(decimal)[2:])

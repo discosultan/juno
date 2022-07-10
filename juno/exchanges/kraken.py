@@ -18,7 +18,6 @@ from juno import (
     Depth,
     ExchangeInfo,
     Fees,
-    Fill,
     Filters,
     Interval_,
     Order,
@@ -104,6 +103,8 @@ class Kraken(Exchange):
 
     def generate_client_id(self) -> int | str:
         # Have to convert to seconds because only 32 bits are allowed.
+        # TODO: Can cause issues with order tracking if multiple orders are placed within the same
+        #       second.
         return Timestamp_.now() // 1000
 
     def list_candle_intervals(self) -> list[int]:
@@ -287,16 +288,14 @@ class Kraken(Exchange):
                         )
                     elif status == "pending":
                         pass
-                    elif status is None:  # Match.
-                        yield OrderUpdate.Match(
+                    elif status is None:
+                        yield OrderUpdate.Cumulative(
                             client_id=client_id,
-                            fill=Fill(
-                                price=Decimal(update["avg_price"]),
-                                size=Decimal(update["vol_exec"]),
-                                quote=Decimal(update["cost"]),
-                                fee=Decimal(update["fee"]),
-                                fee_asset=quote_asset,
-                            ),
+                            price=Decimal(update["avg_price"]),
+                            cumulative_size=Decimal(update["vol_exec"]),
+                            cumulative_quote=Decimal(update["cost"]),
+                            cumulative_fee=Decimal(update["fee"]),
+                            fee_asset=quote_asset,
                         )
                     else:
                         raise NotImplementedError(f"Unhandled status: {status}")
@@ -376,6 +375,7 @@ class Kraken(Exchange):
 
     async def edit_order(
         self,
+        existing_id: str | int,
         account: str,
         symbol: str,
         type_: OrderType,
@@ -387,18 +387,18 @@ class Kraken(Exchange):
         """https://docs.kraken.com/rest/#operation/editOrder"""
         assert account == "spot"
         assert quote is None
-        assert client_id
 
         flags = []
         if type_ is OrderType.LIMIT_MAKER:
             flags.append("post")
 
         data: dict[str, Any] = {
-            "txid": client_id,
-            "userref": client_id,
+            "txid": existing_id,
             "pair": _to_http_symbol(symbol),
             "cancel_response": False,
         }
+        if client_id is not None:
+            data["userref"] = client_id
         if price is not None:
             data["price"] = str(price)
         if size is not None:

@@ -212,6 +212,7 @@ class User:
     )
     async def edit_order(
         self,
+        existing_id: str | int,
         exchange: str,
         account: str,
         symbol: str,
@@ -225,6 +226,7 @@ class User:
         if not exchange_instance.can_edit_order:
             raise RuntimeError("Not supported")
         return await exchange_instance.edit_order(
+            existing_id=existing_id,
             account=account,
             symbol=symbol,
             type_=type_,

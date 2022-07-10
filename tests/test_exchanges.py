@@ -315,12 +315,12 @@ async def test_edit_order_order_missing(request, exchange: Exchange) -> None:
 
     with pytest.raises(OrderMissing):
         await exchange.edit_order(
+            existing_id=exchange.generate_client_id(),
             account="spot",
             symbol="eth-btc",
             type_=OrderType.LIMIT,
             size=Decimal("1.0"),
             price=Decimal("1.0"),
-            client_id=exchange.generate_client_id(),
         )
 
 

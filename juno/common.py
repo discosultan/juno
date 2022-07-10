@@ -9,7 +9,7 @@ from typing import Literal, NamedTuple, Optional, Union
 
 from juno.filters import Filters
 from juno.math import round_down, round_half_up, round_up
-from juno.primitives import Interval, Timestamp, Timestamp_
+from juno.primitives import Asset, Interval, Timestamp, Timestamp_
 
 
 class Advice(IntEnum):
@@ -180,6 +180,23 @@ class Fill:
         )
 
     @staticmethod
+    def from_cumulative(
+        fills: list[Fill],
+        price: Decimal,
+        cumulative_size: Decimal,
+        cumulative_quote: Decimal,
+        cumulative_fee: Decimal,
+        fee_asset: Asset,
+    ) -> Fill:
+        return Fill(
+            price=price,
+            size=cumulative_size - Fill.total_size(fills),
+            quote=cumulative_quote - Fill.total_quote(fills),
+            fee=cumulative_fee - Fill.total_fee(fills, fee_asset),
+            fee_asset=fee_asset,
+        )
+
+    @staticmethod
     def mean_price(fills: list[Fill]) -> Decimal:
         total_size = Fill.total_size(fills)
         return sum((f.price * f.size / total_size for f in fills), Decimal("0.0"))
@@ -267,9 +284,18 @@ class OrderUpdate(ModuleType):
     class New(NamedTuple):
         client_id: str | int
 
+    # Depending on an exchange, it may return either Match or Cumulative updates.
     class Match(NamedTuple):
         client_id: str | int
         fill: Fill
+
+    class Cumulative(NamedTuple):
+        client_id: str | int
+        price: Decimal
+        cumulative_size: Decimal
+        cumulative_quote: Decimal
+        cumulative_fee: Decimal
+        fee_asset: Asset
 
     class Cancelled(NamedTuple):
         time: Timestamp
@@ -279,7 +305,7 @@ class OrderUpdate(ModuleType):
         time: Timestamp
         client_id: str | int
 
-    Any = Union[New, Match, Cancelled, Done]
+    Any = Union[New, Match, Cumulative, Cancelled, Done]
 
 
 class Side(IntEnum):
@@ -342,8 +368,8 @@ class AssetInfo:
     precision: int = 8
 
     def __post_init__(self) -> None:
-        if self.precision <= 0:
-            raise ValueError("Precision cannot be zero or negative")
+        if self.precision < 0:
+            raise ValueError("Precision cannot be negative")
 
     def round_half_up(self, value: Decimal) -> Decimal:
         return round_half_up(value, self.precision)

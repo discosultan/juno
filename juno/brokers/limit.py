@@ -33,11 +33,12 @@ class _ActiveOrder(NamedTuple):
     client_id: str | int
     price: Decimal
     size: Decimal
+    quote: Decimal
 
 
 class _Context:
     def __init__(self, available: Decimal, use_quote: bool) -> None:
-        # Owned by tracker task.
+        # Can only be mutated by the order tracker task.
         self.original = available
         self.available = available
         self.use_quote = use_quote
@@ -46,10 +47,17 @@ class _Context:
         self.fills: list[Fill] = []  # Fills from aggregated trades.
         self.fills_since_last_order: list[Fill] = []
         self.time: int = -1
-        self.active_order: Optional[_ActiveOrder] = None
+        self.processing_order: Optional[_ActiveOrder] = None
 
-    def set_active_order(self, active_order: Optional[_ActiveOrder]) -> None:
-        self.active_order = active_order
+        # Can be mutated by anyone.
+        self.requested_order: Optional[_ActiveOrder] = None
+
+    def get_add_back(self) -> Decimal:
+        assert self.processing_order
+        if self.use_quote:
+            return self.processing_order.quote - Fill.total_quote(self.fills_since_last_order)
+        else:
+            return self.processing_order.size - Fill.total_size(self.fills_since_last_order)
 
 
 class _FilledFromTrack(Exception):
@@ -181,12 +189,8 @@ class Limit(Broker):
         quote: Optional[Decimal] = None,
     ) -> OrderResult:
         if size is not None:
-            if size == 0:
-                raise ValueError("Size specified but 0")
             ctx = _Context(available=size, use_quote=False)
         elif quote is not None:
-            if quote == 0:
-                raise ValueError("Quote specified but 0")
             ctx = _Context(available=quote, use_quote=True)
         else:
             raise ValueError("Neither size nor quote specified")
@@ -197,7 +201,6 @@ class Limit(Broker):
             # Listens for fill events for an existing Order.
             track_fills_task = asyncio.create_task(
                 self._track_fills(
-                    exchange=exchange,
                     symbol=symbol,
                     stream=stream,
                     side=side,
@@ -233,18 +236,18 @@ class Limit(Broker):
                 await cancel(keep_limit_order_best_task, track_fills_task)
                 raise
             finally:
-                if self._cancel_order_on_error and ctx.active_order:
+                if self._cancel_order_on_error and ctx.processing_order:
                     # Cancel active order.
                     _log.info(
                         f"cancelling active {symbol} {side.name} order "
-                        f"{ctx.active_order.client_id} at price {ctx.active_order.price} size "
-                        f"{ctx.active_order.size}"
+                        f"{ctx.processing_order.client_id} at price {ctx.processing_order.price} "
+                        f"size {ctx.processing_order.size}"
                     )
                     await self._cancel_order(
                         exchange=exchange,
                         account=account,
                         symbol=symbol,
-                        client_id=ctx.active_order.client_id,
+                        client_id=ctx.processing_order.client_id,
                     )
 
         assert ctx.time >= 0
@@ -279,16 +282,16 @@ class Limit(Broker):
                 ob_other_side = asks if side is Side.BUY else bids
 
                 price = self._find_order_placement_price(
-                    side, ob_side, ob_other_side, filters, ctx.active_order
+                    side, ob_side, ob_other_side, filters, ctx.requested_order
                 )
                 if price is None:  # None means we don't need to reposition our order.
                     continue
 
-                if ctx.active_order and not can_edit_order:
+                if ctx.requested_order and not can_edit_order:
                     # Cancel prev order.
                     await self._cancel_order_and_wait(exchange, account, symbol, side, ctx)
 
-                if ctx.active_order and can_edit_order:
+                if ctx.requested_order and can_edit_order:
                     await self._edit_order_and_wait(
                         exchange,
                         account,
@@ -311,64 +314,84 @@ class Limit(Broker):
 
     async def _track_fills(
         self,
-        exchange: str,
         symbol: str,
         stream: AsyncIterable[OrderUpdate.Any],
         side: Side,
         ctx: _Context,
     ) -> None:
-        _log.info(f"tracking order updates for {exchange} {symbol}")
-        _, filters = self._informant.get_fees_filters(exchange, symbol)
+        _log.info(f"tracking order updates for {symbol}")
         async for order in stream:
-            if not ctx.active_order:
+            if not ctx.requested_order:
                 _log.debug(f"skipping {symbol} {side.name} order tracking; no active order")
                 continue
-            client_id = ctx.active_order.client_id
-            if client_id != order.client_id:
+            if (
+                ctx.requested_order.client_id != order.client_id
+                and ctx.processing_order
+                and ctx.processing_order.client_id != order.client_id
+            ):
                 _log.debug(
                     f"skipping {symbol} {side.name} order tracking; {order.client_id=} != "
-                    f"{client_id=}"
+                    f"{ctx.requested_order.client_id=} nor processing order client id"
                 )
                 continue
 
             if isinstance(order, OrderUpdate.New):
-                _log.info(f"new {symbol} {side.name} order {client_id} confirmed")
+                ctx.processing_order = ctx.requested_order
                 ctx.fills_since_last_order.clear()
-                deduct = (
-                    round_up(
-                        ctx.active_order.price * ctx.active_order.size, filters.quote_precision
-                    )
-                    if ctx.use_quote
-                    else ctx.active_order.size
-                )
+                deduct = ctx.processing_order.quote if ctx.use_quote else ctx.processing_order.size
                 ctx.available -= deduct
                 ctx.new_event.set()
+                _log.info(
+                    f"new {symbol} {side.name} order {ctx.processing_order.client_id} confirmed"
+                )
             elif isinstance(order, OrderUpdate.Match):
-                _log.info(f"existing {symbol} {side.name} order {client_id} matched")
+                assert ctx.processing_order
                 ctx.fills_since_last_order.append(order.fill)
-            elif isinstance(order, OrderUpdate.Cancelled):
-                _log.info(f"existing {symbol} {side.name} order {client_id} cancelled")
-                ctx.fills.extend(ctx.fills_since_last_order)
-                ctx.time = order.time
-
-                filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
-                add_back_size = ctx.active_order.size - filled_size_since_last_order
-                add_back = (
-                    round_up(add_back_size * ctx.active_order.price, filters.quote_precision)
-                    if ctx.use_quote
-                    else add_back_size
+                _log.info(
+                    f"existing {symbol} {side.name} order {ctx.processing_order.client_id} matched"
+                )
+            elif isinstance(order, OrderUpdate.Cumulative):
+                assert ctx.processing_order
+                ctx.fills_since_last_order.append(
+                    Fill.from_cumulative(
+                        ctx.fills_since_last_order,
+                        price=order.price,
+                        cumulative_size=order.cumulative_size,
+                        cumulative_quote=order.cumulative_quote,
+                        cumulative_fee=order.cumulative_fee,
+                        fee_asset=order.fee_asset,
+                    )
                 )
                 _log.info(
-                    f"last {symbol} {side.name} order size {ctx.active_order.size} but filled "
-                    f"{filled_size_since_last_order}; {add_back_size} still to be filled"
+                    f"existing {symbol} {side.name} order {ctx.processing_order.client_id} matched"
                 )
-                ctx.available += add_back
-                ctx.cancelled_event.set()
-            elif isinstance(order, OrderUpdate.Done):
-                _log.info(f"existing {symbol} {side.name} order {client_id} filled")
+            elif isinstance(order, OrderUpdate.Cancelled):
+                assert ctx.processing_order
                 ctx.fills.extend(ctx.fills_since_last_order)
                 ctx.time = order.time
-                ctx.active_order = None
+                ctx.available += ctx.get_add_back()
+                ctx.cancelled_event.set()
+                _log.info(
+                    f"existing {symbol} {side.name} order {ctx.processing_order.client_id} "
+                    "cancelled"
+                )
+                ctx.processing_order = None
+
+                # Additional logging.
+                filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
+                size_to_be_filled = ctx.requested_order.size - filled_size_since_last_order
+                _log.info(
+                    f"last {symbol} {side.name} order size {ctx.requested_order.size} but filled "
+                    f"{filled_size_since_last_order}; {size_to_be_filled} still to be filled"
+                )
+            elif isinstance(order, OrderUpdate.Done):
+                assert ctx.processing_order
+                ctx.fills.extend(ctx.fills_since_last_order)
+                ctx.time = order.time
+                _log.info(
+                    f"existing {symbol} {side.name} order {ctx.processing_order.client_id} filled"
+                )
+                ctx.processing_order = None
                 raise _FilledFromTrack()
             else:
                 raise NotImplementedError(order)
@@ -383,16 +406,19 @@ class Limit(Broker):
         ensure_size: bool,
         ctx: _Context,
     ) -> None:
+        assert not ctx.requested_order
+        client_id = self._user.generate_client_id(exchange)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
 
-        # No need to round price as we take it from existing orders.
-        size = ctx.available / price if ctx.use_quote else ctx.available
-        size = filters.size.round_down(size)
-        _validate_size(symbol, side, filters, ensure_size, price, size, ctx)
+        size = _get_size_for_price(symbol, side, filters, ensure_size, price, ctx.available, ctx)
 
         _log.info(f"placing {symbol} {side.name} order at price {price} for size {size}")
-        client_id = self._user.generate_client_id(exchange)
-        ctx.set_active_order(_ActiveOrder(client_id=client_id, price=price, size=size))
+        ctx.requested_order = _ActiveOrder(
+            client_id=client_id,
+            price=price,
+            size=size,
+            quote=round_up(price * size, filters.quote_precision),
+        )
         try:
             await self._user.place_order(
                 exchange=exchange,
@@ -406,7 +432,7 @@ class Limit(Broker):
             )
         except OrderWouldBeTaker:
             # Order would immediately match and take. Retry.
-            ctx.set_active_order(None)
+            ctx.requested_order = None
             return
 
         try:
@@ -427,52 +453,49 @@ class Limit(Broker):
         ensure_size: bool,
         ctx: _Context,
     ) -> None:
-        assert ctx.active_order
-        client_id = ctx.active_order.client_id
+        assert ctx.requested_order
+        prev_order = ctx.requested_order
+
         _, filters = self._informant.get_fees_filters(exchange, symbol)
 
-        filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
-        add_back_size = ctx.active_order.size - filled_size_since_last_order
-        add_back = (
-            round_up(add_back_size * ctx.active_order.price, filters.quote_precision)
-            if ctx.use_quote
-            else add_back_size
-        )
-        available = ctx.available + add_back
-
-        # No need to round price as we take it from orderbook.
-        size = available / price if ctx.use_quote else available
-        size = filters.size.round_down(size)
-        _validate_size(symbol, side, filters, ensure_size, price, size, ctx)
+        available = ctx.available + ctx.get_add_back()
+        size = _get_size_for_price(symbol, side, filters, ensure_size, price, available, ctx)
 
         _log.info(
-            f"editing {symbol} {side.name} order from price {ctx.active_order.price} size "
-            f"{ctx.active_order.size} to price {price} size {size}"
+            f"editing {symbol} {side.name} order from price {prev_order.price} size "
+            f"{prev_order.size} to price {price} size {size}"
         )
-        prev_active_order = ctx.active_order
-        ctx.set_active_order(_ActiveOrder(client_id=client_id, price=price, size=size))
+        new_order = _ActiveOrder(
+            client_id=self._user.generate_client_id(exchange),
+            price=price,
+            size=size,
+            quote=round_up(price * size, filters.quote_precision),
+        )
+        ctx.requested_order = new_order
         try:
             await self._user.edit_order(
+                existing_id=prev_order.client_id,
                 exchange=exchange,
                 account=account,
                 symbol=symbol,
                 type_=OrderType.LIMIT_MAKER,
                 price=price,
                 size=size,
-                client_id=client_id,
+                client_id=new_order.client_id,
             )
         except OrderWouldBeTaker:
             # Order would immediately match and take. Retry.
-            ctx.set_active_order(prev_active_order)
+            ctx.requested_order = prev_order
             return
 
         try:
-            # An edit requests results in a CANCEL + NEW order updates.
+            # An edit request results in a CANCEL + NEW order updates.
             await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
             await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
         except TimeoutError:
             _log.exception(
-                f"timed out waiting for {symbol} {side.name} order {client_id} to be edited"
+                f"timed out waiting for {symbol} {side.name} order {prev_order.client_id} to be "
+                "edited"
             )
             raise
 
@@ -484,11 +507,11 @@ class Limit(Broker):
         side: Side,
         ctx: _Context,
     ) -> None:
-        assert ctx.active_order
-        client_id = ctx.active_order.client_id
+        assert ctx.requested_order
+        client_id = ctx.requested_order.client_id
         _log.info(
             f"cancelling previous {symbol} {side.name} order {client_id} at price "
-            f"{ctx.active_order.price}"
+            f"{ctx.requested_order.price}"
         )
         if await self._cancel_order(
             exchange=exchange,
@@ -506,7 +529,7 @@ class Limit(Broker):
                     "cancelled"
                 )
                 raise
-        ctx.set_active_order(None)
+        ctx.requested_order = None
 
     async def _cancel_order(
         self, exchange: str, account: str, symbol: str, client_id: str | int
@@ -594,15 +617,20 @@ def _validate_side_not_empty(side: Side, ob_side: list[tuple[Decimal, Decimal]])
         )
 
 
-def _validate_size(
+def _get_size_for_price(
     symbol: str,
     side: Side,
     filters: Filters,
     ensure_size: bool,
     price: Decimal,
-    size: Decimal,
+    available: Decimal,
     ctx: _Context,
-) -> None:
+) -> Decimal:
+    # No need to round price as we take it from existing orders.
+
+    size = available / price if ctx.use_quote else available
+    size = filters.size.round_down(size)
+
     _log.info(f"validating {symbol} {side.name} order price and size")
     if len(ctx.fills) == 0:
         # We only want to raise an exception if the filters fail while we haven't had
@@ -620,3 +648,4 @@ def _validate_size(
                 _log.info(f"increased size to {size}")
             else:
                 raise _FilledFromKeepAtBest()
+    return size

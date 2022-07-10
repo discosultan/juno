@@ -140,5 +140,14 @@ def test_precision_to_decimal(precision: int, expected_output: Decimal) -> None:
     assert math.precision_to_decimal(precision) == expected_output
 
 
-def test_decimal_to_precision() -> None:
-    assert math.decimal_to_precision(Decimal("0.0001")) == 4
+@pytest.mark.parametrize(
+    "value,expected_output",
+    [
+        (Decimal("1"), 0),
+        (Decimal("1.0"), 0),
+        (Decimal("0.1"), 1),
+        (Decimal("0.01"), 2),
+    ],
+)
+def test_decimal_to_precision(value: Decimal, expected_output: int) -> None:
+    assert math.decimal_to_precision(value) == expected_output

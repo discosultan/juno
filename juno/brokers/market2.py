@@ -97,7 +97,7 @@ class Market2(Broker):
         quote: Optional[Decimal] = None,
     ) -> OrderResult:
         if size is not None:
-            _fees, filters = self._informant.get_fees_filters(exchange, symbol)
+            _, filters = self._informant.get_fees_filters(exchange, symbol)
             size = filters.size.round_down(size)
             filters.size.validate(size)
 
@@ -132,6 +132,18 @@ class Market2(Broker):
                 elif isinstance(order, OrderUpdate.Match):
                     _log.info(f"existing {symbol} {side.name} order {client_id} matched")
                     fills.append(order.fill)
+                elif isinstance(order, OrderUpdate.Cumulative):
+                    _log.info(f"existing {symbol} {side.name} order {client_id} matched")
+                    fills.append(
+                        Fill.from_cumulative(
+                            fills,
+                            price=order.price,
+                            cumulative_size=order.cumulative_size,
+                            cumulative_quote=order.cumulative_quote,
+                            cumulative_fee=order.cumulative_fee,
+                            fee_asset=order.fee_asset,
+                        )
+                    )
                 elif isinstance(order, OrderUpdate.Done):
                     _log.info(f"existing {symbol} {side.name} order {client_id} filled")
                     time = order.time

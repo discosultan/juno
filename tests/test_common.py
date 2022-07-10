@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno.common import Candle
+from juno.common import Candle, Fill
 
 
 # Ref: https://thetradingbible.com/how-to-read-heikin-ashi-candles
@@ -33,3 +33,28 @@ from juno.common import Candle
 )
 def test_heikin_ashi(previous: Candle, current: Candle, expected_output: Candle) -> None:
     assert Candle.heikin_ashi(previous, current) == expected_output
+
+
+def test_fill_from_cumulative() -> None:
+    assert Fill.from_cumulative(
+        fills=[
+            Fill(
+                price=Decimal("1.0"),
+                size=Decimal("1.0"),
+                quote=Decimal("1.0"),
+                fee=Decimal("0.1"),
+                fee_asset="btc",
+            ),
+        ],
+        price=Decimal("1.0"),
+        cumulative_size=Decimal("1.5"),
+        cumulative_quote=Decimal("1.5"),
+        cumulative_fee=Decimal("0.15"),
+        fee_asset="btc",
+    ) == Fill(
+        price=Decimal("1.0"),
+        size=Decimal("0.5"),
+        quote=Decimal("0.5"),
+        fee=Decimal("0.05"),
+        fee_asset="btc",
+    )

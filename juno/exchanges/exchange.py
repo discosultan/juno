@@ -114,6 +114,7 @@ class Exchange(AsyncContextManager, ABC):
 
     async def edit_order(
         self,
+        existing_id: str | int,
         account: str,
         symbol: str,
         type_: OrderType,

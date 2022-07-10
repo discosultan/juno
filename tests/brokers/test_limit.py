@@ -592,6 +592,11 @@ async def test_buy_matching_order_placement_strategy(mocker: MockerFixture) -> N
             )
         elif exchange.place_order.call_count == 3:
             exchange.stream_orders_queue.put_nowait(
+                OrderUpdate.New(
+                    client_id=order_client_id,
+                )
+            )
+            exchange.stream_orders_queue.put_nowait(
                 OrderUpdate.Match(
                     client_id=order_client_id,
                     fill=Fill(
