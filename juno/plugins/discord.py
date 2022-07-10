@@ -6,7 +6,7 @@ from functools import partial
 from typing import Any, Optional
 
 from more_itertools import sliced
-from nextcord import File
+from nextcord import File, Intents
 from nextcord.ext.commands.bot import Bot, Context
 
 from juno import Interval_, Timestamp_, json, serialization
@@ -23,6 +23,9 @@ from .plugin import Plugin
 
 _log = logging.getLogger(__name__)
 
+_intents = Intents.default()
+_intents.message_content = True
+
 
 class _TraderContext:
     def __init__(self, state: Any, instance: Trader) -> None:
@@ -35,7 +38,7 @@ class Discord(Bot, Plugin):
     def __init__(
         self, chandler: Chandler, informant: Informant, events: Events, config: dict[str, Any]
     ) -> None:
-        super().__init__(command_prefix=".")
+        super().__init__(command_prefix=".", intents=_intents)
 
         discord_config = config.get(type(self).__name__.lower(), {})
 
