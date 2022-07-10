@@ -9,7 +9,7 @@ from typing import Literal, NamedTuple, Optional, Union
 
 from juno.filters import Filters
 from juno.math import round_down, round_half_up, round_up
-from juno.primitives import Asset, Interval, Symbol, Timestamp, Timestamp_
+from juno.primitives import Asset, Interval, Interval_, Symbol, Timestamp, Timestamp_
 
 Account = Union[Literal["spot", "margin", "isolated"], Symbol]
 ClientId = int | str
@@ -53,18 +53,17 @@ class Balance(NamedTuple):
 
 @dataclass(frozen=True)
 class BorrowInfo:
-    daily_interest_rate: Decimal = Decimal("0.0")
+    interest_interval: Interval = Interval_.DAY
+    interest_rate: Decimal = Decimal("0.0")
     limit: Decimal = Decimal("Infinity")
 
     def __post_init__(self) -> None:
-        if self.daily_interest_rate < 0:
-            raise ValueError("Daily interest rate cannot be negative")
+        if self.interest_interval <= 0:
+            raise ValueError("Interest interval cannot be zero or negative")
+        if self.interest_rate < 0:
+            raise ValueError("Interest rate cannot be negative")
         if self.limit < 0:
             raise ValueError("Borrow limit cannot be negative")
-
-    @property
-    def hourly_interest_rate(self) -> Decimal:
-        return self.daily_interest_rate / 24
 
 
 # We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support

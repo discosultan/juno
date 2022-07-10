@@ -216,7 +216,8 @@ class Binance(Exchange):
         borrow_info = {
             "margin": {
                 a["assetName"].lower(): BorrowInfo(
-                    daily_interest_rate=Decimal(s["dailyInterestRate"]),
+                    interest_interval=Interval_.HOUR,
+                    interest_rate=Decimal(s["dailyInterestRate"]) / 24,
                     limit=Decimal(s["borrowLimit"]),
                 )
                 for a, s in ((a, a["specs"][0]) for a in margin_res["data"])
@@ -248,11 +249,13 @@ class Binance(Exchange):
 
             borrow_info[f"{base_asset}-{quote_asset}"] = {
                 base_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(base_details["interestRate"]),
+                    interest_interval=Interval_.HOUR,
+                    interest_rate=Decimal(base_details["interestRate"]) / 24,
                     limit=Decimal(base_details["maxBorrowable"]),
                 ),
                 quote_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(quote_details["interestRate"]),
+                    interest_interval=Interval_.HOUR,
+                    interest_rate=Decimal(quote_details["interestRate"]) / 24,
                     limit=Decimal(quote_details["maxBorrowable"]),
                 ),
             }

@@ -19,6 +19,7 @@ from juno import (
     Balance,
     Fill,
     Filters,
+    Interval,
     Interval_,
     Symbol,
     Symbol_,
@@ -217,10 +218,12 @@ class Positioner:
         price = (await self._chandler.get_last_candle(exchange, symbol, Interval_.MIN)).close
 
         if mode is TradingMode.PAPER:
-            limit = self._informant.get_borrow_info(
+            borrow_info = self._informant.get_borrow_info(
                 exchange=exchange, asset=base_asset, account=symbol
-            ).limit
-            borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
+            )
+            borrowed = _calculate_borrowed(
+                filters, margin_multiplier, borrow_info.limit, collateral, price
+            )
         else:
             _log.info(f"transferring {collateral} {quote_asset} from spot to {symbol} account")
             await self._user.transfer(
@@ -318,7 +321,8 @@ class Positioner:
         if mode is TradingMode.PAPER:
             interest = _calculate_interest(
                 borrowed=position.borrowed,
-                hourly_rate=borrow_info.hourly_interest_rate,
+                interest_interval=borrow_info.interest_interval,
+                interest_rate=borrow_info.interest_rate,
                 start=position.time,
                 end=Timestamp_.now(),
                 precision=asset_info.precision,
@@ -333,7 +337,7 @@ class Positioner:
             ).interest
 
         # Add an extra interest tick in case it is about to get ticked.
-        interest_per_tick = borrow_info.hourly_interest_rate * position.borrowed
+        interest_per_tick = borrow_info.interest_rate * position.borrowed
         repay = position.borrowed + interest
         size = repay + interest_per_tick
 
@@ -592,7 +596,8 @@ class SimulatedPositioner:
 
         interest = _calculate_interest(
             borrowed=position.borrowed,
-            hourly_rate=borrow_info.hourly_interest_rate,
+            interest_interval=borrow_info.interest_interval,
+            interest_rate=borrow_info.interest_rate,
             start=position.time,
             end=time,
             precision=asset_info.precision,
@@ -628,7 +633,12 @@ def _calculate_borrowed(
 
 
 def _calculate_interest(
-    borrowed: Decimal, hourly_rate: Decimal, start: Timestamp, end: Timestamp, precision: int
+    borrowed: Decimal,
+    interest_interval: Interval,
+    interest_rate: Decimal,
+    start: Timestamp,
+    end: Timestamp,
+    precision: int,
 ) -> Decimal:
-    duration = ceil_multiple(end - start, Interval_.HOUR) // Interval_.HOUR
-    return round_half_up(borrowed * duration * hourly_rate, precision=precision)
+    duration = ceil_multiple(end - start, interest_interval) // interest_interval
+    return round_half_up(borrowed * duration * interest_rate, precision=precision)

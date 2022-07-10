@@ -40,7 +40,7 @@ from juno import (
 )
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
-from juno.common import Account, OrderStatus
+from juno.common import Account, BorrowInfo, OrderStatus
 from juno.errors import ExchangeException, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -132,7 +132,9 @@ class Kraken(Exchange):
         )
 
         assets = {
-            _from_asset(key): AssetInfo(precision=val["decimals"])
+            _from_asset(key): AssetInfo(
+                precision=val["decimals"],
+            )
             for key, val in assets_res["result"].items()
         }
 
@@ -156,12 +158,25 @@ class Kraken(Exchange):
                 price=Price(
                     step=precision_to_decimal(val["pair_decimals"]),  # type: ignore
                 ),
+                spot=True,
+                cross_margin=base_asset in _margin_fee_schedule,
+                isolated_margin=False,
             )
 
         return ExchangeInfo(
             assets=assets,
             fees=fees,
             filters=filters,
+            borrow_info={
+                "margin": {
+                    asset: BorrowInfo(
+                        interest_interval=4 * Interval_.HOUR,
+                        interest_rate=fee / 100,  # Percentage to rate.
+                        limit=Decimal("Infinity"),
+                    )
+                    for asset, fee in _margin_fee_schedule.items()
+                }
+            },
         )
 
     async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
@@ -340,7 +355,7 @@ class Kraken(Exchange):
         client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
-        assert account == "spot"
+        assert account in {"spot", "margin"}
         assert quote is None
 
         flags = []
@@ -362,6 +377,9 @@ class Kraken(Exchange):
             data["timeinforce"] = _to_time_in_force(time_in_force)
         if len(flags) > 0:
             data["oflags"] = ",".join(flags)
+        if account == "margin":
+            # TODO: Figure a better way to express this.
+            data["margin"] = "2:1"
 
         try:
             await self._request_private(
@@ -883,3 +901,54 @@ def _to_time_in_force(time_in_force: TimeInForce) -> str:
     if time_in_force is TimeInForce.IOC:
         return "IOC"
     raise NotImplementedError()
+
+
+# Opening fee + per 4 hours in percentages.
+# https://www.kraken.com/en-us/features/fee-schedule/#margin
+_margin_fee_schedule = {
+    "aave": Decimal("0.02"),
+    "ada": Decimal("0.02"),
+    "algo": Decimal("0.02"),
+    "atom": Decimal("0.02"),
+    "avax": Decimal("0.02"),
+    "bat": Decimal("0.02"),
+    "bch": Decimal("0.02"),
+    "btc": Decimal("0.01"),
+    "cad": Decimal("0.015"),
+    "comp": Decimal("0.02"),
+    "dai": Decimal("0.02"),
+    "dash": Decimal("0.02"),
+    "doge": Decimal("0.02"),
+    "dot": Decimal("0.02"),
+    "eos": Decimal("0.02"),
+    "etc": Decimal("0.02"),
+    "eth": Decimal("0.02"),
+    "eur": Decimal("0.015"),
+    "fil": Decimal("0.02"),
+    "flow": Decimal("0.02"),
+    "gbp": Decimal("0.015"),
+    "kava": Decimal("0.02"),
+    "keep": Decimal("0.02"),
+    "ksm": Decimal("0.02"),
+    "link": Decimal("0.02"),
+    "lrc": Decimal("0.02"),
+    "ltc": Decimal("0.02"),
+    "luna": Decimal("0.02"),
+    "mana": Decimal("0.02"),
+    "matic": Decimal("0.02"),
+    "omg": Decimal("0.02"),
+    "paxg": Decimal("0.02"),
+    "sand": Decimal("0.02"),
+    "sc": Decimal("0.02"),
+    "sol": Decimal("0.02"),
+    "trx": Decimal("0.02"),
+    "uni": Decimal("0.02"),
+    "usd": Decimal("0.015"),
+    "usdc": Decimal("0.02"),
+    "usdt": Decimal("0.02"),
+    "xlm": Decimal("0.02"),
+    "xmr": Decimal("0.02"),
+    "xrp": Decimal("0.02"),
+    "xtz": Decimal("0.02"),
+    "zec": Decimal("0.02"),
+}
