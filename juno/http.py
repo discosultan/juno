@@ -19,10 +19,9 @@ import aiohttp
 from asyncstdlib import chain as chain_async
 from multidict import CIMultiDictProxy
 
-from juno import json
-from juno.itertools import generate_random_words
-
+from . import json
 from .asyncio import cancel, resolved_stream
+from .itertools import generate_random_words
 from .typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)
@@ -142,7 +141,7 @@ class ClientWebSocketResponse:
 async def connect_refreshing_stream(
     session: ClientSession,
     url: str,
-    interval: int,
+    interval: float,
     loads: Callable[[str], Any],
     take_until: Callable[[Any, Any], bool],
     name: Optional[str] = None,

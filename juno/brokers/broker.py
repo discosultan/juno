@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Optional
 
-from juno import OrderResult
+from juno import Account, OrderResult, Symbol
 
 
 class Broker(ABC):
@@ -12,8 +12,8 @@ class Broker(ABC):
     async def buy(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
@@ -25,8 +25,8 @@ class Broker(ABC):
     async def sell(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,

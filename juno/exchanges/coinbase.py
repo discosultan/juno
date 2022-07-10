@@ -17,25 +17,30 @@ from dateutil.tz import UTC
 from multidict import istr
 
 from juno import (
+    Account,
     AssetInfo,
     BadOrder,
     Balance,
     Candle,
+    ClientId,
     Depth,
     ExchangeException,
     ExchangeInfo,
     Fees,
     Fill,
     Filters,
+    Interval,
     OrderMissing,
     OrderResult,
     OrderStatus,
     OrderType,
     OrderUpdate,
     Side,
+    Symbol,
     Symbol_,
     Ticker,
     TimeInForce,
+    Timestamp,
     Timestamp_,
     Trade,
     json,
@@ -118,7 +123,7 @@ class Coinbase(Exchange):
 
         assets = {}
         for currency in currencies_content:
-            assets[_from_currency(currency["id"])] = AssetInfo(
+            assets[_from_asset(currency["id"])] = AssetInfo(
                 precision=decimal_to_precision(Decimal(currency["max_precision"]))
             )
 
@@ -154,7 +159,7 @@ class Coinbase(Exchange):
         tickers = {}
         async with self._ws.subscribe("ticker", ["ticker"], symbols) as ws:
             async for msg in ws:
-                symbol = _from_product(msg["product_id"])
+                symbol = _from_symbol(msg["product_id"])
                 tickers[symbol] = Ticker(
                     volume=Decimal(msg["volume_24h"]),  # TODO: incorrect?!
                     quote_volume=Decimal("0.0"),  # Not supported.
@@ -164,7 +169,7 @@ class Coinbase(Exchange):
                     break
         return tickers
 
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+    async def map_balances(self, account: Account) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == "spot":
             content = await self._private_request_json("GET", "/accounts")
@@ -179,10 +184,10 @@ class Coinbase(Exchange):
         return result
 
     async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
+        self, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
-        url = f"/products/{_to_product(symbol)}/candles"
+        url = f"/products/{_to_symbol(symbol)}/candles"
         for page_start, page_end in page_limit(start, end, interval, MAX_CANDLES_PER_REQUEST):
             content = await self._public_request_json(
                 "GET",
@@ -190,7 +195,7 @@ class Coinbase(Exchange):
                 {
                     "start": _to_datetime(page_start),
                     "end": _to_datetime(page_end - 1),
-                    "granularity": _to_granularity(interval),
+                    "granularity": _to_interval(interval),
                 },
             )
             for c in reversed(content):
@@ -210,7 +215,9 @@ class Coinbase(Exchange):
                 )
 
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(
+        self, symbol: Symbol
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
             async for data in ws:
                 if data["type"] == "snapshot":
@@ -231,7 +238,7 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, account: str, symbol: str
+        self, account: Account, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account == "spot"
 
@@ -300,15 +307,15 @@ class Coinbase(Exchange):
 
     async def place_order(
         self,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
         if account != "spot":
@@ -320,7 +327,7 @@ class Coinbase(Exchange):
         data: dict[str, Any] = {
             "type": "market" if type_ is OrderType.MARKET else "limit",
             "side": "buy" if side is Side.BUY else "sell",
-            "product_id": _to_product(symbol),
+            "product_id": _to_symbol(symbol),
         }
         if size is not None:
             data["size"] = _to_decimal(size)
@@ -347,9 +354,9 @@ class Coinbase(Exchange):
 
     async def cancel_order(
         self,
-        account: str,
-        symbol: str,
-        client_id: str | int,
+        account: Account,
+        symbol: Symbol,
+        client_id: ClientId,
     ) -> None:
         if account != "spot":
             raise NotImplementedError()
@@ -358,7 +365,7 @@ class Coinbase(Exchange):
             "DELETE",
             f"/orders/client:{client_id}",
             {
-                "product_id": _to_product(symbol),
+                "product_id": _to_symbol(symbol),
             },
         )
         content = await response.json()
@@ -367,11 +374,11 @@ class Coinbase(Exchange):
         response.raise_for_status()
 
     async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
+        self, symbol: Symbol, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Trade]:
         trades_desc = []
         async for content in self._paginated_public_request_json(
-            "GET", f"/products/{_to_product(symbol)}/trades"
+            "GET", f"/products/{_to_symbol(symbol)}/trades"
         ):
             done = False
             for val in content:
@@ -390,7 +397,7 @@ class Coinbase(Exchange):
             yield trade
 
     @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
+    async def connect_stream_trades(self, symbol: Symbol) -> AsyncIterator[AsyncIterable[Trade]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for val in ws:
                 if val["type"] == "last_match":
@@ -518,7 +525,7 @@ class CoinbaseFeed:
         signature = _auth_signature(self._secret_key_bytes, timestamp, "GET", "/users/self/verify")
         msg = {
             "type": "subscribe",
-            "product_ids": [_to_product(s) for s in symbols],
+            "product_ids": [_to_symbol(s) for s in symbols],
             "channels": [channel],
             # To authenticate, we need to add additional fields.
             "signature": signature,
@@ -558,14 +565,14 @@ class CoinbaseFeed:
             if type_ == "subscriptions":
                 self.subscriptions.update(
                     {
-                        c["name"]: [_from_product(s) for s in c["product_ids"]]
+                        c["name"]: [_from_symbol(s) for s in c["product_ids"]]
                         for c in data["channels"]
                     }
                 )
                 self.subscriptions_updated.set()
             else:
                 channel = self.type_to_channel[type_]
-                product = _from_product(data["product_id"])
+                product = _from_symbol(data["product_id"])
                 self.channels[(channel, product)].put_nowait(data)
 
 
@@ -582,27 +589,27 @@ def _is_subscribed(
     return True
 
 
-def _from_currency(currency: str) -> str:
-    return currency.lower()
+def _from_asset(value: str) -> str:
+    return value.lower()
 
 
-def _to_product(symbol: str) -> str:
+def _to_symbol(symbol: Symbol) -> str:
     return symbol.upper()
 
 
-def _from_product(product: str) -> str:
+def _from_symbol(product: str) -> str:
     return product.lower()
 
 
-def _to_granularity(interval: int) -> int:
+def _to_interval(interval: Interval) -> int:
     return interval // 1000
 
 
-def _to_datetime(timestamp: int) -> str:
+def _to_datetime(timestamp: Timestamp) -> str:
     return datetime.utcfromtimestamp(timestamp / 1000.0).isoformat()
 
 
-def _from_datetime(dt: str) -> int:
+def _from_datetime(dt: str) -> Timestamp:
     # Format can be either one:
     # - '%Y-%m-%dT%H:%M:%S.%fZ'
     # - '%Y-%m-%dT%H:%M:%SZ'

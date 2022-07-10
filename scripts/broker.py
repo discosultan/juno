@@ -3,7 +3,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import Balance, Fill, Side, Symbol_, brokers
+from juno import Asset, Balance, Fill, Side, Symbol, Symbol_, brokers
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
 from juno.inspect import get_module_type
@@ -53,8 +53,8 @@ async def transact_symbol(
     informant: Informant,
     orderbook: Orderbook,
     broker: brokers.Broker,
-    balances: dict[str, Balance],
-    symbol: str,
+    balances: dict[Asset, Balance],
+    symbol: Symbol,
 ) -> None:
     base_asset, quote_asset = Symbol_.assets(symbol)
     fees, filters = informant.get_fees_filters(args.exchange, symbol)

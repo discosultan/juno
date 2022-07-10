@@ -14,8 +14,11 @@ from types import TracebackType
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from juno import (
+    Account,
+    Asset,
     AssetInfo,
     Balance,
+    ClientId,
     Depth,
     ExchangeException,
     ExchangeInfo,
@@ -27,6 +30,7 @@ from juno import (
     OrderType,
     OrderUpdate,
     Side,
+    Symbol,
     Symbol_,
     TimeInForce,
     json,
@@ -150,7 +154,7 @@ class KuCoin(Exchange):
             },
         )
 
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+    async def map_balances(self, account: Account) -> dict[str, dict[str, Balance]]:
         if account != "spot":
             raise NotImplementedError()
 
@@ -171,7 +175,7 @@ class KuCoin(Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: str
+        self, account: Account
     ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
         if account != "spot":
             raise NotImplementedError()
@@ -194,7 +198,7 @@ class KuCoin(Exchange):
         async with self._ws.subscribe("/account/balance", private_channel=True) as ws:
             yield inner(ws)
 
-    async def get_depth(self, symbol: str) -> Depth.Snapshot:
+    async def get_depth(self, symbol: Symbol) -> Depth.Snapshot:
         await self._get_depth_limiter.acquire()
         res = await self._private_request_json(
             "GET",
@@ -211,7 +215,9 @@ class KuCoin(Exchange):
         )
 
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(
+        self, symbol: Symbol
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
             async for msg in ws:
                 subject = msg["subject"]
@@ -237,7 +243,7 @@ class KuCoin(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, account: str, symbol: str
+        self, account: Account, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         if account != "spot":
             raise NotImplementedError()
@@ -294,15 +300,15 @@ class KuCoin(Exchange):
 
     async def place_order(
         self,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         if account != "spot":
             raise NotImplementedError()
@@ -340,9 +346,9 @@ class KuCoin(Exchange):
 
     async def cancel_order(
         self,
-        account: str,
-        symbol: str,
-        client_id: str | int,
+        account: Account,
+        symbol: Symbol,
+        client_id: ClientId,
     ) -> None:
         if account != "spot":
             raise NotImplementedError()
@@ -526,15 +532,15 @@ def _raise_for_kucoin_status(res: Any) -> None:
         raise Exception(res["msg"])
 
 
-def _from_asset(asset: str) -> str:
-    return asset.lower()
+def _from_asset(value: str) -> Asset:
+    return value.lower()
 
 
-def _from_symbol(symbol: str) -> str:
-    return symbol.lower()
+def _from_symbol(value: str) -> Symbol:
+    return value.lower()
 
 
-def _to_symbol(symbol: str) -> str:
+def _to_symbol(symbol: Symbol) -> str:
     return symbol.upper()
 
 

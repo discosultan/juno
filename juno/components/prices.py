@@ -121,7 +121,9 @@ class Prices:
                 last_candle = candle
         return prices
 
-    async def _validate_start(self, exchange: str, symbol: str, interval: int, start: int) -> None:
+    async def _validate_start(
+        self, exchange: str, symbol: Symbol, interval: Interval, start: Timestamp
+    ) -> None:
         first = await self._chandler.get_first_candle(exchange, symbol, interval)
         if first.time > start:
             raise ValueError(

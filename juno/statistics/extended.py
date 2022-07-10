@@ -8,7 +8,7 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from juno import Interval, Interval_, Symbol_
+from juno import Asset, Interval, Interval_, Symbol_, Timestamp
 from juno.math import floor_multiple
 from juno.trading import TradingSummary
 
@@ -32,9 +32,9 @@ class ExtendedStatistics:
     @staticmethod
     def compose(
         summary: TradingSummary,
-        asset_prices: dict[str, list[Decimal]],
+        asset_prices: dict[Asset, list[Decimal]],
         interval: Interval = Interval_.DAY,
-        benchmark_asset: str = "btc",
+        benchmark_asset: Asset = "btc",
     ) -> ExtendedStatistics:
         assert summary.end is not None
 
@@ -63,9 +63,9 @@ class ExtendedStatistics:
 
 
 def _get_trades_from_summary(
-    summary: TradingSummary, interval: int
-) -> dict[int, list[tuple[str, Decimal]]]:
-    trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
+    summary: TradingSummary, interval: Interval
+) -> dict[Timestamp, list[tuple[Asset, Decimal]]]:
+    trades: dict[Timestamp, list[tuple[Asset, Decimal]]] = defaultdict(list)
     for pos in summary.positions:
         base_asset, quote_asset = Symbol_.assets(pos.symbol)
         # Open.
@@ -83,11 +83,11 @@ def _get_trades_from_summary(
 
 def _get_asset_performance(
     summary: TradingSummary,
-    start_day: int,
-    end_day: int,
-    asset_prices: dict[str, list[Decimal]],
-    trades: dict[int, list[tuple[str, Decimal]]],
-    interval: int,
+    start_day: Timestamp,
+    end_day: Timestamp,
+    asset_prices: dict[Asset, list[Decimal]],
+    trades: dict[Timestamp, list[tuple[Asset, Decimal]]],
+    interval: Interval,
 ) -> list[dict[str, Decimal]]:
     asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
     asset_holdings.update(summary.starting_assets)
@@ -115,7 +115,7 @@ def _get_asset_performance(
 
 
 def _get_asset_performance_entry_from_holdings(
-    asset_holdings: dict[str, Decimal], asset_prices: dict[str, list[Decimal]], price_i: int
+    asset_holdings: dict[Asset, Decimal], asset_prices: dict[Asset, list[Decimal]], price_i: int
 ) -> dict[str, Decimal]:
     asset_performance = {k: Decimal("0.0") for k in asset_prices.keys()}
     for asset, prices in asset_prices.items():

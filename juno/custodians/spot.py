@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
+from juno import Asset
 from juno.components import User
 
 from .custodian import Custodian
@@ -13,7 +14,9 @@ class Spot(Custodian):
     def __init__(self, user: User) -> None:
         self._user = user
 
-    async def request_quote(self, exchange: str, asset: str, quote: Optional[Decimal]) -> Decimal:
+    async def request_quote(
+        self, exchange: str, asset: Asset, quote: Optional[Decimal]
+    ) -> Decimal:
         available_quote = (
             await self._user.get_balance(exchange=exchange, account="spot", asset=asset)
         ).available
@@ -29,8 +32,8 @@ class Spot(Custodian):
 
         return quote
 
-    async def acquire(self, exchange: str, asset: str, quote: Decimal) -> None:
+    async def acquire(self, exchange: str, asset: Asset, quote: Decimal) -> None:
         pass
 
-    async def release(self, exchange: str, asset: str, quote: Decimal) -> None:
+    async def release(self, exchange: str, asset: Asset, quote: Decimal) -> None:
         pass

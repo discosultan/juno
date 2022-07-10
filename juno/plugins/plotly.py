@@ -6,7 +6,7 @@ from itertools import accumulate, chain
 import plotly.graph_objs as go
 import plotly.offline as py
 
-from juno import Candle, Fill, Timestamp_, indicators
+from juno import Candle, Fill, Symbol, Timestamp_, indicators
 from juno.components import Events
 from juno.trading import CloseReason, Position, TradingSummary
 
@@ -115,7 +115,7 @@ def plot(candles: list[Candle], summary: TradingSummary) -> None:
     py.plot(fig)
 
 
-def trace_position_openings(positions: list[Position.Closed], symbol: str) -> go.Scatter:
+def trace_position_openings(positions: list[Position.Closed], symbol: Symbol) -> go.Scatter:
     return go.Scatter(
         mode="markers",
         x=[Timestamp_.to_datetime_utc(p.open_time) for p in positions],

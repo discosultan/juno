@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterator, Literal
+from typing import AsyncIterator
 from uuid import uuid4
 
 import pytest
@@ -664,7 +664,7 @@ async def test_buy_matching_order_placement_strategy(mocker: MockerFixture) -> N
 async def init_broker(
     exchange: Exchange,
     cancel_order_on_error: bool = True,
-    order_placement_strategy: Literal["leading", "matching"] = "leading",
+    order_placement_strategy: Limit.OrderPlacementStrategy = "leading",
 ) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])

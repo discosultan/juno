@@ -11,7 +11,7 @@ from typing import AsyncIterable, AsyncIterator, Optional
 from asyncstdlib import chain as chain_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import Depth, ExchangeException, Fill, Filters, Side, Symbol_
+from juno import Depth, ExchangeException, Fill, Filters, Side, Symbol, Symbol_
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, resolved_stream
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -36,7 +36,7 @@ class _MissingInitialDepth(Exception):
 class Orderbook:
     class SyncContext:
         def __init__(
-            self, symbol: str, sides: Optional[dict[Side, dict[Decimal, Decimal]]] = None
+            self, symbol: Symbol, sides: Optional[dict[Side, dict[Decimal, Decimal]]] = None
         ) -> None:
             self.symbol = symbol
             self.sides = (
@@ -191,7 +191,7 @@ class Orderbook:
         pass
 
     @asynccontextmanager
-    async def sync(self, exchange: str, symbol: str) -> AsyncIterator[SyncContext]:
+    async def sync(self, exchange: str, symbol: Symbol) -> AsyncIterator[SyncContext]:
         id_ = str(uuid.uuid4())
         key = (exchange, symbol)
         ctxs = self._sync_ctxs[key]
@@ -220,7 +220,7 @@ class Orderbook:
                 del self._sync_ctxs[key]
                 await cancel(task)
 
-    async def _sync_orderbook(self, exchange: str, symbol: str, synced: asyncio.Event) -> None:
+    async def _sync_orderbook(self, exchange: str, symbol: Symbol, synced: asyncio.Event) -> None:
         ctxs = self._sync_ctxs[(exchange, symbol)]
         is_first = True
         async for attempt in AsyncRetrying(
@@ -255,7 +255,7 @@ class Orderbook:
                     else:
                         raise NotImplementedError(depth)
 
-    async def _stream_depth(self, exchange: str, symbol: str) -> AsyncIterable[Depth.Any]:
+    async def _stream_depth(self, exchange: str, symbol: Symbol) -> AsyncIterable[Depth.Any]:
         exchange_instance = self._exchanges[exchange]
 
         async with exchange_instance.connect_stream_depth(symbol) as stream:

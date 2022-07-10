@@ -3,6 +3,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
+from juno import Asset
 from juno.components import User
 from juno.exchanges import Exchange
 
@@ -22,7 +23,7 @@ async def main() -> None:
         await asyncio.gather(*(transfer_asset(user, exchange, a) for a in args.assets))
 
 
-async def transfer_asset(user: User, exchange: Exchange, asset: str) -> None:
+async def transfer_asset(user: User, exchange: Exchange, asset: Asset) -> None:
     size = args.size
     if not size:
         balance = await user.get_balance(

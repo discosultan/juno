@@ -9,7 +9,10 @@ from typing import Literal, NamedTuple, Optional, Union
 
 from juno.filters import Filters
 from juno.math import round_down, round_half_up, round_up
-from juno.primitives import Asset, Interval, Timestamp, Timestamp_
+from juno.primitives import Asset, Interval, Symbol, Timestamp, Timestamp_
+
+Account = Literal["spot", "margin", "isolated"] | Symbol
+ClientId = int | str
 
 
 class Advice(IntEnum):
@@ -210,7 +213,7 @@ class Fill:
         return sum((f.quote for f in fills), Decimal("0.0"))
 
     @staticmethod
-    def total_fee(fills: list[Fill], asset: str) -> Decimal:
+    def total_fee(fills: list[Fill], asset: Asset) -> Decimal:
         return sum((f.fee for f in fills if f.fee_asset == asset), Decimal("0.0"))
 
     @staticmethod
@@ -268,8 +271,8 @@ class OrderType(IntEnum):
 
 @dataclass(frozen=True)
 class Order:
-    client_id: str | int
-    symbol: str
+    client_id: ClientId
+    symbol: Symbol
     price: Decimal
     size: Decimal
 
@@ -282,15 +285,15 @@ class Order:
 
 class OrderUpdate(ModuleType):
     class New(NamedTuple):
-        client_id: str | int
+        client_id: ClientId
 
     # Depending on an exchange, it may return either Match or Cumulative updates.
     class Match(NamedTuple):
-        client_id: str | int
+        client_id: ClientId
         fill: Fill
 
     class Cumulative(NamedTuple):
-        client_id: str | int
+        client_id: ClientId
         price: Decimal
         cumulative_size: Decimal
         cumulative_quote: Decimal
@@ -299,11 +302,11 @@ class OrderUpdate(ModuleType):
 
     class Cancelled(NamedTuple):
         time: Timestamp
-        client_id: str | int
+        client_id: ClientId
 
     class Done(NamedTuple):
         time: Timestamp
-        client_id: str | int
+        client_id: ClientId
 
     Any = Union[New, Match, Cumulative, Cancelled, Done]
 
@@ -382,7 +385,7 @@ class AssetInfo:
 class SavingsProduct:
     product_id: str
     status: Literal["PREHEATING", "PURCHASING"]
-    asset: str
+    asset: Asset
     can_purchase: bool
     can_redeem: bool
     purchased_amount: Decimal

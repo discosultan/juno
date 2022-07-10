@@ -3,7 +3,7 @@ import csv
 from decimal import Decimal
 from typing import Any
 
-from juno import Candle, Filters, Interval_, Symbol_, Timestamp_, stop_loss, strategies
+from juno import Candle, Filters, Interval_, Symbol, Symbol_, Timestamp_, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
@@ -70,7 +70,7 @@ async def main() -> None:
 
 
 async def stream_and_export_daily_candles_as_csv(
-    chandler: Chandler, summary: TradingSummary, exchange: str, symbol: str
+    chandler: Chandler, summary: TradingSummary, exchange: str, symbol: Symbol
 ) -> None:
     assert summary.end
     candles = await chandler.list_candles(
@@ -85,7 +85,7 @@ async def stream_and_export_daily_candles_as_csv(
     )
 
 
-def export_daily_candles_as_csv(symbol: str, candles: list[Candle]) -> None:
+def export_daily_candles_as_csv(symbol: Symbol, candles: list[Candle]) -> None:
     with open(f"{symbol}-max.csv", "w", encoding="utf-8", newline="") as csvfile:
         fieldnames = ["snapped_at", "price", "market_cap", "total_volume"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -104,7 +104,9 @@ def candle_row(candle: Candle) -> dict[str, Any]:
     }
 
 
-def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, symbol: str) -> None:
+def export_trading_summary_as_csv(
+    filters: Filters, summary: TradingSummary, symbol: Symbol
+) -> None:
     base_asset, quote_asset = Symbol_.assets(symbol)
     quote = summary.starting_assets[quote_asset]
 

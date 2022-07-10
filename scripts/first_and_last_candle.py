@@ -3,7 +3,7 @@ import asyncio
 import logging
 from itertools import product
 
-from juno import Interval_, Timestamp_
+from juno import Interval, Interval_, Symbol, Timestamp_
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
 from juno.storages import SQLite
@@ -31,7 +31,7 @@ async def main() -> None:
         )
 
 
-async def log_first_last(chandler: Chandler, symbol: str, interval: int) -> None:
+async def log_first_last(chandler: Chandler, symbol: Symbol, interval: Interval) -> None:
     first_candle, last_candle = await asyncio.gather(
         chandler.get_first_candle(args.exchange, symbol, interval),
         chandler.get_last_candle(args.exchange, symbol, interval),

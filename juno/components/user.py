@@ -18,13 +18,17 @@ from tenacity import (
 )
 
 from juno import (
+    Account,
+    Asset,
     Balance,
+    ClientId,
     ExchangeException,
     OrderResult,
     OrderType,
     OrderUpdate,
     SavingsProduct,
     Side,
+    Symbol,
     TimeInForce,
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception
@@ -37,7 +41,7 @@ _log = logging.getLogger(__name__)
 
 class User:
     class WalletSyncContext:
-        def __init__(self, balances: Optional[dict[str, Balance]] = None) -> None:
+        def __init__(self, balances: Optional[dict[Asset, Balance]] = None) -> None:
             self.balances = {} if balances is None else balances
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
@@ -60,7 +64,7 @@ class User:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._wallet_sync_tasks.values())
 
-    def generate_client_id(self, exchange: str) -> str | int:
+    def generate_client_id(self, exchange: str) -> ClientId:
         return self._exchanges[exchange].generate_client_id()
 
     def can_place_market_order(self, exchange: str) -> bool:
@@ -74,7 +78,9 @@ class User:
         return self._exchanges[exchange].can_place_market_order_quote
 
     @asynccontextmanager
-    async def sync_wallet(self, exchange: str, account: str) -> AsyncIterator[WalletSyncContext]:
+    async def sync_wallet(
+        self, exchange: str, account: Account
+    ) -> AsyncIterator[WalletSyncContext]:
         id_ = str(uuid.uuid4())
         key = (exchange, account)
         ctxs = self._wallet_sync_ctxs[key]
@@ -108,8 +114,8 @@ class User:
     async def get_balance(
         self,
         exchange: str,
-        account: str,
-        asset: str,
+        account: Account,
+        asset: Asset,
     ) -> Balance:
         if account == "isolated":
             raise ValueError("Ambiguous account: isolated")
@@ -129,13 +135,13 @@ class User:
     async def map_balances(
         self,
         exchange: str,
-        accounts: list[str],
+        accounts: list[Account],
         significant: Optional[bool] = None,
-    ) -> dict[str, dict[str, Balance]]:
+    ) -> dict[Account, dict[Asset, Balance]]:
         account_args = {(a if a in {"spot", "margin"} else "isolated") for a in accounts}
 
         exchange_instance = self._exchanges[exchange]
-        result: dict[str, dict[str, Balance]] = {}
+        result: dict[Account, dict[Asset, Balance]] = {}
         balances = await asyncio.gather(
             *(exchange_instance.map_balances(account=a) for a in account_args)
         )
@@ -155,7 +161,7 @@ class User:
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, exchange: str, account: str, symbol: str
+        self, exchange: str, account: Account, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt_with_reset(8, 300),
@@ -179,15 +185,15 @@ class User:
     async def place_order(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         return await self._exchanges[exchange].place_order(
             account=account,
@@ -212,15 +218,15 @@ class User:
     )
     async def edit_order(
         self,
-        existing_id: str | int,
+        existing_id: ClientId,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> None:
         exchange_instance = self._exchanges[exchange]
         if not exchange_instance.can_edit_order:
@@ -245,9 +251,9 @@ class User:
     async def cancel_order(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
-        client_id: str | int,
+        account: Account,
+        symbol: Symbol,
+        client_id: ClientId,
     ) -> None:
         await self._exchanges[exchange].cancel_order(
             account=account,
@@ -262,7 +268,12 @@ class User:
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def transfer(
-        self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
+        self,
+        exchange: str,
+        asset: Asset,
+        size: Decimal,
+        from_account: Account,
+        to_account: Account,
     ) -> None:
         await self._exchanges[exchange].transfer(
             asset=asset, size=size, from_account=from_account, to_account=to_account
@@ -274,7 +285,7 @@ class User:
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
-    async def borrow(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
+    async def borrow(self, exchange: str, asset: Asset, size: Decimal, account: Account) -> None:
         await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
 
     @retry(
@@ -283,7 +294,7 @@ class User:
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
-    async def repay(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
+    async def repay(self, exchange: str, asset: Asset, size: Decimal, account: Account) -> None:
         await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
 
     @retry(
@@ -292,7 +303,7 @@ class User:
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
-    async def get_max_borrowable(self, exchange: str, asset: str, account: str) -> Decimal:
+    async def get_max_borrowable(self, exchange: str, asset: Asset, account: Account) -> Decimal:
         return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
 
     @retry(
@@ -324,7 +335,7 @@ class User:
     async def redeem_savings_product(self, exchange: str, product_id: str, size: Decimal) -> None:
         return await self._exchanges[exchange].redeem_savings_product(product_id, size)
 
-    async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
+    async def _sync_balances(self, exchange: str, account: Account, synced: asyncio.Event) -> None:
         ctxs = self._wallet_sync_ctxs[(exchange, account)]
         is_first = True
         async for attempt in AsyncRetrying(
@@ -347,7 +358,7 @@ class User:
                             ctx.updated.set()
 
     async def _stream_balances(
-        self, exchange: str, account: str
+        self, exchange: str, account: Account
     ) -> AsyncIterable[dict[str, Balance]]:
         exchange_instance = self._exchanges[exchange]
 

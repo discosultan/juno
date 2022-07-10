@@ -5,7 +5,7 @@ from itertools import product
 
 from asyncstdlib import enumerate as enumerate_async
 
-from juno import Interval_, Timestamp_, storages
+from juno import Interval, Interval_, Symbol, Timestamp_, storages
 from juno.components import Chandler, Trades
 from juno.exchanges import Exchange
 from juno.inspect import get_module_type
@@ -42,7 +42,7 @@ async def main() -> None:
         )
 
 
-async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None:
+async def stream_candles(chandler: Chandler, symbol: Symbol, interval: Interval) -> None:
     start = (
         (await chandler.get_first_candle(args.exchange, symbol, interval)).time
         if args.start is None

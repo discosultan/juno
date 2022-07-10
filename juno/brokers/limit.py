@@ -5,7 +5,9 @@ from decimal import Decimal
 from typing import AsyncIterable, Literal, NamedTuple, Optional
 
 from juno import (
+    Account,
     BadOrder,
+    ClientId,
     Fill,
     Filters,
     OrderMissing,
@@ -15,6 +17,7 @@ from juno import (
     OrderUpdate,
     OrderWouldBeTaker,
     Side,
+    Symbol,
     Symbol_,
 )
 from juno.asyncio import Event, cancel
@@ -30,7 +33,7 @@ _CANCELLED_EVENT_WAIT_TIMEOUT = 60
 
 
 class _ActiveOrder(NamedTuple):
-    client_id: str | int
+    client_id: ClientId
     price: Decimal
     size: Decimal
     quote: Decimal
@@ -69,13 +72,15 @@ class _FilledFromKeepAtBest(Exception):
 
 
 class Limit(Broker):
+    OrderPlacementStrategy = Literal["leading", "matching"]
+
     def __init__(
         self,
         informant: Informant,
         orderbook: Orderbook,
         user: User,
         cancel_order_on_error: bool = True,
-        order_placement_strategy: Literal["leading", "matching"] = "matching",
+        order_placement_strategy: OrderPlacementStrategy = "matching",
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
@@ -93,8 +98,8 @@ class Limit(Broker):
     async def buy(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
@@ -145,8 +150,8 @@ class Limit(Broker):
     async def sell(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
@@ -181,8 +186,8 @@ class Limit(Broker):
     async def _fill(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         ensure_size: bool,
         size: Optional[Decimal] = None,
@@ -256,8 +261,8 @@ class Limit(Broker):
     async def _keep_limit_order_best(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         ensure_size: bool,
         ctx: _Context,
@@ -314,7 +319,7 @@ class Limit(Broker):
 
     async def _track_fills(
         self,
-        symbol: str,
+        symbol: Symbol,
         stream: AsyncIterable[OrderUpdate.Any],
         side: Side,
         ctx: _Context,
@@ -399,8 +404,8 @@ class Limit(Broker):
     async def _place_order_and_wait(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         price: Decimal,
         ensure_size: bool,
@@ -446,8 +451,8 @@ class Limit(Broker):
     async def _edit_order_and_wait(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         price: Decimal,
         ensure_size: bool,
@@ -502,8 +507,8 @@ class Limit(Broker):
     async def _cancel_order_and_wait(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         ctx: _Context,
     ) -> None:
@@ -532,7 +537,7 @@ class Limit(Broker):
         ctx.requested_order = None
 
     async def _cancel_order(
-        self, exchange: str, account: str, symbol: str, client_id: str | int
+        self, exchange: str, account: Account, symbol: Symbol, client_id: ClientId
     ) -> bool:
         try:
             await self._user.cancel_order(
@@ -618,7 +623,7 @@ def _validate_side_not_empty(side: Side, ob_side: list[tuple[Decimal, Decimal]])
 
 
 def _get_size_for_price(
-    symbol: str,
+    symbol: Symbol,
     side: Side,
     filters: Filters,
     ensure_size: bool,

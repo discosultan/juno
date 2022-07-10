@@ -10,6 +10,8 @@ from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import (
+    Account,
+    Asset,
     AssetInfo,
     BorrowInfo,
     ExchangeException,
@@ -17,6 +19,7 @@ from juno import (
     Fees,
     Filters,
     Interval_,
+    Symbol,
     Ticker,
     Timestamp,
     Timestamp_,
@@ -91,17 +94,17 @@ class Informant:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(self._exchange_info_sync_task, self._tickers_sync_task)
 
-    def get_asset_info(self, exchange: str, asset: str) -> AssetInfo:
+    def get_asset_info(self, exchange: str, asset: Asset) -> AssetInfo:
         exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         return _get_or_default(exchange_info.assets, asset)
 
-    def get_fees_filters(self, exchange: str, symbol: str) -> tuple[Fees, Filters]:
+    def get_fees_filters(self, exchange: str, symbol: Symbol) -> tuple[Fees, Filters]:
         exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         fees = _get_or_default(exchange_info.fees, symbol)
         filters = _get_or_default(exchange_info.filters, symbol)
         return fees, filters
 
-    def get_borrow_info(self, exchange: str, asset: str, account: str) -> BorrowInfo:
+    def get_borrow_info(self, exchange: str, asset: Asset, account: Account) -> BorrowInfo:
         assert account != "spot"
         exchange_info: ExchangeInfo = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         borrow_info = _get_or_default(exchange_info.borrow_info, account)
@@ -177,7 +180,7 @@ class Informant:
         # Sorted by quote volume desc. Watch out when queried with different quote assets.
         return dict(sorted(result, key=lambda st: st[1].quote_volume, reverse=True))
 
-    def list_exchanges(self, symbol: Optional[str] = None) -> list[str]:
+    def list_exchanges(self, symbol: Optional[Symbol] = None) -> list[str]:
         result = (e for e in self._exchanges.keys())
 
         if symbol is not None:

@@ -3,7 +3,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import Interval_, Symbol_
+from juno import Interval_, Symbol, Symbol_
 from juno.components import Chandler, Informant, User
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
@@ -30,7 +30,7 @@ async def main() -> None:
 
 
 async def process_symbol(
-    informant: Informant, chandler: Chandler, user: User, symbol: str
+    informant: Informant, chandler: Chandler, user: User, symbol: Symbol
 ) -> None:
     exchange_amount, manual_amount = await asyncio.gather(
         max_exchange(user, symbol),
@@ -42,7 +42,7 @@ async def process_symbol(
         logging.error("manual amount exceeds exchange amount")
 
 
-async def max_exchange(user: User, symbol: str) -> Decimal:
+async def max_exchange(user: User, symbol: Symbol) -> Decimal:
     base_asset, quote_asset = Symbol_.assets(symbol)
     await user.transfer(
         "binance", quote_asset, args.collateral, from_account="spot", to_account=args.account
@@ -58,7 +58,7 @@ async def max_exchange(user: User, symbol: str) -> Decimal:
     return max_borrowable
 
 
-async def max_manual(informant: Informant, chandler: Chandler, symbol: str) -> Decimal:
+async def max_manual(informant: Informant, chandler: Chandler, symbol: Symbol) -> Decimal:
     candle = await chandler.get_last_candle("binance", symbol, Interval_.MIN)
     # margin_multiplier = informant.get_margin_multiplier('binance')
     margin_multiplier = 2

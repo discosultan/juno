@@ -53,7 +53,7 @@ class SQLite(Storage):
         _log.info(f"sqlite version: {sqlite3.sqlite_version}; schema version: {self._version}")
 
     async def stream_time_series_spans(
-        self, shard: str, key: str, start: int = 0, end: int = Timestamp_.MAX_TIME
+        self, shard: str, key: str, start: Timestamp = 0, end: Timestamp = Timestamp_.MAX_TIME
     ) -> AsyncIterable[tuple[int, int]]:
         def inner() -> list[tuple[int, int]]:
             _log.info(
@@ -73,7 +73,12 @@ class SQLite(Storage):
             yield max(span_start, start), min(span_end, end)
 
     async def stream_time_series(
-        self, shard: str, key: str, type_: type[T], start: int = 0, end: int = Timestamp_.MAX_TIME
+        self,
+        shard: str,
+        key: str,
+        type_: type[T],
+        start: Timestamp = 0,
+        end: Timestamp = Timestamp_.MAX_TIME,
     ) -> AsyncIterable[T]:
         def inner() -> list[T]:
             _log.info(
@@ -92,7 +97,7 @@ class SQLite(Storage):
             yield serialization.raw.deserialize(row, type_)
 
     async def store_time_series_and_span(
-        self, shard: str, key: str, items: list[Any], start: int, end: int
+        self, shard: str, key: str, items: list[Any], start: Timestamp, end: Timestamp
     ) -> None:
         # Even if items list is empty, we still want to store a span for the period!
         if len(items) > 0:

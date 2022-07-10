@@ -3,7 +3,7 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
-from juno import Balance, SavingsProduct
+from juno import Asset, Balance, SavingsProduct
 from juno.components import User
 
 from .custodian import Custodian
@@ -18,7 +18,9 @@ class Savings(Custodian):
     def __init__(self, user: User) -> None:
         self._user = user
 
-    async def request_quote(self, exchange: str, asset: str, quote: Optional[Decimal]) -> Decimal:
+    async def request_quote(
+        self, exchange: str, asset: Asset, quote: Optional[Decimal]
+    ) -> Decimal:
         # On Binance, a flexible savings asset is indicated with an "ld"-prefix. It stands for
         # "lending daily".
         savings_asset = f"ld{asset}"
@@ -37,7 +39,7 @@ class Savings(Custodian):
 
         return quote
 
-    async def acquire(self, exchange: str, asset: str, quote: Decimal) -> None:
+    async def acquire(self, exchange: str, asset: Asset, quote: Decimal) -> None:
         _log.info(f"redeeming {quote} worth of {asset} flexible savings product")
 
         product = await asyncio.wait_for(
@@ -57,7 +59,7 @@ class Savings(Custodian):
 
         _log.info(f"redeemed {quote} worth of {asset} flexible savings product")
 
-    async def release(self, exchange: str, asset: str, quote: Decimal) -> None:
+    async def release(self, exchange: str, asset: Asset, quote: Decimal) -> None:
         _log.info(f"purchasing {quote} worth of {asset} flexible savings product")
 
         product = await asyncio.wait_for(
@@ -79,7 +81,7 @@ class Savings(Custodian):
         _log.info(f"purchased {quote} worth of {asset} flexible savings product")
 
     async def _wait_for_wallet_updated_with(
-        self, wallet: User.WalletSyncContext, asset: str, quote: Decimal
+        self, wallet: User.WalletSyncContext, asset: Asset, quote: Decimal
     ) -> None:
         while True:
             await wallet.updated.wait()
@@ -87,7 +89,7 @@ class Savings(Custodian):
                 return
 
     async def _wait_for_product_status_purchasing(
-        self, exchange: str, asset: str
+        self, exchange: str, asset: Asset
     ) -> Optional[SavingsProduct]:
         # A product can be in status "PURCHASING" or "PREHEATING". "PURCHASING" is when the product
         # is available. "PREHEATING" means the product is being processed. This happens usually at

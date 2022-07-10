@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import logging
 
-from juno import Balance
+from juno import Account, Asset, Balance
 from juno.components import User
 from juno.exchanges import Exchange
 
@@ -31,7 +31,7 @@ async def main() -> None:
             await asyncio.gather(*(stream_account(user, a) for a in accounts))
 
 
-async def log_accounts(user: User, accounts: list[str]) -> None:
+async def log_accounts(user: User, accounts: list[Account]) -> None:
     account_balances = await user.map_balances(
         exchange=args.exchange, accounts=accounts, significant=not args.empty
     )
@@ -46,14 +46,14 @@ async def log_accounts(user: User, accounts: list[str]) -> None:
         logging.info("all accounts empty")
 
 
-async def stream_account(user: User, account: str) -> None:
+async def stream_account(user: User, account: Account) -> None:
     async with user.sync_wallet(exchange=args.exchange, account=account) as wallet:
         while True:
             await wallet.updated.wait()
             log(account, wallet.balances)
 
 
-def log(account: str, account_balances: dict[str, Balance]) -> None:
+def log(account: Account, account_balances: dict[Asset, Balance]) -> None:
     logging.info(f"{args.exchange} {account} account")
     for asset, balance in account_balances.items():
         logging.info(f"{asset} - {balance}")

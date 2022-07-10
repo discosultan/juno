@@ -12,13 +12,16 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from juno import (
+    Asset,
     AssetInfo,
     Balance,
     Candle,
+    ClientId,
     Depth,
     ExchangeInfo,
     Fees,
     Filters,
+    Interval,
     Interval_,
     Order,
     OrderMissing,
@@ -26,16 +29,18 @@ from juno import (
     OrderType,
     OrderUpdate,
     Side,
+    Symbol,
     Symbol_,
     Ticker,
     TimeInForce,
+    Timestamp,
     Timestamp_,
     Trade,
     json,
 )
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
-from juno.common import OrderStatus
+from juno.common import Account, OrderStatus
 from juno.errors import ExchangeException, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -177,7 +182,7 @@ class Kraken(Exchange):
             for pair, val in res["result"].items()
         }
 
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+    async def map_balances(self, account: Account) -> dict[str, dict[str, Balance]]:
         """https://docs.kraken.com/rest/#operation/getAccountBalance"""
 
         result = {}
@@ -196,7 +201,7 @@ class Kraken(Exchange):
 
     @asynccontextmanager
     async def connect_stream_candles(
-        self, symbol: str, interval: int
+        self, symbol: Symbol, interval: Interval
     ) -> AsyncIterator[AsyncIterable[Candle]]:
         # https://docs.kraken.com/websockets/#message-ohlc
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
@@ -221,7 +226,9 @@ class Kraken(Exchange):
             yield inner(ws)
 
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(
+        self, symbol: Symbol
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
             async for val in ws:
                 if "as" in val or "bs" in val:
@@ -251,8 +258,8 @@ class Kraken(Exchange):
     @asynccontextmanager
     async def connect_stream_orders(
         self,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         """https://docs.kraken.com/websockets/#message-openOrders"""
 
@@ -303,7 +310,7 @@ class Kraken(Exchange):
         async with self._private_ws.subscribe({"name": "openOrders"}) as ws:
             yield inner(ws)
 
-    async def list_orders(self, account: str, symbol: Optional[str] = None) -> list[Order]:
+    async def list_orders(self, account: Account, symbol: Optional[str] = None) -> list[Order]:
         """https://docs.kraken.com/rest/#operation/getOpenOrders"""
 
         assert account == "spot"
@@ -322,15 +329,15 @@ class Kraken(Exchange):
 
     async def place_order(
         self,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
         assert account == "spot"
@@ -375,14 +382,14 @@ class Kraken(Exchange):
 
     async def edit_order(
         self,
-        existing_id: str | int,
-        account: str,
-        symbol: str,
+        existing_id: ClientId,
+        account: Account,
+        symbol: Symbol,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> None:
         """https://docs.kraken.com/rest/#operation/editOrder"""
         assert account == "spot"
@@ -423,9 +430,9 @@ class Kraken(Exchange):
 
     async def cancel_order(
         self,
-        account: str,
-        symbol: str,
-        client_id: str | int,
+        account: Account,
+        symbol: Symbol,
+        client_id: ClientId,
     ) -> None:
         """https://docs.kraken.com/rest/#operation/cancelOrder"""
         assert account == "spot"
@@ -444,7 +451,7 @@ class Kraken(Exchange):
             raise
 
     async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
+        self, symbol: Symbol, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Trade]:
         # https://www.kraken.com/en-us/features/api#get-recent-trades
         since = _to_time(start) - 1  # Exclusive.
@@ -474,7 +481,7 @@ class Kraken(Exchange):
                 )
 
     @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
+    async def connect_stream_trades(self, symbol: Symbol) -> AsyncIterator[AsyncIterable[Trade]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for trades in ws:
                 for trade in trades:
@@ -705,7 +712,7 @@ def _to_time(time: int) -> int:
     return time * 1_000_000
 
 
-def _to_ws_symbol(symbol: str) -> str:
+def _to_ws_symbol(symbol: Symbol) -> str:
     return symbol.replace("-", "/").upper()
 
 
@@ -818,34 +825,34 @@ _ASSET_ALIAS_MAP = {
 _REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in _ASSET_ALIAS_MAP.items()}
 
 
-def _from_asset(asset: str) -> str:
+def _from_asset(value: str) -> Asset:
     # 1. Normalize to lowercase.
-    asset = asset.lower()
+    value = value.lower()
     # 2. Go from Kraken old format to new format.
-    asset = _OLD_ASSET_TO_NEW_ASSET.get(asset, asset)
+    value = _OLD_ASSET_TO_NEW_ASSET.get(value, value)
     # 3. Go from Kraken new format to Juno format.
-    return _ASSET_ALIAS_MAP.get(asset, asset)
+    return _ASSET_ALIAS_MAP.get(value, value)
 
 
-def _from_symbol(symbol: str) -> str:
+def _from_symbol(value: str) -> Symbol:
     # 1. Normalize to lowercase.
-    symbol = symbol.lower()
+    value = value.lower()
     # 2. Go from Kraken old format to new format.
-    new_symbol = _OLD_SYMBOL_TO_NEW_SYMBOL.get(symbol, symbol)
+    new_value = _OLD_SYMBOL_TO_NEW_SYMBOL.get(value, value)
     # 3. Go from Kraken new format to Juno format.
     for asset in _KNOWN_NEW_QUOTE_ASSETS:
-        if new_symbol.endswith(asset):
-            base = new_symbol[: -len(asset)]
+        if new_value.endswith(asset):
+            base = new_value[: -len(asset)]
             base = _ASSET_ALIAS_MAP.get(base, base)
             quote = _ASSET_ALIAS_MAP.get(asset, asset)
             break
     else:
-        raise NotImplementedError(f"unknown quote asset found in symbol: {new_symbol}")
+        raise NotImplementedError(f"unknown quote asset found in symbol: {new_value}")
 
     return f"{base}-{quote}"
 
 
-def _to_http_symbol(symbol: str) -> str:
+def _to_http_symbol(symbol: Symbol) -> str:
     # 1. Go from Juno format to Kraken new format.
     base, quote = Symbol_.assets(symbol)
     base = _REVERSE_ASSET_ALIAS_MAP.get(base, base)

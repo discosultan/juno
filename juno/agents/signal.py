@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from juno import Advice, Interval, Timestamp_, strategies
+from juno import Advice, Interval, Symbol, Timestamp_, strategies
 from juno.components import Chandler, Events
 from juno.config import get_type_name_and_kwargs
 from juno.inspect import get_module_type
@@ -18,7 +18,7 @@ class Signal(Agent):
     @dataclass(frozen=True)
     class Config:
         exchange: str
-        symbol: str
+        symbol: Symbol
         interval: Interval
         strategy: dict[str, Any]
         name: Optional[str] = None

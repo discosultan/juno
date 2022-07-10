@@ -5,7 +5,17 @@ from decimal import Decimal
 from typing import Awaitable, Callable, Literal, Optional, TypeVar, Union
 from uuid import uuid4
 
-from juno import Advice, BadOrder, Candle, CandleType, Interval, Symbol_, Timestamp, Timestamp_
+from juno import (
+    Advice,
+    BadOrder,
+    Candle,
+    CandleType,
+    Interval,
+    Symbol,
+    Symbol_,
+    Timestamp,
+    Timestamp_,
+)
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.common import CandleMeta
@@ -30,7 +40,7 @@ T = TypeVar("T")
 @dataclass(frozen=True)
 class BasicConfig:
     exchange: str
-    symbol: str
+    symbol: Symbol
     interval: Interval
     end: Timestamp
     strategy: Constructor[Signal]

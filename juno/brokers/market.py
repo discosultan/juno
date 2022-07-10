@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Callable, Optional
 
-from juno import Fill, OrderResult, OrderStatus, OrderType, Side, Timestamp_
+from juno import Account, Fill, OrderResult, OrderStatus, OrderType, Side, Symbol, Timestamp_
 from juno.components import Informant, Orderbook, User
 
 from .broker import Broker
@@ -32,8 +32,8 @@ class Market(Broker):
     async def buy(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
@@ -87,8 +87,8 @@ class Market(Broker):
     async def sell(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
@@ -118,7 +118,7 @@ class Market(Broker):
     async def _get_buy_fills(
         self,
         exchange: str,
-        symbol: str,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
     ) -> list[Fill]:
@@ -133,7 +133,7 @@ class Market(Broker):
     async def _get_sell_fills(
         self,
         exchange: str,
-        symbol: str,
+        symbol: Symbol,
         size: Decimal,
     ) -> list[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -142,7 +142,7 @@ class Market(Broker):
         self._validate_fills(exchange, symbol, fills)
         return fills
 
-    def _validate_fills(self, exchange: str, symbol: str, fills: list[Fill]) -> None:
+    def _validate_fills(self, exchange: str, symbol: Symbol, fills: list[Fill]) -> None:
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         size = Fill.total_size(fills)
         filters.size.validate(size)
@@ -153,8 +153,8 @@ class Market(Broker):
     async def _fill(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,

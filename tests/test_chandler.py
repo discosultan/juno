@@ -7,7 +7,16 @@ import pytest
 from asyncstdlib import list as list_async
 from pytest_mock import MockerFixture
 
-from juno import Candle, ExchangeException, Interval_, Timestamp_, Trade
+from juno import (
+    Candle,
+    ExchangeException,
+    Interval,
+    Interval_,
+    Symbol,
+    Timestamp,
+    Timestamp_,
+    Trade,
+)
 from juno.asyncio import cancel, resolved_stream
 from juno.components import Chandler
 from juno.exchanges import Exchange
@@ -567,7 +576,9 @@ async def test_stream_concurrent_historical_candles(
     exchange.can_stream_historical_candles.return_value = True
     exchange.list_candle_intervals.return_value = [1, 2]
 
-    def stream_historical_candles(symbol: str, interval: int, start: int, end: int):
+    def stream_historical_candles(
+        symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
+    ):
         if interval == 1:
             return resolved_stream(
                 Candle(time=0, close=Decimal("1.0")),
@@ -617,7 +628,9 @@ async def test_stream_concurrent_historical_candles_with_offset_time(
     exchange.can_stream_historical_candles.return_value = True
     exchange.list_candle_intervals.return_value = [Interval_.DAY, Interval_.WEEK]
 
-    def stream_historical_candles(symbol: str, interval: int, start: int, end: int):
+    def stream_historical_candles(
+        symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
+    ):
         if interval == Interval_.DAY:
             return resolved_stream(
                 Candle(time=Timestamp_.parse("2018-01-01"), close=Decimal("1.0")),  # Mon
@@ -699,7 +712,7 @@ async def test_stream_concurrent_future_candles(
     exchange.can_stream_candles = True
 
     @asynccontextmanager
-    async def connect_stream_future_candles(symbol: str, interval: int):
+    async def connect_stream_future_candles(symbol: Symbol, interval: Interval):
         def inner():
             if interval == 3:
                 return resolved_stream(

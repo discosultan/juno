@@ -12,7 +12,19 @@ from tenacity import (
     wait_exponential,
 )
 
-from juno import BadOrder, Balance, Fill, Filters, Interval_, Symbol_, Timestamp, Timestamp_
+from juno import (
+    Account,
+    Asset,
+    BadOrder,
+    Balance,
+    Fill,
+    Filters,
+    Interval_,
+    Symbol,
+    Symbol_,
+    Timestamp,
+    Timestamp_,
+)
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
 from juno.custodians import Custodian
@@ -47,7 +59,7 @@ class Positioner:
         exchange: str,
         custodian: str,
         mode: TradingMode,
-        entries: list[tuple[str, Decimal, bool]],  # [symbol, quote, short]
+        entries: list[tuple[Symbol, Decimal, bool]],  # [symbol, quote, short]
     ) -> list[Position.Open]:
         if len(entries) == 0:
             return []
@@ -143,7 +155,7 @@ class Positioner:
         return result
 
     async def _open_long_position(
-        self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
+        self, exchange: str, symbol: Symbol, quote: Decimal, mode: TradingMode
     ) -> Position.Open:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"opening long position {symbol} {mode.name} with {quote} quote")
@@ -190,7 +202,7 @@ class Positioner:
         return closed_position
 
     async def _open_short_position(
-        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
+        self, exchange: str, symbol: Symbol, collateral: Decimal, mode: TradingMode
     ) -> Position.Open:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f"opening short position {symbol} {mode.name} with {collateral} collateral")
@@ -279,7 +291,7 @@ class Positioner:
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _get_max_borrowable_with_retries(
-        self, exchange: str, account: str, asset: str
+        self, exchange: str, account: Account, asset: Asset
     ) -> Decimal:
         borrowable = await self._user.get_max_borrowable(
             exchange=exchange, account=account, asset=asset
@@ -430,7 +442,7 @@ class Positioner:
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def _get_repaid_balance_with_retries(
-        self, exchange: str, account: str, asset: str, original_borrowed: Decimal
+        self, exchange: str, account: Account, asset: Asset, original_borrowed: Decimal
     ) -> Balance:
         balance = await self._user.get_balance(
             exchange=exchange,
@@ -476,7 +488,7 @@ class SimulatedPositioner:
     def _open_simulated_long_position(
         self,
         exchange: str,
-        symbol: str,
+        symbol: Symbol,
         time: Timestamp,
         price: Decimal,
         quote: Decimal,
@@ -532,7 +544,7 @@ class SimulatedPositioner:
     def _open_simulated_short_position(
         self,
         exchange: str,
-        symbol: str,
+        symbol: Symbol,
         time: Timestamp,
         price: Decimal,
         collateral: Decimal,
@@ -616,7 +628,7 @@ def _calculate_borrowed(
 
 
 def _calculate_interest(
-    borrowed: Decimal, hourly_rate: Decimal, start: int, end: int, precision: int
+    borrowed: Decimal, hourly_rate: Decimal, start: Timestamp, end: Timestamp, precision: int
 ) -> Decimal:
     duration = ceil_multiple(end - start, Interval_.HOUR) // Interval_.HOUR
     return round_half_up(borrowed * duration * hourly_rate, precision=precision)

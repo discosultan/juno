@@ -4,7 +4,7 @@ import logging
 from decimal import Decimal
 from typing import Awaitable, Callable
 
-from juno import BadOrder, Fill, Side, Symbol_, brokers
+from juno import BadOrder, Fill, Side, Symbol, Symbol_, brokers
 from juno.common import OrderResult
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
@@ -38,7 +38,7 @@ async def transact_symbol(
     orderbook: Orderbook,
     user: User,
     broker: brokers.Broker,
-    symbol: str,
+    symbol: Symbol,
 ) -> None:
     base_asset, _ = Symbol_.assets(symbol)
     fees, filters = informant.get_fees_filters(args.exchange, symbol)

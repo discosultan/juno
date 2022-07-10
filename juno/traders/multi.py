@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from more_itertools import take
 
-from juno import Advice, Candle, Interval, Timestamp, Timestamp_
+from juno import Advice, Asset, Candle, Interval, Symbol, Timestamp, Timestamp_
 from juno.asyncio import (
     Event,
     SlotBarrier,
@@ -92,7 +92,7 @@ class MultiState:
 
 @dataclass
 class _SymbolState:
-    symbol: str
+    symbol: Symbol
     strategy: Signal
     changed: Changed
     adjusted_start: Timestamp
@@ -198,11 +198,15 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             symbol_states={s: self._create_symbol_state(s, start, config) for s in symbols},
         )
 
-    def _split_quote(self, asset: str, quote: Decimal, parts: int, exchange: str) -> list[Decimal]:
+    def _split_quote(
+        self, asset: Asset, quote: Decimal, parts: int, exchange: str
+    ) -> list[Decimal]:
         asset_info = self._informant.get_asset_info(exchange, asset)
         return split(quote, parts, asset_info.precision)
 
-    def _create_symbol_state(self, symbol: str, start: int, config: MultiConfig) -> _SymbolState:
+    def _create_symbol_state(
+        self, symbol: Symbol, start: Timestamp, config: MultiConfig
+    ) -> _SymbolState:
         strategy = config.symbol_strategies.get(symbol, config.strategy).construct()
 
         adjusted_start = start

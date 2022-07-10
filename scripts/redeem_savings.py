@@ -3,7 +3,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import Balance, SavingsProduct
+from juno import Asset, Balance, SavingsProduct
 from juno.components import User
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
@@ -25,9 +25,9 @@ async def main() -> None:
 
 async def redeem_asset(
     user: User,
-    products: dict[str, SavingsProduct],
-    balances: dict[str, Balance],
-    asset: str,
+    products: dict[Asset, SavingsProduct],
+    balances: dict[Asset, Balance],
+    asset: Asset,
 ) -> None:
     size = args.size
     if size is None:

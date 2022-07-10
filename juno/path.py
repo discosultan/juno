@@ -2,7 +2,7 @@ from os import path
 from pathlib import Path
 from typing import Any
 
-from juno import json, yaml
+from . import json, yaml
 
 
 def home_path(*args: str) -> Path:

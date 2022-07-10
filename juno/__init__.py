@@ -1,4 +1,5 @@
 from .common import (
+    Account,
     Advice,
     AssetInfo,
     Balance,
@@ -6,6 +7,7 @@ from .common import (
     Candle,
     CandleMeta,
     CandleType,
+    ClientId,
     Depth,
     ExchangeInfo,
     Fees,
@@ -26,8 +28,9 @@ from .filters import Filters
 from .primitives import Asset, Interval, Interval_, Symbol, Symbol_, Timestamp, Timestamp_
 
 __all__ = [
-    "Asset",
+    "Account",
     "Advice",
+    "Asset",
     "AssetInfo",
     "BadOrder",
     "Balance",
@@ -35,6 +38,7 @@ __all__ = [
     "Candle",
     "CandleMeta",
     "CandleType",
+    "ClientId",
     "Depth",
     "ExchangeException",
     "ExchangeInfo",

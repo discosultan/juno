@@ -8,7 +8,7 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Optional, Sequence, Union
 
-from juno import Fill, Interval, Symbol_, Timestamp, Timestamp_
+from juno import Fill, Interval, Symbol, Symbol_, Timestamp, Timestamp_
 from juno.asyncio import gather_dict
 from juno.components import Chandler
 from juno.math import annualized
@@ -36,7 +36,7 @@ class Position(ModuleType):
     @dataclass(frozen=True)
     class Long:
         exchange: str
-        symbol: str
+        symbol: Symbol
         open_time: Timestamp
         open_fills: list[Fill]
         close_time: Timestamp
@@ -100,7 +100,7 @@ class Position(ModuleType):
     @dataclass(frozen=True)
     class OpenLong:
         exchange: str
-        symbol: str
+        symbol: Symbol
         time: Timestamp
         fills: list[Fill]
 
@@ -128,7 +128,7 @@ class Position(ModuleType):
     @dataclass(frozen=True)
     class Short:
         exchange: str
-        symbol: str
+        symbol: Symbol
         collateral: Decimal  # quote
         borrowed: Decimal  # base
         open_time: Timestamp
@@ -199,7 +199,7 @@ class Position(ModuleType):
     @dataclass(frozen=True)
     class OpenShort:
         exchange: str
-        symbol: str
+        symbol: Symbol
         collateral: Decimal
         borrowed: Decimal
         time: Timestamp
@@ -263,8 +263,12 @@ class StartMixin(ABC):
         pass
 
     async def request_candle_start(
-        self, start: Optional[Timestamp], exchange: str, symbols: Sequence[str], interval: int
-    ) -> int:
+        self,
+        start: Optional[Timestamp],
+        exchange: str,
+        symbols: Sequence[Symbol],
+        interval: Interval,
+    ) -> Timestamp:
         """Figures out an appropriate candle start time based on the requested start.
         If no specific start is requested, finds the earliest start of the interval where all
         candle intervals are available.

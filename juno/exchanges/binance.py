@@ -23,16 +23,20 @@ from tenacity import (
 )
 
 from juno import (
+    Account,
+    Asset,
     AssetInfo,
     BadOrder,
     Balance,
     BorrowInfo,
     Candle,
+    ClientId,
     Depth,
     ExchangeException,
     ExchangeInfo,
     Fees,
     Fill,
+    Interval,
     Interval_,
     Order,
     OrderMissing,
@@ -43,9 +47,11 @@ from juno import (
     OrderWouldBeTaker,
     SavingsProduct,
     Side,
+    Symbol,
     Symbol_,
     Ticker,
     TimeInForce,
+    Timestamp,
     Timestamp_,
     Trade,
     json,
@@ -343,7 +349,7 @@ class Binance(Exchange):
             for t in response_data
         }
 
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+    async def map_balances(self, account: Account) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == "spot":
             content = await self._api_request_json(
@@ -407,7 +413,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: str
+        self, account: Account
     ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
         async def inner(
             stream: AsyncIterable[dict[str, Any]]
@@ -425,7 +431,7 @@ class Binance(Exchange):
         async with user_data_stream.subscribe("outboundAccountPosition") as stream:
             yield inner(stream)
 
-    async def get_depth(self, symbol: str) -> Depth.Snapshot:
+    async def get_depth(self, symbol: Symbol) -> Depth.Snapshot:
         # TODO: We might wanna increase that and accept higher weight.
         LIMIT = 100
         LIMIT_TO_WEIGHT = {
@@ -452,7 +458,9 @@ class Binance(Exchange):
         )
 
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(
+        self, symbol: Symbol
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
             async for data in ws:
                 yield Depth.Update(
@@ -474,7 +482,7 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def list_orders(self, account: str, symbol: Optional[str] = None) -> list[Order]:
+    async def list_orders(self, account: Account, symbol: Optional[str] = None) -> list[Order]:
         if account not in ["spot", "margin"]:
             if symbol is None:
                 symbol = account
@@ -516,7 +524,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, account: str, symbol: str
+        self, account: Account, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async def inner(stream: AsyncIterable[dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
@@ -571,15 +579,15 @@ class Binance(Exchange):
 
     async def place_order(
         self,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         data: dict[str, Any] = {
             "symbol": _to_http_symbol(symbol),
@@ -639,9 +647,9 @@ class Binance(Exchange):
 
     async def cancel_order(
         self,
-        account: str,
-        symbol: str,
-        client_id: str | int,
+        account: Account,
+        symbol: Symbol,
+        client_id: ClientId,
     ) -> None:
         url = "/api/v3/order" if account == "spot" else "/sapi/v1/margin/order"
         data = {
@@ -659,7 +667,7 @@ class Binance(Exchange):
         )
 
     async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
+        self, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Candle]:
         limit = 1000  # Max possible candles per request.
         binance_interval = Interval_.format(interval)
@@ -695,7 +703,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_candles(
-        self, symbol: str, interval: int
+        self, symbol: Symbol, interval: Interval
     ) -> AsyncIterator[AsyncIterable[Candle]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
@@ -724,7 +732,7 @@ class Binance(Exchange):
             yield inner(ws)
 
     async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
+        self, symbol: Symbol, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Trade]:
         # Aggregated trades. This means trades executed at the same time, same price and as part of
         # the same order will be aggregated by summing their size.
@@ -758,7 +766,7 @@ class Binance(Exchange):
                 break
 
     @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
+    async def connect_stream_trades(self, symbol: Symbol) -> AsyncIterator[AsyncIterable[Trade]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for data in ws:
                 yield Trade(
@@ -778,7 +786,7 @@ class Binance(Exchange):
             yield inner(ws)
 
     async def transfer(
-        self, asset: str, size: Decimal, from_account: str, to_account: str
+        self, asset: Asset, size: Decimal, from_account: str, to_account: str
     ) -> None:
         if from_account in ["spot", "margin"] and to_account in ["spot", "margin"]:
             assert from_account != to_account
@@ -809,7 +817,7 @@ class Binance(Exchange):
                 security=_SEC_MARGIN,
             )
 
-    async def borrow(self, asset: str, size: Decimal, account) -> None:
+    async def borrow(self, asset: Asset, size: Decimal, account) -> None:
         assert account != "spot"
         data = {
             "asset": _to_asset(asset),
@@ -826,7 +834,7 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def repay(self, asset: str, size: Decimal, account: str) -> None:
+    async def repay(self, asset: Asset, size: Decimal, account: Account) -> None:
         assert account != "spot"
         data = {
             "asset": _to_asset(asset),
@@ -843,7 +851,7 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
+    async def get_max_borrowable(self, asset: Asset, account: Account) -> Decimal:
         assert account != "spot"
         data = {"asset": _to_asset(asset)}
         if account != "margin":
@@ -857,7 +865,7 @@ class Binance(Exchange):
         )
         return Decimal(content["amount"])
 
-    async def get_max_transferable(self, asset: str, account: str) -> Decimal:
+    async def get_max_transferable(self, asset: Asset, account: Account) -> Decimal:
         assert account != "spot"
         data = {"asset": _to_asset(asset)}
         if account != "margin":
@@ -887,7 +895,7 @@ class Binance(Exchange):
         )
         return [_from_symbol(s["symbol"]) for s in content]
 
-    async def get_deposit_address(self, asset: str) -> str:
+    async def get_deposit_address(self, asset: Asset) -> str:
         content = await self._api_request_json(
             method="GET",
             url="/sapi/v1/capital/deposit/address",
@@ -896,7 +904,7 @@ class Binance(Exchange):
         )
         return content["address"]
 
-    async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
+    async def withdraw(self, asset: Asset, address: str, amount: Decimal) -> None:
         await self._api_request_json(
             method="POST",
             url="/sapi/v1/capital/withdraw/apply",
@@ -992,7 +1000,7 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
 
-    async def get_savings_product_position(self, asset: str) -> Any:
+    async def get_savings_product_position(self, asset: Asset) -> Any:
         return await self._api_request_json(
             method="GET",
             url="/sapi/v1/lending/daily/token/position",
@@ -1125,7 +1133,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def _connect_refreshing_stream(
-        self, url: str, interval: int, name: str, raise_on_disconnect: bool = False
+        self, url: str, interval: float, name: str, raise_on_disconnect: bool = False
     ) -> AsyncIterator[AsyncIterable[Any]]:
         try:
             async with connect_refreshing_stream(
@@ -1147,7 +1155,7 @@ class Binance(Exchange):
             _log.warning(f"{name} web socket exc: {e}")
             raise ExchangeException(str(e))
 
-    async def _get_user_data_stream(self, account: str) -> UserDataStream:
+    async def _get_user_data_stream(self, account: Account) -> UserDataStream:
         if not (stream := self._user_data_streams.get(account)):
             stream = UserDataStream(self, account)
             self._user_data_streams[account] = stream
@@ -1228,7 +1236,7 @@ class CreateListenKeyResult(TypedDict):
 
 
 class UserDataStream:
-    def __init__(self, binance: Binance, account: str = "spot") -> None:
+    def __init__(self, binance: Binance, account: Account = "spot") -> None:
         self._binance = binance
         self._url = {
             "spot": "/api/v3/userDataStream",
@@ -1410,19 +1418,19 @@ class UserDataStream:
         )
 
 
-def _to_asset(asset: str) -> str:
+def _to_asset(asset: Asset) -> str:
     return asset.upper()
 
 
-def _from_asset(asset: str) -> str:
-    return asset.lower()
+def _from_asset(value: str) -> Asset:
+    return value.lower()
 
 
-def _to_http_symbol(symbol: str) -> str:
+def _to_http_symbol(symbol: Symbol) -> str:
     return symbol.replace("-", "").upper()
 
 
-def _to_ws_symbol(symbol: str) -> str:
+def _to_ws_symbol(symbol: Symbol) -> str:
     return symbol.replace("-", "")
 
 
@@ -1463,18 +1471,18 @@ _KNOWN_QUOTE_ASSETS = [
 ]
 
 
-def _from_symbol(symbol: str) -> str:
+def _from_symbol(value: str) -> Symbol:
     for asset in _KNOWN_QUOTE_ASSETS:
-        if symbol.endswith(asset):
-            base = symbol[: -len(asset)]
+        if value.endswith(asset):
+            base = value[: -len(asset)]
             quote = asset
             break
     else:
-        _log.warning(f"unknown quote asset found in symbol: {symbol}")
+        _log.warning(f"unknown quote asset found in symbol: {value}")
         # We round up because usually base asset is the longer one (i.e IOTABTC).
-        split_index = math.ceil(len(symbol) / 2)
-        base = symbol[:split_index]
-        quote = symbol[split_index:]
+        split_index = math.ceil(len(value) / 2)
+        base = value[:split_index]
+        quote = value[split_index:]
     return f"{base.lower()}-{quote.lower()}"
 
 

@@ -2,7 +2,17 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
-from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Symbol_
+from juno import (
+    Account,
+    Fill,
+    OrderResult,
+    OrderStatus,
+    OrderType,
+    OrderUpdate,
+    Side,
+    Symbol,
+    Symbol_,
+)
 from juno.components import Informant, Orderbook, User
 
 from .broker import Broker
@@ -27,8 +37,8 @@ class Market2(Broker):
     async def buy(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
@@ -71,8 +81,8 @@ class Market2(Broker):
     async def sell(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
@@ -90,8 +100,8 @@ class Market2(Broker):
     async def _fill(
         self,
         exchange: str,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,

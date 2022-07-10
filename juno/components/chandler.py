@@ -12,7 +12,17 @@ from typing import AsyncGenerator, AsyncIterable, Callable, Iterable, Optional
 from asyncstdlib import list as list_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import Candle, CandleMeta, ExchangeException, Interval_, Symbol_, Timestamp_
+from juno import (
+    Candle,
+    CandleMeta,
+    ExchangeException,
+    Interval,
+    Interval_,
+    Symbol,
+    Symbol_,
+    Timestamp,
+    Timestamp_,
+)
 from juno.asyncio import aclose, first_async, stream_with_timeout
 from juno.common import CandleType
 from juno.contextlib import AsyncContextManager
@@ -52,8 +62,8 @@ class Chandler(AsyncContextManager):
         self,
         exchange: str,
         entries: list[CandleMeta],
-        start: int,
-        end: int = Timestamp_.MAX_TIME,
+        start: Timestamp,
+        end: Timestamp = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[tuple[Candle, CandleMeta]]:
         unique_entries = set(entries)
@@ -96,10 +106,10 @@ class Chandler(AsyncContextManager):
     async def stream_candles_fill_missing_with_none(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
-        start: int,
-        end: int = Timestamp_.MAX_TIME,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> AsyncIterable[Optional[Candle]]:
@@ -142,10 +152,10 @@ class Chandler(AsyncContextManager):
     async def list_candles(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
-        start: int,
-        end: int = Timestamp_.MAX_TIME,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> list[Candle]:
@@ -164,10 +174,10 @@ class Chandler(AsyncContextManager):
     async def stream_candles(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
-        start: int,
-        end: int = Timestamp_.MAX_TIME,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp = Timestamp_.MAX_TIME,
         exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> AsyncIterable[Candle]:
@@ -260,10 +270,10 @@ class Chandler(AsyncContextManager):
     async def _stream_and_store_exchange_candles(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
-        start: int,
-        end: int,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp,
         exchange_timeout: Optional[float],
     ) -> AsyncGenerator[Candle, None]:
         shard = Storage.key(exchange, symbol, interval)
@@ -338,11 +348,11 @@ class Chandler(AsyncContextManager):
     async def _stream_exchange_candles(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
-        start: int,
-        end: int,
-        current: int,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp,
+        current: Timestamp,
         timeout: Optional[float],
     ) -> AsyncGenerator[Candle, None]:
         exchange_instance = self._exchanges[exchange]
@@ -439,7 +449,7 @@ class Chandler(AsyncContextManager):
                 await aclose(outer_stream)
 
     async def _stream_construct_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int
+        self, exchange: str, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
     ) -> AsyncGenerator[Candle, None]:
         if not self._trades:
             raise ValueError("Trades component not configured. Unable to construct candles")
@@ -493,7 +503,7 @@ class Chandler(AsyncContextManager):
             )
 
     async def _stream_construct_candles_by_volume(
-        self, exchange: str, symbol: str, volume: Decimal, start: int, end: int
+        self, exchange: str, symbol: Symbol, volume: Decimal, start: Timestamp, end: Timestamp
     ) -> AsyncGenerator[Candle, None]:
         if not self._trades:
             raise ValueError("Trades component not configured. Unable to construct candles")
@@ -533,7 +543,7 @@ class Chandler(AsyncContextManager):
                 low = trade.price
                 close = trade.price
 
-    async def get_first_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
+    async def get_first_candle(self, exchange: str, symbol: Symbol, interval: Interval) -> Candle:
         shard = Storage.key(exchange, symbol, interval)
         candle = await self._storage.get(
             shard=shard,
@@ -572,8 +582,8 @@ class Chandler(AsyncContextManager):
     async def _find_first_candle_by_binary_search(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
+        symbol: Symbol,
+        interval: Interval,
     ) -> Candle:
         _log.info(
             f"{exchange} does not support streaming earliest candle; finding by binary search"
@@ -600,7 +610,7 @@ class Chandler(AsyncContextManager):
 
         raise ValueError("First candle not found")
 
-    async def get_last_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
+    async def get_last_candle(self, exchange: str, symbol: Symbol, interval: Interval) -> Candle:
         now = self._get_time_ms()
         end = Timestamp_.floor(now, interval)
         start = end - interval
@@ -615,7 +625,12 @@ class Chandler(AsyncContextManager):
         )
 
     async def map_symbol_interval_candles(
-        self, exchange: str, symbols: Iterable[str], intervals: Iterable[int], start: int, end: int
+        self,
+        exchange: str,
+        symbols: Iterable[str],
+        intervals: Iterable[int],
+        start: Timestamp,
+        end: Timestamp,
     ) -> dict[tuple[str, int], list[Candle]]:
         symbols = set(symbols)
         intervals = set(intervals)

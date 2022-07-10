@@ -9,20 +9,25 @@ from types import TracebackType
 from typing import Any, AsyncIterable, AsyncIterator, Optional
 from urllib.parse import urlencode
 
-from juno import json
+from juno import Timestamp, json
 from juno.common import (
+    Account,
+    Asset,
     Balance,
     Candle,
+    ClientId,
     Depth,
     ExchangeInfo,
     Fees,
     Fill,
     Filters,
+    Interval,
     OrderResult,
     OrderStatus,
     OrderType,
     OrderUpdate,
     Side,
+    Symbol,
     TimeInForce,
 )
 from juno.errors import OrderMissing, OrderWouldBeTaker
@@ -101,7 +106,7 @@ class GateIO(Exchange):
             filters=filters,
         )
 
-    async def get_depth(self, symbol: str) -> Depth.Snapshot:
+    async def get_depth(self, symbol: Symbol) -> Depth.Snapshot:
         # https://www.gate.io/docs/apiv4/en/index.html#retrieve-order-book
         content = await self._request_json(
             "GET",
@@ -118,7 +123,9 @@ class GateIO(Exchange):
         )
 
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(
+        self, symbol: Symbol
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         channel = "spot.order_book_update"
 
         # https://www.gateio.pro/docs/apiv4/ws/index.html#changed-order-book-levels
@@ -151,15 +158,15 @@ class GateIO(Exchange):
 
     async def place_order(
         self,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         assert account == "spot"
         assert type_ in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -197,9 +204,9 @@ class GateIO(Exchange):
 
     async def cancel_order(
         self,
-        account: str,
-        symbol: str,
-        client_id: str | int,
+        account: Account,
+        symbol: Symbol,
+        client_id: ClientId,
     ) -> None:
         # NB! Custom client id will not be available anymore if the order has been up for more than
         # 30 min.
@@ -222,7 +229,7 @@ class GateIO(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, account: str, symbol: str
+        self, account: Account, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account == "spot"
         channel = "spot.orders"
@@ -288,7 +295,7 @@ class GateIO(Exchange):
             )
             yield inner(ws)
 
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+    async def map_balances(self, account: Account) -> dict[str, dict[str, Balance]]:
         assert account == "spot"
         result = {}
         content = await self._request_signed_json("GET", "/api/v4/spot/accounts")
@@ -303,7 +310,7 @@ class GateIO(Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: str
+        self, account: Account
     ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
         assert account == "spot"
         channel = "spot.balances"
@@ -430,11 +437,11 @@ class GateIO(Exchange):
         sign = hmac.new(self._secret_key_bytes, s.encode("utf-8"), hashlib.sha512).hexdigest()
         return {"method": "api_key", "KEY": self._api_key, "SIGN": sign}
 
-    def list_candle_intervals(self) -> list[int]:
+    def list_candle_intervals(self) -> list[Interval]:
         raise NotImplementedError()
 
     async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
+        self, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Candle]:
         raise NotImplementedError()
         yield
@@ -459,20 +466,20 @@ def _acc_order_fill(existing: dict[str, Decimal], data: Any) -> Fill:
     )
 
 
-def _from_asset(asset: str) -> str:
-    return asset.lower()
+def _from_asset(value: str) -> Asset:
+    return value.lower()
 
 
-def _from_symbol(symbol: str) -> str:
-    return symbol.lower().replace("_", "-")
+def _from_symbol(value: str) -> Symbol:
+    return value.lower().replace("_", "-")
 
 
-def _to_symbol(symbol: str) -> str:
+def _to_symbol(symbol: Symbol) -> str:
     return symbol.upper().replace("-", "_")
 
 
-def _from_timestamp(timestamp: str) -> int:
-    return int(timestamp) * 1000
+def _from_timestamp(value: str) -> Timestamp:
+    return int(value) * 1000
 
 
 def _to_order_type_and_time_in_force(

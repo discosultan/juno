@@ -7,17 +7,23 @@ from typing import AsyncIterable, AsyncIterator, Optional
 from uuid import uuid4
 
 from juno import (
+    Account,
+    Asset,
     Balance,
     Candle,
+    ClientId,
     Depth,
     ExchangeInfo,
+    Interval,
     OrderResult,
     OrderType,
     OrderUpdate,
     SavingsProduct,
     Side,
+    Symbol,
     Ticker,
     TimeInForce,
+    Timestamp,
     Trade,
     config,
     exchanges,
@@ -60,108 +66,110 @@ class Exchange(AsyncContextManager, ABC):
 
     # Result outer key - account
     # Result inner key - asset
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+    async def map_balances(self, account: Account) -> dict[str, dict[str, Balance]]:
         raise NotImplementedError()
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: str
+        self, account: Account
     ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
         raise NotImplementedError()
         yield  # type: ignore
 
     async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
+        self, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Candle]:
         raise NotImplementedError()
         yield  # type: ignore
 
     @asynccontextmanager
     async def connect_stream_candles(
-        self, symbol: str, interval: int
+        self, symbol: Symbol, interval: Interval
     ) -> AsyncIterator[AsyncIterable[Candle]]:
         raise NotImplementedError()
         yield  # type: ignore
 
-    async def get_depth(self, symbol: str) -> Depth.Snapshot:
+    async def get_depth(self, symbol: Symbol) -> Depth.Snapshot:
         raise NotImplementedError()
 
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(
+        self, symbol: Symbol
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         raise NotImplementedError()
         yield  # type: ignore
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, account: str, symbol: str
+        self, account: Account, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         raise NotImplementedError()
         yield  # type: ignore
 
     async def place_order(
         self,
-        account: str,
-        symbol: str,
+        account: Account,
+        symbol: Symbol,
         side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         raise NotImplementedError()
 
     async def edit_order(
         self,
-        existing_id: str | int,
-        account: str,
-        symbol: str,
+        existing_id: ClientId,
+        account: Account,
+        symbol: Symbol,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
-        client_id: Optional[str | int] = None,
+        client_id: Optional[ClientId] = None,
     ) -> None:
         raise NotImplementedError()
 
     async def cancel_order(
         self,
-        account: str,
-        symbol: str,
-        client_id: str | int,
+        account: Account,
+        symbol: Symbol,
+        client_id: ClientId,
     ) -> None:
         raise NotImplementedError()
 
     async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
+        self, symbol: Symbol, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Trade]:
         raise NotImplementedError()
         yield  # type: ignore
 
     @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
+    async def connect_stream_trades(self, symbol: Symbol) -> AsyncIterator[AsyncIterable[Trade]]:
         raise NotImplementedError()
         yield  # type: ignore
 
     async def transfer(
-        self, asset: str, size: Decimal, from_account: str, to_account: str
+        self, asset: Asset, size: Decimal, from_account: Account, to_account: Account
     ) -> None:
         raise NotImplementedError()
 
-    async def borrow(self, asset: str, size: Decimal, account: str) -> None:
+    async def borrow(self, asset: Asset, size: Decimal, account: Account) -> None:
         raise NotImplementedError()
 
-    async def repay(self, asset: str, size: Decimal, account: str) -> None:
+    async def repay(self, asset: Asset, size: Decimal, account: Account) -> None:
         raise NotImplementedError()
 
-    async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
+    async def get_max_borrowable(self, asset: Asset, account: Account) -> Decimal:
         raise NotImplementedError()
 
-    async def get_deposit_address(self, asset: str) -> str:
+    async def get_deposit_address(self, asset: Asset) -> str:
         raise NotImplementedError()
 
-    async def withdraw(self, asset: str, address: str, amount: Decimal) -> None:
+    async def withdraw(self, asset: Asset, address: str, amount: Decimal) -> None:
         raise NotImplementedError()
 
     # Savings.

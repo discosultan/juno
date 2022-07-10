@@ -3,8 +3,8 @@ from datetime import datetime
 import pytest
 from dateutil.tz import UTC
 
-from juno.primitives.interval import Interval_
-from juno.primitives.timestamp import Timestamp_
+from juno.primitives.interval import Interval, Interval_
+from juno.primitives.timestamp import Timestamp, Timestamp_
 
 
 def test_from_datetime_utc() -> None:
@@ -44,7 +44,7 @@ def test_parse(input_: str, expected_output: int) -> None:
         [1577923200000, Interval_.MONTH, 1580515200000],
     ],
 )
-def test_ceil(timestamp: int, interval: int, expected_output: int) -> None:
+def test_ceil(timestamp: Timestamp, interval: Interval, expected_output: int) -> None:
     assert Timestamp_.ceil(timestamp, interval) == expected_output
 
 
@@ -59,7 +59,7 @@ def test_ceil(timestamp: int, interval: int, expected_output: int) -> None:
         [1577923200000, Interval_.MONTH, 1577836800000],
     ],
 )
-def test_floor(timestamp: int, interval: int, expected_output: int) -> None:
+def test_floor(timestamp: Timestamp, interval: Interval, expected_output: int) -> None:
     assert Timestamp_.floor(timestamp, interval) == expected_output
 
 
@@ -71,5 +71,5 @@ def test_floor(timestamp: int, interval: int, expected_output: int) -> None:
         [Interval_.SEC, Interval_.MIN, False],
     ],
 )
-def test_is_in_interval(timestamp: int, interval: int, expected_output: bool) -> None:
+def test_is_in_interval(timestamp: Timestamp, interval: Interval, expected_output: bool) -> None:
     assert Timestamp_.is_in_interval(timestamp, interval) == expected_output

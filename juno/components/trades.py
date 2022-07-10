@@ -8,7 +8,7 @@ from typing import AsyncIterable, Callable, Optional
 from asyncstdlib import list as list_async
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type
 
-from juno import ExchangeException, Timestamp_, Trade
+from juno import ExchangeException, Symbol, Timestamp, Timestamp_, Trade
 from juno.contextlib import AsyncContextManager
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
@@ -25,7 +25,7 @@ class Trades(AsyncContextManager):
         self,
         storage: Storage,
         exchanges: list[Exchange],
-        get_time_ms: Callable[[], int] = Timestamp_.now,
+        get_time_ms: Callable[[], Timestamp] = Timestamp_.now,
         storage_batch_size: int = 1000,
     ) -> None:
         self._storage = storage
@@ -34,7 +34,7 @@ class Trades(AsyncContextManager):
         self._storage_batch_size = storage_batch_size
 
     async def stream_trades(
-        self, exchange: str, symbol: str, start: int, end: int
+        self, exchange: str, symbol: Symbol, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Trade]:
         """Tries to stream trades for the specified range from local storage. If trades don't
         exist, streams them from an exchange and stores to local storage."""
@@ -77,7 +77,7 @@ class Trades(AsyncContextManager):
                 yield trade
 
     async def _stream_and_store_exchange_trades(
-        self, exchange: str, symbol: str, start: int, end: int
+        self, exchange: str, symbol: Symbol, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Trade]:
         shard = Storage.key(exchange, symbol)
         async for attempt in AsyncRetrying(
@@ -152,7 +152,12 @@ class Trades(AsyncContextManager):
                     )
 
     async def _stream_exchange_trades(
-        self, exchange: str, symbol: str, start: int, end: int, current: int
+        self,
+        exchange: str,
+        symbol: Symbol,
+        start: Timestamp,
+        end: Timestamp,
+        current: Timestamp,
     ) -> AsyncIterable[Trade]:
         exchange_instance = self._exchanges[exchange]
 

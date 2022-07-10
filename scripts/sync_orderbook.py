@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 
+from juno import Symbol
 from juno.components import Orderbook
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
@@ -19,7 +20,7 @@ async def main() -> None:
         await asyncio.gather(*(process(orderbook, s) for s in args.symbols))
 
 
-async def process(orderbook: Orderbook, symbol: str) -> None:
+async def process(orderbook: Orderbook, symbol: Symbol) -> None:
     for i in range(args.cycles):
         logging.info(f"{symbol} cycle {i}")
         async with orderbook.sync("binance", symbol) as ctx:
