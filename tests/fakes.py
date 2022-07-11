@@ -31,6 +31,8 @@ class Exchange(exchanges.Exchange):
     can_place_market_order_quote: bool = True
     can_edit_order: bool = True
 
+    name = "exchange"
+
     def __init__(
         self,
         historical_candles=[],

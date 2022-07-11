@@ -3,34 +3,36 @@ from decimal import Decimal
 
 import pytest
 from asyncstdlib import list as list_async
+from pytest_mock import MockerFixture
 
 from juno import Trade
 from juno.asyncio import cancel
 from juno.components import Trades
 from juno.storages import Storage
+from tests import fakes
+from tests.mocks import mock_exchange
 
-from . import fakes
 
-
-async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) -> None:
-    EXCHANGE = "exchange"
+async def test_stream_future_trades_span_stored_until_stopped(
+    mocker: MockerFixture, storage: Storage
+) -> None:
     SYMBOL = "eth-btc"
     START = 0
     CANCEL_AT = 5
     END = 10
     trades = [Trade(time=1)]
-    exchange = fakes.Exchange(future_trades=trades)
+    exchange = mock_exchange(mocker, stream_trades=trades)
     time = fakes.Time(START, increment=1)
     trades_component = Trades(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     task = asyncio.create_task(
-        list_async(trades_component.stream_trades(EXCHANGE, SYMBOL, START, END))
+        list_async(trades_component.stream_trades(exchange.name, SYMBOL, START, END))
     )
-    await exchange.trade_queue.join()
+    await exchange.stream_trades_queue.join()
     time.time = CANCEL_AT
     await cancel(task)
 
-    shard = Storage.key(EXCHANGE, SYMBOL)
+    shard = Storage.key(exchange.name, SYMBOL)
     stored_spans, stored_trades = await asyncio.gather(
         list_async(storage.stream_time_series_spans(shard, "trade", START, END)),
         list_async(storage.stream_time_series(shard, "trade", Trade, START, END)),
@@ -43,14 +45,17 @@ async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) 
 @pytest.mark.parametrize(
     "start,end,efrom,eto,espans",
     [
-        [1, 5, 1, 3, [(1, 5)]],  # Middle trades.
-        [2, 4, 0, 0, [(2, 4)]],  # Empty if no trades.
-        [0, 7, 0, 5, [(0, 7)]],  # Includes future trade.
-        [0, 4, 0, 2, [(0, 4)]],  # Middle trades with cap at the end.
+        # Middle trades.
+        [1, 5, 1, 3, [(1, 5)]],
+        # Empty if no trades.
+        [2, 4, 0, 0, [(2, 4)]],
+        # Includes future trade.
+        [0, 7, 0, 5, [(0, 7)]],
+        # Middle trades with cap at the end.
+        [0, 4, 0, 2, [(0, 4)]],
     ],
 )
 async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -> None:
-    EXCHANGE = "exchange"
     SYMBOL = "eth-btc"
     CURRENT = 6
     STORAGE_BATCH_SIZE = 2
@@ -77,8 +82,8 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
         storage_batch_size=STORAGE_BATCH_SIZE,
     )
 
-    output_trades = await list_async(trades.stream_trades(EXCHANGE, SYMBOL, start, end))
-    shard = Storage.key(EXCHANGE, SYMBOL)
+    output_trades = await list_async(trades.stream_trades(exchange.name, SYMBOL, start, end))
+    shard = Storage.key(exchange.name, SYMBOL)
     stored_spans, stored_trades = await asyncio.gather(
         list_async(storage.stream_time_series_spans(shard, "trade", start, end)),
         list_async(storage.stream_time_series(shard, "trade", Trade, start, end)),
@@ -89,16 +94,19 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
     assert stored_spans == espans
 
 
-async def test_stream_trades_no_duplicates_if_same_trade_from_rest_and_websocket(storage) -> None:
+async def test_stream_trades_no_duplicates_if_same_trade_from_rest_and_websocket(
+    mocker: MockerFixture, storage
+) -> None:
     time = fakes.Time(1)
-    exchange = fakes.Exchange(
-        historical_trades=[Trade(time=0)],
-        future_trades=[Trade(time=0), Trade(time=1), Trade(time=2)],
+    exchange = mock_exchange(
+        mocker,
+        trades=[Trade(time=0)],
+        stream_trades=[Trade(time=0), Trade(time=1), Trade(time=2)],
     )
     trades = Trades(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     count = 0
-    async for trade in trades.stream_trades("exchange", "eth-btc", 0, 2):
+    async for trade in trades.stream_trades(exchange.name, "eth-btc", 0, 2):
         time.time = trade.time + 1
         count += 1
     assert count == 2
