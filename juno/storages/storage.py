@@ -13,7 +13,7 @@ class Storage(AsyncContextManager, ABC):
     @abstractmethod
     async def stream_time_series_spans(
         self, shard: str, key: str, start: Timestamp, end: Timestamp
-    ) -> AsyncIterable[tuple[int, int]]:
+    ) -> AsyncIterable[tuple[Timestamp, Timestamp]]:
         yield  # type: ignore
 
     @abstractmethod

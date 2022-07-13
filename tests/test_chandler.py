@@ -21,43 +21,61 @@ from juno.asyncio import cancel, resolved_stream
 from juno.components import Chandler
 from juno.exchanges import Exchange
 from juno.storages import Storage
+from tests.mocks import mock_exchange, mock_stream_values
 
 from . import fakes
 
 
 @pytest.mark.parametrize(
-    "start,end,efrom,eto,espans",
+    "start,end,historical_candles,future_candles,expected_spans",
     [
-        [0, 3, 0, 2, [(0, 3)]],  # Skips skipped candle at the end.
-        [2, 3, 0, 0, [(2, 3)]],  # Empty if only skipped candle.
-        [3, 5, 2, 4, [(3, 5)]],
-        [0, 5, 0, 4, [(0, 5)]],
-        [0, 6, 0, 6, [(0, 6)]],  # Includes future candle.
-        [5, 6, 4, 5, [(5, 6)]],  # Only future candle.
+        # Skips skipped candle at the end.
+        [0, 3, [Candle(time=0), Candle(time=1)], [], [(0, 3)]],
+        # Empty if only skipped candle.
+        [2, 3, [], [], [(2, 3)]],
+        [3, 5, [Candle(time=3), Candle(time=4)], [], [(3, 5)]],
+        [0, 5, [Candle(time=0), Candle(time=1), Candle(time=3), Candle(time=4)], [], [(0, 5)]],
+        # Includes future candle.
+        [
+            0,
+            6,
+            [Candle(time=0), Candle(time=1), Candle(time=3), Candle(time=4)],
+            [Candle(time=5)],
+            [(0, 6)],
+        ],
+        # Only future candle.
+        [5, 6, [], [Candle(time=5)], [(5, 6)]],
     ],
 )
-async def test_stream_candles(storage: fakes.Storage, start, end, efrom, eto, espans) -> None:
-    EXCHANGE = "exchange"
+async def test_stream_candles(
+    mocker: MockerFixture,
+    storage: fakes.Storage,
+    start: Timestamp,
+    end: Timestamp,
+    historical_candles: list[Candle],
+    future_candles: list[Candle],
+    expected_spans: list[tuple[Timestamp, Timestamp]],
+) -> None:
     SYMBOL = "eth-btc"
     INTERVAL = 1
     CURRENT = 5
     STORAGE_BATCH_SIZE = 2
-    historical_candles = [
-        Candle(time=0),
-        Candle(time=1),
-        # Deliberately skipped candle.
-        Candle(time=3),
-        Candle(time=4),
-    ]
-    future_candles = [
-        Candle(time=5),
-    ]
-    expected_candles = (historical_candles + future_candles)[efrom:eto]
+    # historical_candles = [
+    #     Candle(time=0),
+    #     Candle(time=1),
+    #     # Deliberately skipped candle.
+    #     Candle(time=3),
+    #     Candle(time=4),
+    # ]
+    # future_candles = [
+    #     Candle(time=5),
+    # ]
     time = fakes.Time(CURRENT, increment=1)
-    exchange = fakes.Exchange(
-        historical_candles=historical_candles,
-        future_candles=future_candles,
-        candle_intervals=[1],
+    exchange = mock_exchange(
+        mocker,
+        candles=historical_candles,
+        stream_candles=future_candles,
+        candle_intervals=[INTERVAL],
     )
     chandler = Chandler(
         storage=storage,
@@ -68,44 +86,46 @@ async def test_stream_candles(storage: fakes.Storage, start, end, efrom, eto, es
 
     output_candles = await list_async(
         chandler.stream_candles(
-            exchange=EXCHANGE,
+            exchange=exchange.name,
             symbol=SYMBOL,
             interval=INTERVAL,
             start=start,
             end=end,
         )
     )
-    shard = Storage.key(EXCHANGE, SYMBOL, INTERVAL)
+    shard = Storage.key(exchange.name, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
         list_async(storage.stream_time_series_spans(shard, "candle", start, end)),
         list_async(storage.stream_time_series(shard, "candle", Candle, start, end)),
     )
 
+    expected_candles = historical_candles + future_candles
     assert output_candles == expected_candles
     assert stored_candles == expected_candles
-    assert stored_spans == espans
+    assert stored_spans == expected_spans
 
 
-async def test_stream_future_candles_span_stored_until_cancelled(storage: fakes.Storage) -> None:
-    EXCHANGE = "exchange"
+async def test_stream_future_candles_span_stored_until_cancelled(
+    mocker: MockerFixture, storage: fakes.Storage
+) -> None:
     SYMBOL = "eth-btc"
     INTERVAL = 1
     START = 0
     CANCEL_AT = 5
     END = 10
     candles = [Candle(time=1)]
-    exchange = fakes.Exchange(future_candles=candles, candle_intervals={INTERVAL: 0})
+    exchange = mock_exchange(mocker, stream_candles=candles, candle_intervals=[INTERVAL])
     time = fakes.Time(START, increment=1)
     chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     task = asyncio.create_task(
-        list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, START, END))
+        list_async(chandler.stream_candles(exchange.name, SYMBOL, INTERVAL, START, END))
     )
     await exchange.candle_queue.join()
     time.time = CANCEL_AT
     await cancel(task)
 
-    shard = Storage.key(EXCHANGE, SYMBOL, INTERVAL)
+    shard = Storage.key(exchange.name, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
         list_async(storage.stream_time_series_spans(shard, "candle", START, END)),
         list_async(storage.stream_time_series(shard, "candle", Candle, START, END)),
@@ -115,10 +135,12 @@ async def test_stream_future_candles_span_stored_until_cancelled(storage: fakes.
     assert stored_spans == [(START, candles[-1].time + INTERVAL)]
 
 
-async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
-    exchange = fakes.Exchange(candle_intervals={5: 0})
-    exchange.can_stream_historical_candles = False
-    exchange.can_stream_candles = False
+async def test_stream_candles_construct_from_trades(
+    mocker: MockerFixture, storage: Storage
+) -> None:
+    exchange = mock_exchange(
+        mocker, candle_intervals=[5], can_stream_historical_candles=False, can_stream_candles=False
+    )
 
     trades = fakes.Trades(
         trades=[
@@ -129,7 +151,7 @@ async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
     )
     chandler = Chandler(trades=trades, storage=storage, exchanges=[exchange])
 
-    output_candles = await list_async(chandler.stream_candles("exchange", "eth-btc", 5, 0, 5))
+    output_candles = await list_async(chandler.stream_candles(exchange.name, "eth-btc", 5, 0, 5))
 
     assert output_candles == [
         Candle(
@@ -143,53 +165,73 @@ async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
     ]
 
 
-async def test_stream_candles_cancel_does_not_store_twice(storage: fakes.Storage) -> None:
+async def test_stream_candles_cancel_does_not_store_twice(
+    mocker: MockerFixture, storage: fakes.Storage
+) -> None:
     candles = [Candle(time=1)]
-    exchange = fakes.Exchange(historical_candles=candles, candle_intervals=[1])
+    exchange = mock_exchange(mocker, candles=candles, candle_intervals=[1])
     chandler = Chandler(storage=storage, exchanges=[exchange], storage_batch_size=1)
 
     stream_candles_task = asyncio.create_task(
-        list_async(chandler.stream_candles("exchange", "eth-btc", 1, 0, 2))
+        list_async(chandler.stream_candles(exchange.name, "eth-btc", 1, 0, 2))
     )
 
     await storage.stored_time_series_and_span.wait()
     await cancel(stream_candles_task)
 
     stored_candles = await list_async(
-        storage.stream_time_series(Storage.key("exchange", "eth-btc", 1), "candle", Candle, 0, 2)
+        storage.stream_time_series(
+            Storage.key(exchange.name, "eth-btc", 1), "candle", Candle, 0, 2
+        )
     )
     assert stored_candles == candles
 
 
-async def test_stream_candles_on_exchange_exception(storage: fakes.Storage) -> None:
+async def test_stream_candles_on_exchange_exception(
+    mocker: MockerFixture, storage: fakes.Storage
+) -> None:
     time = fakes.Time(0)
-    exchange = fakes.Exchange(
+    exchange = mock_exchange(
+        mocker,
         candle_intervals=[1],
-        future_candles=[
+        stream_candles=[
             Candle(time=0),
             Candle(time=1),
         ],
     )
+
+    # @asynccontextmanager
+    # async def connect_stream_candles(*args, **kwargs):
+    #     if exchange.connect_stream_candles.call_count == 1:
+    #         yield resolved_stream(
+    #             Candle(time=0),
+    #             Candle(time=1),
+    #         )
+    #     else:  # 2nd invocation.
+    #         pass
+
+    # exchange.connect_stream_candles.side_effect = connect_stream_candles
     chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     stream_candles_task = asyncio.create_task(
-        list_async(chandler.stream_candles("exchange", "eth-btc", 1, 0, 5))
+        list_async(chandler.stream_candles(exchange.name, "eth-btc", 1, 0, 5))
     )
-    await exchange.candle_queue.join()
+    await exchange.stream_candles_queue.join()
 
     time.time = 3
-    exchange.historical_candles = [
+    exchange.stream_historical_candles.side_effect = mock_stream_values(
         Candle(time=0),
         Candle(time=1),
         Candle(time=2),
-    ]
+    )
+    # exchange.connect
     for exc_or_candle in [ExchangeException(), Candle(time=3)]:
-        exchange.candle_queue.put_nowait(exc_or_candle)
-    await exchange.candle_queue.join()
+        exchange.stream_candles_queue.put_nowait(exc_or_candle)
+    await exchange.stream_candles_queue.join()
 
     time.time = 5
     for exc_or_candle in [Candle(time=4), Candle(time=5)]:
-        exchange.candle_queue.put_nowait(exc_or_candle)
+        exchange.stream_candles_queue.put_nowait(exc_or_candle)
 
     result = await stream_candles_task
 
