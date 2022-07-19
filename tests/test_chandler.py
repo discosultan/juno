@@ -20,7 +20,7 @@ from juno import (
 from juno.asyncio import cancel, resolved_stream
 from juno.components import Chandler
 from juno.storages import Storage
-from tests.mocks import mock_exchange, mock_stream_values
+from tests.mocks import mock_exchange, mock_stream_values, mock_trades
 
 from . import fakes
 
@@ -138,15 +138,19 @@ async def test_stream_candles_construct_from_trades(
     mocker: MockerFixture, storage: Storage
 ) -> None:
     exchange = mock_exchange(
-        mocker, candle_intervals=[5], can_stream_historical_candles=False, can_stream_candles=False
+        mocker,
+        candle_intervals=[5],
+        can_stream_historical_candles=False,
+        can_stream_candles=False,
     )
 
-    trades = fakes.Trades(
+    trades = mock_trades(
+        mocker,
         trades=[
             Trade(time=0, price=Decimal("1.0"), size=Decimal("1.0")),
             Trade(time=1, price=Decimal("4.0"), size=Decimal("1.0")),
             Trade(time=3, price=Decimal("2.0"), size=Decimal("2.0")),
-        ]
+        ],
     )
     chandler = Chandler(trades=trades, storage=storage, exchanges=[exchange])
 
@@ -355,12 +359,13 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
 ) -> None:
     exchange = mock_exchange(mocker, candle_intervals=[1], can_stream_historical_candles=True)
 
-    trades = fakes.Trades(
+    trades = mock_trades(
+        mocker,
         trades=[
             Trade(time=0, price=Decimal("1.0"), size=Decimal("1.0")),
             Trade(time=1, price=Decimal("4.0"), size=Decimal("1.0")),
             Trade(time=3, price=Decimal("2.0"), size=Decimal("2.0")),
-        ]
+        ],
     )
     chandler = Chandler(trades=trades, storage=storage, exchanges=[exchange])
 

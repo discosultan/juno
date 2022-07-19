@@ -76,15 +76,6 @@ class Chandler(components.Chandler):
         return 0
 
 
-class Trades(components.Trades):
-    def __init__(self, trades=[]):
-        self.trades = trades
-
-    async def stream_trades(self, exchange, symbol, start, end):
-        for trade in (t for t in self.trades if t.time >= start and t.time < end):
-            yield trade
-
-
 class Informant(components.Informant):
     def __init__(
         self,

@@ -9,6 +9,7 @@ from pytest_mock import MockerFixture
 from juno import Candle, Interval
 from juno.asyncio import stream_queue
 from juno.common import Depth, ExchangeInfo, OrderResult, OrderStatus, OrderUpdate, Ticker, Trade
+from juno.components.trades import Trades
 from juno.exchanges import Exchange
 
 
@@ -85,6 +86,12 @@ def mock_exchange(
     exchange.stream_orders_queue = stream_orders_queue
 
     return exchange
+
+
+def mock_trades(mocker: MockerFixture, trades: list[Trade] = []) -> MagicMock:
+    trades_instance = mocker.MagicMock(Trades, autospec=True)
+    trades_instance.stream_trades = mock_stream_values(*trades)
+    return trades_instance
 
 
 def mock_connect_stream_queue(queue):
