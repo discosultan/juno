@@ -1,10 +1,12 @@
 import asyncio
 from contextlib import asynccontextmanager
+from typing import Sequence
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 from pytest_mock import MockerFixture
 
+from juno import Candle, Interval
 from juno.asyncio import stream_queue
 from juno.common import Depth, ExchangeInfo, OrderResult, OrderStatus, OrderUpdate, Ticker, Trade
 from juno.exchanges import Exchange
@@ -17,8 +19,11 @@ def mock_exchange(
     tickers: dict[str, Ticker] = {},
     trades: list[Trade] = [],
     stream_trades: list[Trade] = [],
+    candle_intervals: list[Interval] = [1],
+    candles: list[Candle] = [],
+    stream_candles: list[Candle] = [],
     depth: Depth.Snapshot = Depth.Snapshot(),
-    stream_depth: list[Depth.Any] = [],
+    stream_depth: Sequence[Depth.Any | Exception] = [],
     place_order_result: OrderResult = OrderResult(time=0, status=OrderStatus.NEW),
     stream_orders: list[OrderUpdate.Any] = [],
     can_stream_balances: bool = True,
@@ -48,41 +53,49 @@ def mock_exchange(
 
     exchange.generate_client_id.return_value = client_id
     exchange.get_exchange_info.return_value = exchange_info
-    exchange.stream_historical_trades.side_effect = _stream_values(trades)
+    exchange.stream_historical_trades.side_effect = mock_stream_values(*trades)
+    exchange.list_candle_intervals.return_value = candle_intervals
+    exchange.stream_historical_candles.side_effect = mock_stream_values(*candles)
     exchange.get_depth.return_value = depth
     exchange.map_tickers.return_value = tickers
     exchange.place_order.return_value = place_order_result
 
+    stream_candles_queue: asyncio.Queue[Candle] = asyncio.Queue()
+    for candle in stream_candles:
+        stream_candles_queue.put_nowait(candle)
+    exchange.connect_stream_candles.side_effect = mock_connect_stream_queue(stream_candles_queue)
+    exchange.stream_candles_queue = stream_candles_queue
+
     stream_trades_queue: asyncio.Queue[Trade] = asyncio.Queue()
     for trade in stream_trades:
         stream_trades_queue.put_nowait(trade)
-    exchange.connect_stream_trades.side_effect = _connect_stream_queue(stream_trades_queue)
+    exchange.connect_stream_trades.side_effect = mock_connect_stream_queue(stream_trades_queue)
     exchange.stream_trades_queue = stream_trades_queue
 
-    stream_depth_queue: asyncio.Queue[Depth.Any] = asyncio.Queue()
+    stream_depth_queue: asyncio.Queue[Depth.Any | Exception] = asyncio.Queue()
     for depth_update in stream_depth:
         stream_depth_queue.put_nowait(depth_update)
-    exchange.connect_stream_depth.side_effect = _connect_stream_queue(stream_depth_queue)
+    exchange.connect_stream_depth.side_effect = mock_connect_stream_queue(stream_depth_queue)
     exchange.stream_depth_queue = stream_depth_queue
 
     stream_orders_queue: asyncio.Queue[OrderUpdate.Any] = asyncio.Queue()
     for order in stream_orders:
         stream_orders_queue.put_nowait(order)
-    exchange.connect_stream_orders.side_effect = _connect_stream_queue(stream_orders_queue)
+    exchange.connect_stream_orders.side_effect = mock_connect_stream_queue(stream_orders_queue)
     exchange.stream_orders_queue = stream_orders_queue
 
     return exchange
 
 
-def _connect_stream_queue(queue):
+def mock_connect_stream_queue(queue):
     @asynccontextmanager
     async def inner(*args, **kwargs):
-        yield stream_queue(queue)
+        yield stream_queue(queue, raise_on_exc=True)
 
     return inner
 
 
-def _stream_values(values):
+def mock_stream_values(*values):
     async def inner(*args, **kwargs):
         for value in values:
             yield value

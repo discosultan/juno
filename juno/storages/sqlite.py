@@ -54,8 +54,8 @@ class SQLite(Storage):
 
     async def stream_time_series_spans(
         self, shard: str, key: str, start: Timestamp = 0, end: Timestamp = Timestamp_.MAX_TIME
-    ) -> AsyncIterable[tuple[int, int]]:
-        def inner() -> list[tuple[int, int]]:
+    ) -> AsyncIterable[tuple[Timestamp, Timestamp]]:
+        def inner() -> list[tuple[Timestamp, Timestamp]]:
             _log.info(
                 f"streaming span(s) between {Timestamp_.format_span(start, end)} from shard "
                 f"{shard} {key}"

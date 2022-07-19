@@ -5,7 +5,7 @@ import pytest
 from asyncstdlib import list as list_async
 from pytest_mock import MockerFixture
 
-from juno import Trade
+from juno import Timestamp, Trade
 from juno.asyncio import cancel
 from juno.components import Trades
 from juno.storages import Storage
@@ -43,37 +43,69 @@ async def test_stream_future_trades_span_stored_until_stopped(
 
 
 @pytest.mark.parametrize(
-    "start,end,efrom,eto,espans",
+    "start,end,historical_trades,future_trades,expected_spans",
     [
-        # Middle trades.
-        [1, 5, 1, 3, [(1, 5)]],
-        # Empty if no trades.
-        [2, 4, 0, 0, [(2, 4)]],
-        # Includes future trade.
-        [0, 7, 0, 5, [(0, 7)]],
-        # Middle trades with cap at the end.
-        [0, 4, 0, 2, [(0, 4)]],
+        # Gap in the middle.
+        [
+            1,
+            5,
+            [
+                Trade(time=1, price=Decimal("2.0"), size=Decimal("2.0")),
+                Trade(time=4, price=Decimal("3.0"), size=Decimal("3.0")),
+            ],
+            [],
+            [(1, 5)],
+        ],
+        # Full gap (no trades).
+        [2, 4, [], [], [(2, 4)]],
+        # Historical + future trades.
+        [
+            0,
+            7,
+            [
+                Trade(time=0, price=Decimal("1.0"), size=Decimal("1.0")),
+                Trade(time=1, price=Decimal("2.0"), size=Decimal("2.0")),
+                Trade(time=4, price=Decimal("3.0"), size=Decimal("3.0")),
+                Trade(time=5, price=Decimal("4.0"), size=Decimal("4.0")),
+            ],
+            [
+                Trade(time=6, price=Decimal("1.0"), size=Decimal("1.0")),
+                # We need to add an extra trade here because the current algorithm takes trades
+                # until it has reached a trade where time is >= end time.
+                Trade(time=7, price=Decimal("1.0"), size=Decimal("1.0")),
+            ],
+            [(0, 7)],
+        ],
+        # Gap at the end.
+        [
+            0,
+            4,
+            [
+                Trade(time=0, price=Decimal("1.0"), size=Decimal("1.0")),
+                Trade(time=1, price=Decimal("2.0"), size=Decimal("2.0")),
+            ],
+            [],
+            [(0, 4)],
+        ],
     ],
 )
-async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -> None:
+async def test_stream_trades(
+    mocker: MockerFixture,
+    storage: Storage,
+    start: Timestamp,
+    end: Timestamp,
+    historical_trades: list[Trade],
+    future_trades: list[Trade],
+    expected_spans: list[tuple[Timestamp, Timestamp]],
+) -> None:
     SYMBOL = "eth-btc"
     CURRENT = 6
     STORAGE_BATCH_SIZE = 2
-    historical_trades = [
-        Trade(time=0, price=Decimal("1.0"), size=Decimal("1.0")),
-        Trade(time=1, price=Decimal("2.0"), size=Decimal("2.0")),
-        Trade(time=4, price=Decimal("3.0"), size=Decimal("3.0")),
-        Trade(time=5, price=Decimal("4.0"), size=Decimal("4.0")),
-    ]
-    future_trades = [
-        Trade(time=6, price=Decimal("1.0"), size=Decimal("1.0")),
-        Trade(time=7, price=Decimal("1.0"), size=Decimal("1.0")),
-    ]
-    expected_trades = (historical_trades + future_trades)[efrom:eto]
     time = fakes.Time(CURRENT, increment=1)
-    exchange = fakes.Exchange(
-        historical_trades=historical_trades,
-        future_trades=future_trades,
+    exchange = mock_exchange(
+        mocker,
+        trades=historical_trades,
+        stream_trades=future_trades,
     )
     trades = Trades(
         storage=storage,
@@ -89,9 +121,12 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
         list_async(storage.stream_time_series(shard, "trade", Trade, start, end)),
     )
 
+    # We use `future_trades[:-1]` because the algorithm always takes one trade from an exchange
+    # past the span to know where to end. But it's not returned by and hence we discard it here.
+    expected_trades = historical_trades + future_trades[:-1]
     assert output_trades == expected_trades
     assert stored_trades == output_trades
-    assert stored_spans == espans
+    assert stored_spans == expected_spans
 
 
 async def test_stream_trades_no_duplicates_if_same_trade_from_rest_and_websocket(
