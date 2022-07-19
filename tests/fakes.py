@@ -72,9 +72,6 @@ class Chandler(components.Chandler):
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
-    def get_interval_offset(self, exchange, interval):
-        return 0
-
 
 class Informant(components.Informant):
     def __init__(

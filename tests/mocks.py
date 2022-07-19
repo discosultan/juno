@@ -9,8 +9,28 @@ from pytest_mock import MockerFixture
 from juno import Candle, Interval
 from juno.asyncio import stream_queue
 from juno.common import Depth, ExchangeInfo, OrderResult, OrderStatus, OrderUpdate, Ticker, Trade
+from juno.components.chandler import Chandler
+from juno.components.informant import Informant
 from juno.components.trades import Trades
 from juno.exchanges import Exchange
+
+
+def mock_chandler(
+    mocker: MockerFixture,
+    candles: list[Candle] = [],
+    first_candle: Candle = Candle(),
+    last_candle: Candle = Candle(),
+    candle_intervals=[],
+) -> MagicMock:
+    chandler = mocker.MagicMock(Chandler, autospec=True)
+
+    chandler.stream_candles.side_effect = mock_stream_values(*candles)
+    chandler.stream_candles_fill_missing_with_none.side_effect = mock_stream_values(*candles)
+    chandler.get_first_candle.return_value = first_candle
+    chandler.get_last_candle.return_value = last_candle
+    chandler.list_candle_intervals.return_value = candle_intervals
+
+    return chandler
 
 
 def mock_exchange(
@@ -86,6 +106,17 @@ def mock_exchange(
     exchange.stream_orders_queue = stream_orders_queue
 
     return exchange
+
+
+def mock_informant(
+    mocker: MockerFixture,
+    symbols: list[str],
+) -> MagicMock:
+    informant = mocker.MagicMock(Informant, autospec=True)
+
+    informant.list_symbols.return_value = symbols
+
+    return informant
 
 
 def mock_trades(mocker: MockerFixture, trades: list[Trade] = []) -> MagicMock:

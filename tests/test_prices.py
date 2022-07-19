@@ -1,11 +1,11 @@
 from decimal import Decimal
 
 import pytest
+from pytest_mock import MockerFixture
 
-from juno import Candle, Symbol_
+from juno import Asset, Candle, Symbol, Symbol_
 from juno.components import Prices
-
-from . import fakes
+from tests.mocks import mock_chandler, mock_informant
 
 
 @pytest.mark.parametrize(
@@ -41,15 +41,20 @@ from . import fakes
         ),
     ],
 )
-async def test_map_asset_prices(symbols, chandler_symbols, expected_output) -> None:
+async def test_map_asset_prices(
+    mocker: MockerFixture,
+    symbols: list[Symbol],
+    chandler_symbols: list[Symbol],
+    expected_output: dict[Asset, Decimal],
+) -> None:
     candles = [
         Candle(time=0, open=Decimal("2.0"), close=Decimal("1.0")),
         Candle(time=1, close=Decimal("2.0")),
         Candle(time=2, close=Decimal("3.0")),
     ]
     prices = Prices(
-        informant=fakes.Informant(symbols=chandler_symbols),
-        chandler=fakes.Chandler(candles={("exchange", s, 1): candles for s in chandler_symbols}),
+        informant=mock_informant(mocker, symbols=chandler_symbols),
+        chandler=mock_chandler(mocker, candles=candles),
     )
     output = await prices.map_asset_prices(
         exchange="exchange",
