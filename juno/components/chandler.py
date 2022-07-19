@@ -367,7 +367,10 @@ class Chandler(AsyncContextManager):
                     and is_candle_interval_supported
                 ):
                     historical_stream = exchange_instance.stream_historical_candles(
-                        symbol, interval, start, historical_end
+                        symbol=symbol,
+                        interval=interval,
+                        start=start,
+                        end=historical_end,
                     )
                 else:
                     historical_stream = self._stream_construct_candles(
@@ -464,7 +467,9 @@ class Chandler(AsyncContextManager):
         close = Decimal("0.0")
         volume = Decimal("0.0")
         is_first = True
-        async for trade in self._trades.stream_trades(exchange, symbol, start, end):
+        async for trade in self._trades.stream_trades(
+            exchange=exchange, symbol=symbol, start=start, end=end
+        ):
             if trade.time >= next_:
                 assert not is_first
                 yield Candle(
@@ -513,7 +518,12 @@ class Chandler(AsyncContextManager):
 
         current_volume = Decimal("0.0")
         is_first = True
-        async for trade in self._trades.stream_trades(exchange, symbol, start, end):
+        async for trade in self._trades.stream_trades(
+            exchange=exchange,
+            symbol=symbol,
+            start=start,
+            end=end,
+        ):
             if is_first:
                 is_first = False
                 time = trade.time

@@ -90,7 +90,7 @@ def mock_exchange(
 def mock_connect_stream_queue(queue):
     @asynccontextmanager
     async def inner(*args, **kwargs):
-        yield stream_queue(queue)
+        yield stream_queue(queue, raise_on_exc=True)
 
     return inner
 
