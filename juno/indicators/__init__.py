@@ -11,6 +11,7 @@ from .adx import Adx
 from .adxr import Adxr
 from .alma import Alma
 from .atr import Atr
+from .atr2 import Atr2
 from .bbands import Bbands
 from .cci import Cci
 from .chaikin_oscillator import ChaikinOscillator
@@ -34,15 +35,17 @@ from .smma import Smma
 from .stoch import Stoch
 from .stochrsi import StochRsi
 from .tsi import Tsi
+from .wma import Wma
 from .zlsma import Zlsma
 
-MA = Union[Alma, Dema, Ema, Ema2, Kama, Sma, Smma]
+MA = Union[Alma, Dema, Ema, Ema2, Kama, Sma, Smma, Wma]
 
 __all__ = [
     "Adx",
     "Adxr",
     "Alma",
     "Atr",
+    "Atr2",
     "Bbands",
     "Cci",
     "ChaikinOscillator",
@@ -67,5 +70,6 @@ __all__ = [
     "Stoch",
     "StochRsi",
     "Tsi",
+    "Wma",
     "Zlsma",
 ]

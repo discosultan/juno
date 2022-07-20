@@ -40,8 +40,29 @@ def test_adxr(data: IndicatorSources) -> None:
     _assert(indicators.Adxr(14), data["tulip"]["adxr"], 4)
 
 
+def test_alma(data: IndicatorSources) -> None:
+    _assert(indicators.Alma(9, 6), data["quant_connect"]["alma"], 7)
+
+
 def test_atr(data: IndicatorSources) -> None:
     _assert(indicators.Atr(4), data["tulip"]["atr"], 4)
+
+
+# TODO: Fix.
+# def test_atr2_ema(data: IndicatorSources) -> None:
+#     _assert(indicators.Atr2(3, "ema"), data["trading_view"]["atr2_ema"], 2)
+
+
+# def test_atr2_rma(data: IndicatorSources) -> None:
+#     _assert(indicators.Atr2(3, "rma"), data["trading_view"]["atr2_rma"], 2)
+
+
+def test_atr2_sma(data: IndicatorSources) -> None:
+    _assert(indicators.Atr2(3, "sma"), data["trading_view"]["atr2_sma"], 2)
+
+
+def test_atr2_wma(data: IndicatorSources) -> None:
+    _assert(indicators.Atr2(3, "wma"), data["trading_view"]["atr2_wma"], 2)
 
 
 def test_bbands(data: IndicatorSources) -> None:
@@ -50,6 +71,17 @@ def test_bbands(data: IndicatorSources) -> None:
 
 def test_cci(data: IndicatorSources) -> None:
     _assert(indicators.Cci(5), data["tulip"]["cci"], 4)
+
+
+def test_chaikin_oscillator(data: IndicatorSources) -> None:
+    _assert(indicators.ChaikinOscillator(3, 10), data["stock_market"]["chaikin_oscillator"], 8)
+
+
+# TODO: Fix.
+# def test_chandelier_exit(data: IndicatorSources) -> None:
+#     _assert(
+#         indicators.ChandelierExit(2, 2, 2, 3, True), data["trading_view"]["chandelier_exit"], 2
+#     )
 
 
 def test_dema(data: IndicatorSources) -> None:
@@ -76,6 +108,10 @@ def test_macd(data: IndicatorSources) -> None:
     _assert(indicators.Macd(12, 26, 9), data["tulip"]["macd"], 9)
 
 
+def test_obv(data: IndicatorSources) -> None:
+    _assert(indicators.Obv(), data["tulip"]["obv"], 4)
+
+
 def test_rsi(data: IndicatorSources) -> None:
     _assert(indicators.Rsi(5), data["tulip"]["rsi"], 4)
 
@@ -92,21 +128,13 @@ def test_stochrsi(data: IndicatorSources) -> None:
     _assert(indicators.StochRsi(5), data["tulip"]["stochrsi"], 4)
 
 
-def test_obv(data: IndicatorSources) -> None:
-    _assert(indicators.Obv(), data["tulip"]["obv"], 4)
-
-
-def test_kvo(data: IndicatorSources) -> None:
-    _assert(indicators.Kvo(34, 55), data["tulip"]["kvo"], 3)
-
-
 def test_kama(data: IndicatorSources) -> None:
     # Precision should be 4 but is drifting off.
     _assert(indicators.Kama(4), data["tulip"]["kama"], 3)
 
 
-def test_chaikin_oscillator(data: IndicatorSources) -> None:
-    _assert(indicators.ChaikinOscillator(3, 10), data["stock_market"]["chaikin_oscillator"], 8)
+def test_kvo(data: IndicatorSources) -> None:
+    _assert(indicators.Kvo(34, 55), data["tulip"]["kvo"], 3)
 
 
 def test_obv2(data: IndicatorSources) -> None:
@@ -118,15 +146,8 @@ def test_tsi(data: IndicatorSources) -> None:
     _assert(indicators.Tsi(25, 13), data["stock_charts"]["tsi"], 1)
 
 
-def test_alma(data: IndicatorSources) -> None:
-    _assert(indicators.Alma(9, 6), data["quant_connect"]["alma"], 7)
-
-
-# TODO: Fix.
-# def test_chandelier_exit(data: IndicatorSources) -> None:
-#     _assert(
-#         indicators.ChandelierExit(2, 2, 2, 3, True), data["trading_view"]["chandelier_exit"], 2
-#     )
+def test_wma(data: IndicatorSources) -> None:
+    _assert(indicators.Wma(3), data["trading_view"]["wma"], 2)
 
 
 # def test_zlsma(data: IndicatorSources) -> None:
