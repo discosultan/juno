@@ -1,7 +1,9 @@
 # The indicators are taken from (and verified against) the following sources:
 # - https://github.com/TulipCharts/tulipindicators
 # - https://github.com/voice32/stock_market_indicators
-# - https://school.stockcharts.com/doku.php
+# - https://school.stockcharts.com
+# - https://stockcharts.com
+# - https://tradingview.com
 
 from typing import Union
 
@@ -24,7 +26,8 @@ from .kvo import Kvo
 from .macd import Macd
 from .mmi import Mmi
 from .momersion import Momersion
-from .obv import Obv, Obv2
+from .obv import Obv
+from .obv2 import Obv2
 from .rsi import Rsi
 from .sma import Sma
 from .smma import Smma

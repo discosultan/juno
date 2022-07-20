@@ -7,114 +7,130 @@ from juno import indicators
 from juno.path import full_path, load_yaml_file
 
 
-@pytest.fixture(scope="module")
-def data():
-    # Load inputs / expected outputs for all indicators.
-    return load_yaml_file(full_path(__file__, "./data/indicators.yaml"))
-
-
-def test_adx(data) -> None:
-    _assert(indicators.Adx(14), data["adx"], 4)
-
-
-def test_adxr(data) -> None:
-    _assert(indicators.Adxr(14), data["adxr"], 4)
-
-
-def test_atr(data) -> None:
-    _assert(indicators.Atr(4), data["atr"], 4)
-
-
-def test_bbands(data) -> None:
-    _assert(indicators.Bbands(5, Decimal("2.0")), data["bbands"], 4)
-
-
-def test_cci(data) -> None:
-    _assert(indicators.Cci(5), data["cci"], 4)
-
-
-def test_dema(data) -> None:
-    _assert(indicators.Dema(5), data["dema"], 4)
-
-
-def test_di(data) -> None:
-    _assert(indicators.DI(14), data["di"], 4)
-
-
-def test_dm(data) -> None:
-    _assert(indicators.DM(14), data["dm"], 4)
-
-
-def test_dx(data) -> None:
-    _assert(indicators.DX(14), data["dx"], 4)
-
-
-def test_ema(data) -> None:
-    _assert(indicators.Ema(5), data["ema"], 3)
-
-
-def test_macd(data) -> None:
-    _assert(indicators.Macd(12, 26, 9), data["macd"], 9)
-
-
-def test_rsi(data) -> None:
-    _assert(indicators.Rsi(5), data["rsi"], 4)
-
-
-def test_sma(data) -> None:
-    _assert(indicators.Sma(5), data["sma"], 3)
-
-
-def test_stoch(data) -> None:
-    _assert(indicators.Stoch(5, 3, 3), data["stoch"], 4)
-
-
-def test_stochrsi(data) -> None:
-    _assert(indicators.StochRsi(5), data["stochrsi"], 4)
-
-
-def test_obv(data) -> None:
-    _assert(indicators.Obv(), data["obv"], 4)
-
-
-def test_kvo(data) -> None:
-    _assert(indicators.Kvo(34, 55), data["kvo"], 3)
-
-
-def test_kama(data) -> None:
-    # Precision should be 4 but is drifting off.
-    _assert(indicators.Kama(4), data["kama"], 3)
-
-
-def test_chaikin_oscillator(data) -> None:
-    _assert(indicators.ChaikinOscillator(3, 10), data["chaikin_oscillator"], 8)
-
-
-def test_obv2(data) -> None:
-    _assert(indicators.Obv2(21), data["obv2"], 8)
-
-
-def test_tsi(data) -> None:
-    # Precision should be 2 but it's drifting off.
-    _assert(indicators.Tsi(25, 13), data["tsi"], 1)
-
-
-def test_alma(data) -> None:
-    _assert(indicators.Alma(9, 6), data["alma"], 7)
-
-
-# TODO: Fix.
-# def test_chandelier_exit(data) -> None:
-#     _assert(indicators.ChandelierExit(2, 2, 2, 3, True), data["chandelier_exit"], 2)
-
-
-# def test_zlsma(data) -> None:
-#     _assert(indicators.Zlsma(2, 0), data["zlsma"], 2)
-
-
 class IndicatorData(TypedDict):
     inputs: list[list[str]]
     outputs: list[list[str]]
+
+
+IndicatorSources = dict[str, dict[str, IndicatorData]]
+
+
+@pytest.fixture(scope="module")
+def data():
+    # Load inputs / expected outputs for all indicators.
+    return {
+        file[: file.index("_indicators.yaml")]: load_yaml_file(
+            full_path(__file__, f"./data/{file}")
+        )
+        for file in [
+            "quant_connect_indicators.yaml",
+            "stock_charts_indicators.yaml",
+            "stock_market_indicators.yaml",
+            "trading_view_indicators.yaml",
+            "tulip_indicators.yaml",
+        ]
+    }
+
+
+def test_adx(data: IndicatorSources) -> None:
+    _assert(indicators.Adx(14), data["tulip"]["adx"], 4)
+
+
+def test_adxr(data: IndicatorSources) -> None:
+    _assert(indicators.Adxr(14), data["tulip"]["adxr"], 4)
+
+
+def test_atr(data: IndicatorSources) -> None:
+    _assert(indicators.Atr(4), data["tulip"]["atr"], 4)
+
+
+def test_bbands(data: IndicatorSources) -> None:
+    _assert(indicators.Bbands(5, Decimal("2.0")), data["tulip"]["bbands"], 4)
+
+
+def test_cci(data: IndicatorSources) -> None:
+    _assert(indicators.Cci(5), data["tulip"]["cci"], 4)
+
+
+def test_dema(data: IndicatorSources) -> None:
+    _assert(indicators.Dema(5), data["tulip"]["dema"], 4)
+
+
+def test_di(data: IndicatorSources) -> None:
+    _assert(indicators.DI(14), data["tulip"]["di"], 4)
+
+
+def test_dm(data: IndicatorSources) -> None:
+    _assert(indicators.DM(14), data["tulip"]["dm"], 4)
+
+
+def test_dx(data: IndicatorSources) -> None:
+    _assert(indicators.DX(14), data["tulip"]["dx"], 4)
+
+
+def test_ema(data: IndicatorSources) -> None:
+    _assert(indicators.Ema(5), data["tulip"]["ema"], 3)
+
+
+def test_macd(data: IndicatorSources) -> None:
+    _assert(indicators.Macd(12, 26, 9), data["tulip"]["macd"], 9)
+
+
+def test_rsi(data: IndicatorSources) -> None:
+    _assert(indicators.Rsi(5), data["tulip"]["rsi"], 4)
+
+
+def test_sma(data: IndicatorSources) -> None:
+    _assert(indicators.Sma(5), data["tulip"]["sma"], 3)
+
+
+def test_stoch(data: IndicatorSources) -> None:
+    _assert(indicators.Stoch(5, 3, 3), data["tulip"]["stoch"], 4)
+
+
+def test_stochrsi(data: IndicatorSources) -> None:
+    _assert(indicators.StochRsi(5), data["tulip"]["stochrsi"], 4)
+
+
+def test_obv(data: IndicatorSources) -> None:
+    _assert(indicators.Obv(), data["tulip"]["obv"], 4)
+
+
+def test_kvo(data: IndicatorSources) -> None:
+    _assert(indicators.Kvo(34, 55), data["tulip"]["kvo"], 3)
+
+
+def test_kama(data: IndicatorSources) -> None:
+    # Precision should be 4 but is drifting off.
+    _assert(indicators.Kama(4), data["tulip"]["kama"], 3)
+
+
+def test_chaikin_oscillator(data: IndicatorSources) -> None:
+    _assert(indicators.ChaikinOscillator(3, 10), data["stock_market"]["chaikin_oscillator"], 8)
+
+
+def test_obv2(data: IndicatorSources) -> None:
+    _assert(indicators.Obv2(21), data["stock_market"]["obv2"], 8)
+
+
+def test_tsi(data: IndicatorSources) -> None:
+    # Precision should be 2 but it's drifting off.
+    _assert(indicators.Tsi(25, 13), data["stock_charts"]["tsi"], 1)
+
+
+def test_alma(data: IndicatorSources) -> None:
+    _assert(indicators.Alma(9, 6), data["quant_connect"]["alma"], 7)
+
+
+# TODO: Fix.
+# def test_chandelier_exit(data: IndicatorSources) -> None:
+#     _assert(
+#         indicators.ChandelierExit(2, 2, 2, 3, True), data["trading_view"]["chandelier_exit"], 2
+#     )
+
+
+# def test_zlsma(data: IndicatorSources) -> None:
+#     _assert(indicators.Zlsma(2, 0), data["trading_view"]["zlsma"], 2)
 
 
 def _assert(indicator, data: IndicatorData, precision: int) -> None:
