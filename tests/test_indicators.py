@@ -16,7 +16,7 @@ IndicatorSources = dict[str, dict[str, IndicatorData]]
 
 
 @pytest.fixture(scope="module")
-def data():
+def data() -> IndicatorSources:
     # Load inputs / expected outputs for all indicators.
     return {
         file[: file.index("_indicators.yaml")]: load_yaml_file(
