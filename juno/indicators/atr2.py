@@ -20,7 +20,7 @@ class Atr2:
     _sum: Decimal = Decimal("0.0")
     _prev_close: Decimal
 
-    def __init__(self, period: int, ma: _MA_Type = "sma") -> None:
+    def __init__(self, period: int, ma: _MA_Type = "rma") -> None:
         if period < 1:
             raise ValueError(f"Invalid period ({period})")
 
