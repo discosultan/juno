@@ -313,6 +313,8 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 else Advice.NONE
             )
             _log.debug(f"received advice: {advice.name}")
+            if advice is not Advice.NONE:
+                assert state.strategy.mature
 
         queue = self._queues[state.id]
         coro: Optional[Awaitable]

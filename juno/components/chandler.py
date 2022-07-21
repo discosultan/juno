@@ -253,7 +253,7 @@ class Chandler(AsyncContextManager):
                         if last_candle is not None and last_candle.time == candle.time - interval:
                             yield Candle.heikin_ashi(previous=last_candle, current=candle)
                     else:
-                        raise ValueError("Invalid candle type")
+                        raise ValueError(f"Invalid candle type: {type_}")
                     last_candle = candle
             finally:
                 await aclose(stream)
