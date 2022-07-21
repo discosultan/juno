@@ -630,7 +630,7 @@ async def test_repick_symbols() -> None:
         track_count=2,
         position_count=2,
         close_on_exit=True,
-        adjust_start=False,
+        adjusted_start=None,
     )
     state = await trader.initialize(config)
     informant.tickers = {
@@ -700,7 +700,7 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker: Mock
         ),
         track_count=1,
         position_count=1,
-        adjust_start=True,
+        adjusted_start="strategy",
     )
     state = await trader.initialize(config)
 
@@ -753,7 +753,7 @@ async def test_repick_symbols_with_adjusted_start() -> None:
         track_count=1,
         position_count=1,
         close_on_exit=True,
-        adjust_start=True,
+        adjusted_start="strategy",
     )
     state = await trader.initialize(config)
     informant.tickers = {

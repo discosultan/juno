@@ -219,22 +219,13 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
 
         strategy = config.strategy.construct()
 
-        next_ = start
-        if config.adjusted_start == "strategy":
-            # Adjust start to accommodate for the required history before a strategy
-            # becomes effective. Only do it on first run because subsequent runs mean
-            # missed candles and we don't want to fetch passed a missed candle.
-            num_historical_candles = strategy.maturity - 1
-            if config.candle_type == "heikin-ashi":
-                num_historical_candles += 1
-            next_ = max(next_ - num_historical_candles * config.interval, 0)
-            _log.info(
-                f"fetching {num_historical_candles} candle(s) before start time to warm-up "
-                f"strategy; adjusted start set to {Timestamp_.format(next_)}"
-            )
-        elif isinstance(config.adjusted_start, int):  # Timestamp
-            next_ = Timestamp_.floor(config.adjusted_start, config.interval)
-            _log.info(f"adjusted start set to {Timestamp_.format(next_)}")
+        next_ = Trader.adjust_start(
+            start=start,
+            adjusted_start=config.adjusted_start,
+            strategy_maturity=strategy.maturity,
+            candle_type=config.candle_type,
+            interval=config.interval,
+        )
 
         return BasicState(
             config=config,

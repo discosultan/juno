@@ -4,12 +4,12 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Optional, TypeVar
+from typing import Callable, Literal, Optional, TypeVar, Union
 from uuid import uuid4
 
 from more_itertools import take
 
-from juno import Advice, Asset, Candle, Interval, Symbol, Timestamp, Timestamp_
+from juno import Advice, Asset, Candle, CandleType, Interval, Symbol, Timestamp, Timestamp_
 from juno.asyncio import (
     Event,
     SlotBarrier,
@@ -50,7 +50,7 @@ class MultiConfig:
     start: Optional[Timestamp] = None  # None means max earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     trail_stop_loss: bool = True
-    adjust_start: bool = True
+    adjusted_start: Optional[Union[Timestamp, Literal["strategy"]]] = "strategy"
     mode: TradingMode = TradingMode.BACKTEST
     channel: str = "default"
     long: bool = True  # Take long positions.
@@ -66,6 +66,7 @@ class MultiConfig:
     quote_asset: str = "btc"
     repick_symbols: bool = True
     custodian: str = "stub"
+    candle_type: CandleType = "regular"
 
 
 @dataclass
@@ -95,7 +96,6 @@ class _SymbolState:
     symbol: Symbol
     strategy: Signal
     changed: Changed
-    adjusted_start: Timestamp
     start: Timestamp
     next_: Timestamp
     stop_loss: StopLoss
@@ -209,21 +209,20 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
     ) -> _SymbolState:
         strategy = config.symbol_strategies.get(symbol, config.strategy).construct()
 
-        adjusted_start = start
-        if config.adjust_start:
-            _log.info(
-                f"fetching {strategy.maturity - 1} {symbol} candle(s) before start time to "
-                "warm-up strategy"
-            )
-            adjusted_start = max(start - (strategy.maturity - 1) * config.interval, 0)
+        next_ = Trader.adjust_start(
+            start=start,
+            adjusted_start=config.adjusted_start,
+            strategy_maturity=strategy.maturity,
+            candle_type=config.candle_type,
+            interval=config.interval,
+        )
 
         return _SymbolState(
             symbol=symbol,
             strategy=strategy,
             changed=Changed(True),
-            adjusted_start=adjusted_start,
             start=start,
-            next_=adjusted_start,
+            next_=next_,
             stop_loss=(
                 NoopStopLoss() if config.stop_loss is None else config.stop_loss.construct()
             ),
@@ -477,10 +476,8 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                 if advice is not Advice.NONE:
                     msg = (
                         f"received {symbol_state.symbol} advice {advice.name} during strategy "
-                        f"warm-up period: adjusted start "
-                        f"{Timestamp_.format(symbol_state.adjusted_start)}; actual start "
-                        f"{Timestamp_.format(symbol_state.start)}; current "
-                        f"{Timestamp_.format(current)}"
+                        f"warm-up period: actual start {Timestamp_.format(symbol_state.start)};"
+                        f"current {Timestamp_.format(current)}"
                     )
                     _log.warning(msg)
                     await self._events.emit(config.channel, "message", msg)
