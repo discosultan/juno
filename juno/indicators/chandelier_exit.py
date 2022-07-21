@@ -1,7 +1,7 @@
 from collections import deque
 from decimal import Decimal
 
-from .atr import Atr
+from .atr2 import Atr2 as Atr
 
 
 # Ref: https://www.tradingview.com/script/AqXxNS7j-Chandelier-Exit/

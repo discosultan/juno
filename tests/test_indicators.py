@@ -48,13 +48,12 @@ def test_atr(data: IndicatorSources) -> None:
     _assert(indicators.Atr(4), data["tulip"]["atr"], 4)
 
 
-# TODO: Fix.
-# def test_atr2_ema(data: IndicatorSources) -> None:
-#     _assert(indicators.Atr2(3, "ema"), data["trading_view"]["atr2_ema"], 2)
+def test_atr2_ema(data: IndicatorSources) -> None:
+    _assert(indicators.Atr2(3, "ema"), data["trading_view"]["atr2_ema"], 2)
 
 
-# def test_atr2_rma(data: IndicatorSources) -> None:
-#     _assert(indicators.Atr2(3, "rma"), data["trading_view"]["atr2_rma"], 2)
+def test_atr2_rma(data: IndicatorSources) -> None:
+    _assert(indicators.Atr2(3, "rma"), data["trading_view"]["atr2_rma"], 2)
 
 
 def test_atr2_sma(data: IndicatorSources) -> None:
@@ -77,11 +76,10 @@ def test_chaikin_oscillator(data: IndicatorSources) -> None:
     _assert(indicators.ChaikinOscillator(3, 10), data["stock_market"]["chaikin_oscillator"], 8)
 
 
-# TODO: Fix.
-# def test_chandelier_exit(data: IndicatorSources) -> None:
-#     _assert(
-#         indicators.ChandelierExit(2, 2, 2, 3, True), data["trading_view"]["chandelier_exit"], 2
-#     )
+def test_chandelier_exit(data: IndicatorSources) -> None:
+    _assert(
+        indicators.ChandelierExit(2, 2, 2, 3, True), data["trading_view"]["chandelier_exit"], 2
+    )
 
 
 def test_dema(data: IndicatorSources) -> None:
