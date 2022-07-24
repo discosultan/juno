@@ -24,6 +24,7 @@ from .ema import Ema
 from .ema2 import Ema2
 from .kama import Kama
 from .kvo import Kvo
+from .lsma import Lsma
 from .macd import Macd
 from .mmi import Mmi
 from .momersion import Momersion
@@ -58,6 +59,7 @@ __all__ = [
     "Ema2",
     "Kama",
     "Kvo",
+    "Lsma",
     "Macd",
     "MA",
     "Mmi",

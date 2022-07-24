@@ -102,12 +102,29 @@ def test_ema(data: IndicatorSources) -> None:
     _assert(indicators.Ema(5), data["tulip"]["ema"], 3)
 
 
+def test_kama(data: IndicatorSources) -> None:
+    # Precision should be 4 but is drifting off.
+    _assert(indicators.Kama(4), data["tulip"]["kama"], 3)
+
+
+def test_kvo(data: IndicatorSources) -> None:
+    _assert(indicators.Kvo(34, 55), data["tulip"]["kvo"], 3)
+
+
+def test_lsma(data: IndicatorSources) -> None:
+    _assert(indicators.Lsma(5), data["trading_view"]["lsma"], 2)
+
+
 def test_macd(data: IndicatorSources) -> None:
     _assert(indicators.Macd(12, 26, 9), data["tulip"]["macd"], 9)
 
 
 def test_obv(data: IndicatorSources) -> None:
     _assert(indicators.Obv(), data["tulip"]["obv"], 4)
+
+
+def test_obv2(data: IndicatorSources) -> None:
+    _assert(indicators.Obv2(21), data["stock_market"]["obv2"], 8)
 
 
 def test_rsi(data: IndicatorSources) -> None:
@@ -126,19 +143,6 @@ def test_stochrsi(data: IndicatorSources) -> None:
     _assert(indicators.StochRsi(5), data["tulip"]["stochrsi"], 4)
 
 
-def test_kama(data: IndicatorSources) -> None:
-    # Precision should be 4 but is drifting off.
-    _assert(indicators.Kama(4), data["tulip"]["kama"], 3)
-
-
-def test_kvo(data: IndicatorSources) -> None:
-    _assert(indicators.Kvo(34, 55), data["tulip"]["kvo"], 3)
-
-
-def test_obv2(data: IndicatorSources) -> None:
-    _assert(indicators.Obv2(21), data["stock_market"]["obv2"], 8)
-
-
 def test_tsi(data: IndicatorSources) -> None:
     # Precision should be 2 but it's drifting off.
     _assert(indicators.Tsi(25, 13), data["stock_charts"]["tsi"], 1)
@@ -148,8 +152,8 @@ def test_wma(data: IndicatorSources) -> None:
     _assert(indicators.Wma(3), data["trading_view"]["wma"], 2)
 
 
-# def test_zlsma(data: IndicatorSources) -> None:
-#     _assert(indicators.Zlsma(2, 0), data["trading_view"]["zlsma"], 2)
+def test_zlsma(data: IndicatorSources) -> None:
+    _assert(indicators.Zlsma(2), data["trading_view"]["zlsma"], 2)
 
 
 def _assert(indicator, data: IndicatorData, precision: int) -> None:
