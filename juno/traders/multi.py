@@ -381,7 +381,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             # Exit if last candle.
             if state.next_ >= end:
                 for ss in state.symbol_states.values():
-                    _log.info(f"{ss.symbol} last candle: {ss.last_candle}")
+                    _log.info(f"{ss.symbol} last {config.candle_type} candle: {ss.last_candle}")
                 break
 
     async def _try_close_existing_positions(self, state: MultiState) -> None:
@@ -554,7 +554,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                 symbol_state.take_profit.clear(candle)
 
         if not symbol_state.first_candle:
-            _log.info(f"{symbol_state.symbol} first candle: {candle}")
+            _log.info(f"{symbol_state.symbol} first {config.candle_type} candle: {candle}")
             symbol_state.first_candle = candle
         symbol_state.last_candle = candle
         symbol_state.next_ = candle.time + config.interval

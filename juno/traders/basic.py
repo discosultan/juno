@@ -274,7 +274,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 await self._close_position(state, CloseReason.CANCELLED, state.last_candle)
 
             if state.last_candle:
-                _log.info(f"last candle: {state.last_candle}")
+                _log.info(f"last {config.candle_type} candle: {state.last_candle}")
 
         _log.info("finished")
         return self.build_summary(state)
@@ -358,7 +358,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
             state.take_profit.clear(candle)
 
         if not state.first_candle:
-            _log.info(f"first candle: {candle}")
+            _log.info(f"first {config.candle_type} candle: {candle}")
             state.first_candle = candle
         state.last_candle = candle
         state.next_ = candle.time + config.interval
