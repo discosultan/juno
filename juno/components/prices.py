@@ -142,13 +142,13 @@ class Prices:
         )
         if first.time > start:
             raise InsufficientPrices(
-                f"Unable to map prices; first candle for {exchange} {symbol} at "
-                f"{Timestamp_.format(first.time)} but requested start at "
+                f"Unable to map prices; first {exchange} {symbol} {Interval_.format(interval)} "
+                f"candle at {Timestamp_.format(first.time)} but requested start at "
                 f"{Timestamp_.format(start)}"
             )
         if last.time < end - interval:
             raise InsufficientPrices(
-                f"Unable to map prices; last candle for {exchange} {symbol} at "
-                f"{Timestamp_.format(last.time)} but requested end at "
+                f"Unable to map prices; last {exchange} {symbol} {Interval_.format(interval)} "
+                f"candle at {Timestamp_.format(last.time)} but requested end at "
                 f"{Timestamp_.format(end)}"
             )
