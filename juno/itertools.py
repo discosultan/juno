@@ -36,13 +36,13 @@ def generate_missing_spans(
         yield missing_start, missing_end
 
 
-def page(start: int, end: int, step: int) -> Iterable[tuple[int, int]]:
+def paginate(start: int, end: int, step: int) -> Iterable[tuple[int, int]]:
     for page_start in range(start, end, step):
         page_end = min(page_start + step, end)
         yield page_start, page_end
 
 
-def page_limit(start: int, end: int, interval: int, limit: int) -> Iterable[tuple[int, int]]:
+def paginate_limit(start: int, end: int, interval: int, limit: int) -> Iterable[tuple[int, int]]:
     total_size = (end - start) / interval
     max_count = limit * interval
     page_size = math.ceil(total_size / limit)

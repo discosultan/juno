@@ -60,7 +60,7 @@ from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, PercentPriceBySide, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
-from juno.itertools import page, page_limit
+from juno.itertools import paginate, paginate_limit
 from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
@@ -679,7 +679,7 @@ class Binance(Exchange):
         pagination_interval = interval
         if start == 0:
             pagination_interval = end - start
-        for page_start, page_end in page_limit(start, end, pagination_interval, limit):
+        for page_start, page_end in paginate_limit(start, end, pagination_interval, limit):
             content = await self._api_request_json(
                 method="GET",
                 url="/api/v3/klines",
@@ -923,7 +923,7 @@ class Binance(Exchange):
         # Does not support FIAT.
         end = Timestamp_.now() if end is None else end
         tasks = []
-        for page_start, page_end in page(_BINANCE_START, end, Interval_.DAY * 90):
+        for page_start, page_end in paginate(_BINANCE_START, end, Interval_.DAY * 90):
             tasks.append(
                 self._api_request_json(
                     method="GET",
@@ -942,7 +942,7 @@ class Binance(Exchange):
         # Does not support FIAT.
         end = Timestamp_.now() if end is None else end
         tasks = []
-        for page_start, page_end in page(_BINANCE_START, end, Interval_.DAY * 90):
+        for page_start, page_end in paginate(_BINANCE_START, end, Interval_.DAY * 90):
             tasks.append(
                 self._api_request_json(
                     method="GET",
