@@ -1,3 +1,4 @@
+import sys
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Type
@@ -214,6 +215,19 @@ async def test_stream_historical_candles(request, exchange: Exchange) -> None:
 
         assert types_match(candle, Candle)
         assert candle.time == start
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@parametrize_exchange([Binance])  # TODO: Add coinbase, gateio.
+async def test_stream_first_historical_candle(request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+
+    async for candle in exchange.stream_historical_candles(
+        symbol="eth-btc", interval=Interval_.HOUR, start=0, end=sys.maxsize
+    ):
+        assert types_match(candle, Candle)
+        break
 
 
 @pytest.mark.exchange

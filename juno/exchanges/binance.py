@@ -60,7 +60,7 @@ from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, PercentPriceBySide, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
-from juno.itertools import paginate, paginate_limit
+from juno.itertools import paginate
 from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
@@ -675,19 +675,19 @@ class Binance(Exchange):
         limit = 1000  # Max possible candles per request.
         binance_interval = Interval_.format(interval)
         binance_symbol = _to_http_symbol(symbol)
-        # Start 0 is a special value indicating that we try to find the earliest available candle.
-        pagination_interval = interval
-        if start == 0:
-            pagination_interval = end - start
-        for page_start, page_end in paginate_limit(start, end, pagination_interval, limit):
+        binance_start = start
+        binance_end = end - 1
+        while True:
+            if binance_start > binance_end:
+                return
             content = await self._api_request_json(
                 method="GET",
                 url="/api/v3/klines",
                 data={
                     "symbol": binance_symbol,
                     "interval": binance_interval,
-                    "startTime": page_start,
-                    "endTime": page_end - 1,
+                    "startTime": binance_start,
+                    "endTime": binance_end,
                     "limit": limit,
                 },
             )
@@ -695,14 +695,18 @@ class Binance(Exchange):
                 # Binance can return bad candles where the time does not fall within the requested
                 # interval. For example, the second candle of the following query has bad time:
                 # https://api.binance.com/api/v3/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
+                time = c[0]
                 yield Candle(
-                    time=c[0],
+                    time=time,
                     open=Decimal(c[1]),
                     high=Decimal(c[2]),
                     low=Decimal(c[3]),
                     close=Decimal(c[4]),
                     volume=Decimal(c[5]),
                 )
+                binance_start = time + 1
+            if len(content) < limit:
+                return
 
     @asynccontextmanager
     async def connect_stream_candles(
