@@ -10,6 +10,10 @@ from juno.math import floor_multiple
 _log = logging.getLogger(__name__)
 
 
+class InsufficientPrices(Exception):
+    pass
+
+
 class Prices:
     def __init__(self, informant: Informant, chandler: Chandler) -> None:
         self._informant = informant
@@ -50,7 +54,10 @@ class Prices:
 
         # Validate we have enough data.
         await asyncio.gather(
-            *(self._validate_start(exchange, s, interval, start) for s in direct_symbols),
+            *(
+                self._validate_sufficient_data(exchange, s, interval, start, end)
+                for s in direct_symbols
+            ),
         )
 
         # Gather direct prices.
@@ -121,13 +128,27 @@ class Prices:
                 last_candle = candle
         return prices
 
-    async def _validate_start(
-        self, exchange: str, symbol: Symbol, interval: Interval, start: Timestamp
+    async def _validate_sufficient_data(
+        self,
+        exchange: str,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp,
     ) -> None:
-        first = await self._chandler.get_first_candle(exchange, symbol, interval)
+        first, last = await asyncio.gather(
+            self._chandler.get_first_candle(exchange, symbol, interval),
+            self._chandler.get_last_candle(exchange, symbol, interval),
+        )
         if first.time > start:
-            raise ValueError(
-                f"Unable to map prices; first candle for {symbol} at "
+            raise InsufficientPrices(
+                f"Unable to map prices; first candle for {exchange} {symbol} at "
                 f"{Timestamp_.format(first.time)} but requested start at "
                 f"{Timestamp_.format(start)}"
+            )
+        if last.time < end - interval:
+            raise InsufficientPrices(
+                f"Unable to map prices; last candle for {exchange} {symbol} at "
+                f"{Timestamp_.format(last.time)} but requested end at "
+                f"{Timestamp_.format(end)}"
             )

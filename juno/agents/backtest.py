@@ -14,6 +14,7 @@ from juno import (
     take_profit,
 )
 from juno.components import Chandler, Events
+from juno.components.prices import InsufficientPrices
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.inspect import construct
 from juno.statistics import CoreStatistics, Statistician
@@ -117,13 +118,16 @@ class Backtest(Agent):
             _log.warning("skipping analysis; statistician not available")
             return
 
-        stats = await self._statistician.get_statistics(
-            summary=summary,
-            exchange=config.fiat_exchange or config.exchange,
-            target_asset=config.fiat_asset,
-        )
-
-        _log.info(json.dumps(serialization.config.serialize(stats.extended), indent=4))
+        try:
+            stats = await self._statistician.get_statistics(
+                summary=summary,
+                exchange=config.fiat_exchange or config.exchange,
+                target_asset=config.fiat_asset,
+            )
+        except InsufficientPrices as exc:
+            _log.warning(f"unable to show extended statistics: {exc}")
+        else:
+            _log.info(json.dumps(serialization.config.serialize(stats.extended), indent=4))
 
     async def on_finally(self, config: Config, state: State) -> Any:
         summary = self.build_summary(config, state)

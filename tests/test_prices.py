@@ -5,6 +5,7 @@ from pytest_mock import MockerFixture
 
 from juno import Asset, Candle, Symbol, Symbol_
 from juno.components import Prices
+from juno.components.prices import InsufficientPrices
 from tests.mocks import mock_chandler, mock_informant
 
 
@@ -54,7 +55,12 @@ async def test_map_asset_prices(
     ]
     prices = Prices(
         informant=mock_informant(mocker, symbols=chandler_symbols),
-        chandler=mock_chandler(mocker, candles=candles),
+        chandler=mock_chandler(
+            mocker,
+            candles=candles,
+            first_candle=candles[0],
+            last_candle=candles[-1],
+        ),
     )
     output = await prices.map_asset_prices(
         exchange="exchange",
@@ -65,3 +71,24 @@ async def test_map_asset_prices(
         end=3,
     )
     assert output == expected_output
+
+
+async def test_map_asset_prices_insufficient_prices(mocker: MockerFixture) -> None:
+    prices = Prices(
+        informant=mock_informant(mocker, symbols=["btc-usdt"]),
+        chandler=mock_chandler(
+            mocker,
+            candles=[Candle(time=1)],
+            first_candle=Candle(time=1),
+            last_candle=Candle(time=1),
+        ),
+    )
+    with pytest.raises(InsufficientPrices):
+        await prices.map_asset_prices(
+            exchange="exchange",
+            assets=["btc"],
+            interval=1,
+            target_asset="usdt",
+            start=0,
+            end=3,
+        )
