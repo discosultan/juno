@@ -11,6 +11,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 from juno import json, serialization
 from juno.components import Events
 from juno.inspect import extract_public
+from juno.statistics.core import CoreStatistics
 from juno.traceback import exc_traceback
 from juno.traders import Trader
 from juno.trading import Position, TradingSummary
@@ -106,7 +107,9 @@ class Slack(Plugin):
             await send_message(
                 format_message(
                     "summary",
-                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
+                    json.dumps(
+                        serialization.config.serialize(CoreStatistics.compose(summary)), indent=4
+                    ),
                 )
             )
 
@@ -115,7 +118,9 @@ class Slack(Plugin):
             await send_message(
                 format_message(
                     "finished with summary",
-                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
+                    json.dumps(
+                        serialization.config.serialize(CoreStatistics.compose(summary)), indent=4
+                    ),
                 ),
             )
 

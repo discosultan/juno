@@ -14,6 +14,7 @@ from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
 from juno.inspect import extract_public
 from juno.positioner import SimulatedPositioner
+from juno.statistics.core import CoreStatistics
 from juno.traceback import exc_traceback
 from juno.traders import Trader
 from juno.trading import CloseReason, Position, TradingSummary
@@ -144,7 +145,9 @@ class Discord(Bot, Plugin):
             await send_message(
                 format_message(
                     "summary",
-                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
+                    json.dumps(
+                        serialization.config.serialize(CoreStatistics.compose(summary)), indent=4
+                    ),
                     lang="json",
                 )
             )
@@ -154,7 +157,9 @@ class Discord(Bot, Plugin):
             await send_message(
                 format_message(
                     "finished with summary",
-                    json.dumps(serialization.config.serialize(extract_public(summary)), indent=4),
+                    json.dumps(
+                        serialization.config.serialize(CoreStatistics.compose(summary)), indent=4
+                    ),
                     lang="json",
                 ),
             )
@@ -274,7 +279,9 @@ class Discord(Bot, Plugin):
                 format_message(
                     "summary",
                     json.dumps(
-                        serialization.config.serialize(extract_public(trader_ctx.state.summary)),
+                        serialization.config.serialize(
+                            CoreStatistics.compose(trader_ctx.state.summary)
+                        ),
                         indent=4,
                     ),
                     lang="json",

@@ -15,7 +15,8 @@ from juno import (
 )
 from juno.components import Events, Informant
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
-from juno.inspect import construct, extract_public
+from juno.inspect import construct
+from juno.statistics.core import CoreStatistics
 from juno.storages import Storage
 from juno.traders import Trader
 from juno.trading import TradingMode, TradingSummary
@@ -107,9 +108,10 @@ class Live(Agent):
 
     async def on_finally(self, config: Config, state: State) -> Any:
         summary = self.build_summary(config, state)
+        stats = CoreStatistics.compose(summary)
         _log.info(
             f"{self.get_name(state)}: finished with result "
-            f"{json.dumps(serialization.config.serialize(extract_public(summary)), indent=4)}"
+            f"{json.dumps(serialization.config.serialize(stats), indent=4)}"
         )
         await self._events.emit(state.name, "finished", summary)
         return summary
