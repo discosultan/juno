@@ -37,7 +37,11 @@ class _TraderContext:
 # We use simulated position mixin to provide info for the `.status` command.
 class Discord(Bot, Plugin):
     def __init__(
-        self, chandler: Chandler, informant: Informant, events: Events, config: dict[str, Any]
+        self,
+        chandler: Chandler,
+        informant: Informant,
+        events: Events,
+        config: dict[str, Any],
     ) -> None:
         super().__init__(command_prefix=".", intents=_intents)
 
@@ -280,7 +284,9 @@ class Discord(Bot, Plugin):
                     "summary",
                     json.dumps(
                         serialization.config.serialize(
-                            CoreStatistics.compose(trader_ctx.state.summary)
+                            CoreStatistics.compose(
+                                trader_ctx.instance.build_summary(trader_ctx.state)
+                            )
                         ),
                         indent=4,
                     ),
