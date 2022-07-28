@@ -5,6 +5,7 @@ from typing import Iterable, Optional
 
 from juno import Asset, Candle, Interval, Interval_, Symbol, Symbol_, Timestamp, Timestamp_
 from juno.components import Chandler, Informant
+from juno.contextlib import AsyncContextManager
 from juno.math import floor_multiple
 
 _log = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ class InsufficientPrices(Exception):
     pass
 
 
-class Prices:
+class Prices(AsyncContextManager):
     def __init__(self, informant: Informant, chandler: Chandler) -> None:
         self._informant = informant
         self._chandler = chandler

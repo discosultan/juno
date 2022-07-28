@@ -103,6 +103,28 @@ class Chandler(AsyncContextManager):
 
         await asyncio.gather(*(aclose(stream) for _, stream in future_streams))
 
+    async def list_candles_fill_missing_with_none(
+        self,
+        exchange: str,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp = Timestamp_.MAX_TIME,
+        exchange_timeout: Optional[float] = None,
+        type_: CandleType = "regular",
+    ) -> list[Optional[Candle]]:
+        return await list_async(
+            self.stream_candles_fill_missing_with_none(
+                exchange,
+                symbol,
+                interval,
+                start,
+                end,
+                exchange_timeout,
+                type_,
+            )
+        )
+
     async def stream_candles_fill_missing_with_none(
         self,
         exchange: str,
