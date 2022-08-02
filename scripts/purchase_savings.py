@@ -36,6 +36,8 @@ async def purchase_asset(
     product = products[asset]
     product_id = product.product_id
 
+    size = min(size, product.max_purchase_amount_for_user)
+
     if size < product.min_purchase_amount:
         logging.info(
             f"not enough funds to purchase {asset}; min required " f"{product.min_purchase_amount}"

@@ -386,3 +386,8 @@ class SavingsProduct:
     purchased_amount: Decimal
     min_purchase_amount: Decimal
     limit: Decimal
+    limit_per_user: Decimal
+
+    @property
+    def max_purchase_amount_for_user(self) -> Decimal:
+        return min(self.limit - self.purchased_amount, self.limit_per_user)

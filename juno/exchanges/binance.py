@@ -981,6 +981,7 @@ class Binance(Exchange):
                 purchased_amount=Decimal(product["purchasedAmount"]),
                 min_purchase_amount=Decimal(product["minPurchaseAmount"]),
                 limit=Decimal(product["upLimit"]),
+                limit_per_user=Decimal(product["upLimitPerUser"]),
             )
         return result
 
