@@ -18,7 +18,7 @@ class ChandelierExitPlusZlsma(Signal):
         chandelier_exit_short_period: int = 22,
         chandelier_exit_atr_period: int = 22,
         chandelier_exit_atr_multiplier: int = 3,
-        zlsma_period: int = 50,
+        zlsma_period: int = 32,
     ) -> None:
         self._chandelier_exit = ChandelierExit(
             long_period=chandelier_exit_long_period,
