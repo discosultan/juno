@@ -2,6 +2,7 @@ from .adx import Adx
 from .bbands import BBands
 from .bmsb import Bmsb
 from .chandelier_exit import ChandelierExit
+from .chandelier_exit_plus_zlsma import ChandelierExitPlusZlsma
 from .double_ma import DoubleMA, DoubleMAParams
 from .double_ma_2 import DoubleMA2
 from .double_ma_stoch import DoubleMAStoch
@@ -32,6 +33,7 @@ __all__ = [
     "BBands",
     "Bmsb",
     "ChandelierExit",
+    "ChandelierExitPlusZlsma",
     "Changed",
     "DoubleMA",
     "DoubleMAParams",
@@ -47,6 +49,7 @@ __all__ = [
     "Mmi",
     "Momersion",
     "Oscillator",
+    "Panna",
     "Persistence",
     "Rsi",
     "Sig",
