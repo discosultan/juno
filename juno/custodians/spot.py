@@ -14,26 +14,24 @@ class Spot(Custodian):
     def __init__(self, user: User) -> None:
         self._user = user
 
-    async def request_quote(
-        self, exchange: str, asset: Asset, quote: Optional[Decimal]
-    ) -> Decimal:
-        available_quote = (
+    async def request(self, exchange: str, asset: Asset, amount: Optional[Decimal]) -> Decimal:
+        available_amount = (
             await self._user.get_balance(exchange=exchange, account="spot", asset=asset)
         ).available
 
-        if quote is None:
-            _log.info(f"quote not specified; using available {available_quote} {asset}")
-            return available_quote
+        if amount is None:
+            _log.info(f"amount not specified; using available {available_amount} {asset}")
+            return available_amount
 
-        if available_quote < quote:
+        if available_amount < amount:
             raise ValueError(
-                f"Requesting trading with {quote} {asset} but only {available_quote} available"
+                f"Requesting trading with {amount} {asset} but only {available_amount} available"
             )
 
-        return quote
+        return amount
 
-    async def acquire(self, exchange: str, asset: Asset, quote: Decimal) -> None:
+    async def acquire(self, exchange: str, asset: Asset, amount: Decimal) -> None:
         pass
 
-    async def release(self, exchange: str, asset: Asset, quote: Decimal) -> None:
+    async def release(self, exchange: str, asset: Asset, amount: Decimal) -> None:
         pass

@@ -212,8 +212,8 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         )
         real_start = self._get_time_ms()
 
-        quote = await self._custodians[config.custodian].request_quote(
-            exchange=config.exchange, asset=config.quote_asset, quote=config.quote
+        quote = await self._custodians[config.custodian].request(
+            exchange=config.exchange, asset=config.quote_asset, amount=config.quote
         )
         assert quote > filters.price.min
 

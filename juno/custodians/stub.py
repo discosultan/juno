@@ -7,15 +7,13 @@ from .custodian import Custodian
 
 
 class Stub(Custodian):
-    async def request_quote(
-        self, exchange: str, asset: Asset, quote: Optional[Decimal]
-    ) -> Decimal:
-        if quote is None:
-            raise ValueError("Quote must be specified ")
-        return quote
+    async def request(self, exchange: str, asset: Asset, amount: Optional[Decimal]) -> Decimal:
+        if amount is None:
+            raise ValueError("Amount must be specified ")
+        return amount
 
-    async def acquire(self, exchange: str, asset: Asset, quote: Decimal) -> None:
+    async def acquire(self, exchange: str, asset: Asset, amount: Decimal) -> None:
         pass
 
-    async def release(self, exchange: str, asset: Asset, quote: Decimal) -> None:
+    async def release(self, exchange: str, asset: Asset, amount: Decimal) -> None:
         pass

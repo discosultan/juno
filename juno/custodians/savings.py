@@ -12,35 +12,34 @@ _log = logging.getLogger(__name__)
 
 _BALANCE_TIMEOUT = 10.0
 _PRODUCT_TIMEOUT = 30 * 60.0
+_EMPTY_BALANCE = Balance()
 
 
 class Savings(Custodian):
     def __init__(self, user: User) -> None:
         self._user = user
 
-    async def request_quote(
-        self, exchange: str, asset: Asset, quote: Optional[Decimal]
-    ) -> Decimal:
+    async def request(self, exchange: str, asset: Asset, amount: Optional[Decimal]) -> Decimal:
         # On Binance, a flexible savings asset is indicated with an "ld"-prefix. It stands for
         # "lending daily".
         savings_asset = f"ld{asset}"
-        available_quote = (
+        available_amount = (
             await self._user.get_balance(exchange=exchange, account="spot", asset=savings_asset)
         ).available
 
-        if quote is None:
-            _log.info(f"quote not specified; using available {available_quote} {asset}")
-            return available_quote
+        if amount is None:
+            _log.info(f"amount not specified; using available {available_amount} {asset}")
+            return available_amount
 
-        if available_quote < quote:
+        if available_amount < amount:
             raise ValueError(
-                f"Requesting trading with {quote} {asset} but only {available_quote} available"
+                f"Requesting trading with {amount} {asset} but only {available_amount} available"
             )
 
-        return quote
+        return amount
 
-    async def acquire(self, exchange: str, asset: Asset, quote: Decimal) -> None:
-        _log.info(f"redeeming {quote} worth of {asset} flexible savings product")
+    async def acquire(self, exchange: str, asset: Asset, amount: Decimal) -> None:
+        _log.info(f"redeeming {amount} worth of {asset} flexible savings product")
 
         product = await asyncio.wait_for(
             self._wait_for_product_status_purchasing(exchange, asset),
@@ -51,16 +50,23 @@ class Savings(Custodian):
             return
 
         async with self._user.sync_wallet(exchange, "spot") as wallet:
-            await self._user.redeem_savings_product(exchange, product.product_id, quote)
+            savings_asset = _savings_asset(asset)
+            savings_amount = wallet.balances.get(savings_asset, _EMPTY_BALANCE).available
+            if savings_amount == 0:
+                _log.info("nothing to redeem; savings balance 0")
+                return
+
+            await self._user.redeem_savings_product(exchange, product.product_id, savings_amount)
             await asyncio.wait_for(
-                self._wait_for_wallet_updated_with(wallet, asset, quote),
+                self._wait_for_wallet_updated_with(wallet, asset, amount),
                 timeout=_BALANCE_TIMEOUT,
             )
+            assert wallet.balances.get(savings_asset, _EMPTY_BALANCE).available == 0
 
-        _log.info(f"redeemed {quote} worth of {asset} flexible savings product")
+        _log.info(f"redeemed {savings_amount} worth of {asset} flexible savings product")
 
-    async def release(self, exchange: str, asset: Asset, quote: Decimal) -> None:
-        _log.info(f"purchasing {quote} worth of {asset} flexible savings product")
+    async def release(self, exchange: str, asset: Asset, amount: Decimal) -> None:
+        _log.info(f"purchasing {amount} worth of {asset} flexible savings product")
 
         product = await asyncio.wait_for(
             self._wait_for_product_status_purchasing(exchange, asset),
@@ -70,22 +76,41 @@ class Savings(Custodian):
             _log.info(f"{asset} savings product not available; skipping")
             return
 
+        savings_amount = amount
+
+        global_available_product = product.limit - product.purchased_amount
+        if amount > global_available_product:
+            _log.info(f"only {global_available_product} available globally")
+            savings_amount = global_available_product
+
+        if amount > product.limit_per_user:
+            _log.info(f"only {product.limit_per_user} available per user")
+            savings_amount = product.limit_per_user
+
+        if savings_amount < product.min_purchase_amount:
+            _log.info(
+                f"{savings_amount} less than minimum purchase amount "
+                f"{product.min_purchase_amount}; skipping"
+            )
+            return
+
         async with self._user.sync_wallet(exchange, "spot") as wallet:
-            await self._user.purchase_savings_product(exchange, product.product_id, quote)
-            savings_asset = f"ld{asset}"
+            await self._user.purchase_savings_product(exchange, product.product_id, savings_amount)
+            savings_asset = _savings_asset(asset)
             await asyncio.wait_for(
-                self._wait_for_wallet_updated_with(wallet, savings_asset, quote),
+                self._wait_for_wallet_updated_with(wallet, savings_asset, savings_amount),
                 timeout=_BALANCE_TIMEOUT,
             )
+            assert wallet.balances.get(asset, _EMPTY_BALANCE).available >= amount - savings_amount
 
-        _log.info(f"purchased {quote} worth of {asset} flexible savings product")
+        _log.info(f"purchased {savings_amount} worth of {asset} flexible savings product")
 
     async def _wait_for_wallet_updated_with(
-        self, wallet: User.WalletSyncContext, asset: Asset, quote: Decimal
+        self, wallet: User.WalletSyncContext, asset: Asset, amount: Decimal
     ) -> None:
         while True:
             await wallet.updated.wait()
-            if wallet.balances.get(asset, Balance()).available >= quote:
+            if wallet.balances.get(asset, _EMPTY_BALANCE).available >= amount:
                 return
 
     async def _wait_for_product_status_purchasing(
@@ -111,3 +136,7 @@ class Savings(Custodian):
                 return product
             else:
                 raise Exception(f"Unknown {asset} savings product status {product.status}")
+
+
+def _savings_asset(asset: Asset) -> Asset:
+    return f"ld{asset}"
