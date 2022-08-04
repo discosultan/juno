@@ -181,7 +181,7 @@ class Discord(Bot, Plugin):
             await send_message(format_message("received message", message))
 
         async def open_positions(ctx: Context, value: str, short: bool) -> None:
-            if ctx.channel.name != channel_name:
+            if ctx.channel.id != channel_id:
                 return
             assert trader_ctx
 
@@ -212,7 +212,7 @@ class Discord(Bot, Plugin):
 
         @self.command(help="Closes open positions by specified comma-separated symbols")
         async def close_positions(ctx: Context, value: str) -> None:
-            if ctx.channel.name != channel_name:
+            if ctx.channel.id != channel_id:
                 return
             assert trader_ctx
 
@@ -235,7 +235,7 @@ class Discord(Bot, Plugin):
 
         @self.command(help="Sets whether trader closes positions on exit")
         async def close_on_exit(ctx: Context, value: str) -> None:
-            if ctx.channel.name != channel_name:
+            if ctx.channel.id != channel_id:
                 return
             if value not in ["true", "false"]:
                 await send_message(
@@ -255,7 +255,7 @@ class Discord(Bot, Plugin):
 
         @self.command(help="Sets whether trader opens new positions")
         async def open_new_positions(ctx: Context, value: str) -> None:
-            if ctx.channel.name != channel_name:
+            if ctx.channel.id != channel_id:
                 return
             if value not in ["true", "false"]:
                 await send_message(
@@ -275,7 +275,7 @@ class Discord(Bot, Plugin):
 
         @self.command(help="Gets trading summary if all open positions were closed right now")
         async def status(ctx: Context) -> None:
-            if ctx.channel.name != channel_name:
+            if ctx.channel.id != channel_id:
                 return
             assert trader_ctx
 
