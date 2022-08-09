@@ -403,10 +403,12 @@ class Kraken(Exchange):
         existing_id: ClientId,
         account: Account,
         symbol: Symbol,
+        side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[ClientId] = None,
     ) -> None:
         """https://docs.kraken.com/rest/#operation/editOrder"""
@@ -833,6 +835,7 @@ _KNOWN_NEW_QUOTE_ASSETS = [
     "usdc",
     "cad",
     "dot",
+    "aed",
 ]
 
 _ASSET_ALIAS_MAP = {

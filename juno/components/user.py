@@ -222,10 +222,12 @@ class User:
         exchange: str,
         account: Account,
         symbol: Symbol,
+        side: Side,
         type_: OrderType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[ClientId] = None,
     ) -> None:
         exchange_instance = self._exchanges[exchange]
@@ -235,10 +237,12 @@ class User:
             existing_id=existing_id,
             account=account,
             symbol=symbol,
+            side=side,
             type_=type_,
             size=size,
             quote=quote,
             price=price,
+            time_in_force=time_in_force,
             client_id=client_id,
         )
 

@@ -332,6 +332,7 @@ async def test_edit_order_order_missing(request, exchange: Exchange) -> None:
             existing_id=exchange.generate_client_id(),
             account="spot",
             symbol="eth-btc",
+            side=Side.BUY,
             type_=OrderType.LIMIT,
             size=Decimal("1.0"),
             price=Decimal("1.0"),

@@ -483,6 +483,7 @@ class Limit(Broker):
                 exchange=exchange,
                 account=account,
                 symbol=symbol,
+                side=side,
                 type_=OrderType.LIMIT_MAKER,
                 price=price,
                 size=size,
