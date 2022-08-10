@@ -338,6 +338,7 @@ class KuCoin(Exchange):
             body=body,
         )
 
+        # TODO: Trigger specific order exceptions.
         if res["code"] == "300000":  # Size invalid.
             raise BadOrder(res["msg"])
         _raise_for_kucoin_status(res)

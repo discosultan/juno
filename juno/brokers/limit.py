@@ -10,6 +10,7 @@ from juno import (
     ClientId,
     Fill,
     Filters,
+    InsufficientFunds,
     OrderMissing,
     OrderResult,
     OrderStatus,
@@ -51,6 +52,7 @@ class _Context:
         self.fills_since_last_order: list[Fill] = []
         self.time: int = -1
         self.processing_order: Optional[_ActiveOrder] = None
+        self.done: bool = False
 
         # Can be mutated by anyone.
         self.requested_order: Optional[_ActiveOrder] = None
@@ -61,6 +63,13 @@ class _Context:
             return self.processing_order.quote - Fill.total_quote(self.fills_since_last_order)
         else:
             return self.processing_order.size - Fill.total_size(self.fills_since_last_order)
+
+    def allocate_fills(self) -> None:
+        assert self.processing_order
+        self.fills.extend(self.fills_since_last_order)
+        self.available += self.get_add_back()
+        self.fills_since_last_order.clear()
+        self.processing_order = None
 
 
 class _FilledFromTrack(Exception):
@@ -228,11 +237,13 @@ class Limit(Broker):
             try:
                 await asyncio.gather(keep_limit_order_best_task, track_fills_task)
             except _FilledFromKeepAtBest:
+                _log.debug("filled from keep limit order best task; cancelling track fills task")
                 try:
                     await cancel(track_fills_task)
                 except _FilledFromTrack:
                     pass
             except _FilledFromTrack:
+                _log.debug("filled from track fills task, cancelling keep limit order best task")
                 try:
                     await cancel(keep_limit_order_best_task)
                 except _FilledFromKeepAtBest:
@@ -248,7 +259,7 @@ class Limit(Broker):
                         f"{ctx.processing_order.client_id} at price {ctx.processing_order.price} "
                         f"size {ctx.processing_order.size}"
                     )
-                    await self._cancel_order(
+                    await self._try_cancel_order(
                         exchange=exchange,
                         account=account,
                         symbol=symbol,
@@ -257,65 +268,6 @@ class Limit(Broker):
 
         assert ctx.time >= 0
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
-
-    async def _keep_limit_order_best(
-        self,
-        exchange: str,
-        account: Account,
-        symbol: Symbol,
-        side: Side,
-        ensure_size: bool,
-        ctx: _Context,
-    ) -> None:
-        _log.info(
-            f"managing {exchange} {symbol} limit order based on {self._order_placement_strategy} "
-            "strategy"
-        )
-        _, filters = self._informant.get_fees_filters(exchange, symbol)
-        is_first = True
-        can_edit_order = self._user.can_edit_order(exchange)
-        async with self._orderbook.sync(exchange, symbol) as orderbook:
-            while True:
-                if is_first:
-                    is_first = False
-                else:
-                    await orderbook.updated.wait()
-
-                asks = orderbook.list_asks()
-                bids = orderbook.list_bids()
-                ob_side = bids if side is Side.BUY else asks
-                ob_other_side = asks if side is Side.BUY else bids
-
-                price = self._find_order_placement_price(
-                    side, ob_side, ob_other_side, filters, ctx.requested_order
-                )
-                if price is None:  # None means we don't need to reposition our order.
-                    continue
-
-                if ctx.requested_order and not can_edit_order:
-                    # Cancel prev order.
-                    await self._cancel_order_and_wait(exchange, account, symbol, side, ctx)
-
-                if ctx.requested_order and can_edit_order:
-                    await self._edit_order_and_wait(
-                        exchange,
-                        account,
-                        symbol,
-                        side,
-                        price,
-                        ensure_size,
-                        ctx,
-                    )
-                else:
-                    await self._place_order_and_wait(
-                        exchange,
-                        account,
-                        symbol,
-                        side,
-                        price,
-                        ensure_size,
-                        ctx,
-                    )
 
     async def _track_fills(
         self,
@@ -342,7 +294,6 @@ class Limit(Broker):
 
             if isinstance(order, OrderUpdate.New):
                 ctx.processing_order = ctx.requested_order
-                ctx.fills_since_last_order.clear()
                 deduct = ctx.processing_order.quote if ctx.use_quote else ctx.processing_order.size
                 ctx.available -= deduct
                 ctx.new_event.set()
@@ -372,15 +323,13 @@ class Limit(Broker):
                 )
             elif isinstance(order, OrderUpdate.Cancelled):
                 assert ctx.processing_order
-                ctx.fills.extend(ctx.fills_since_last_order)
-                ctx.time = order.time
-                ctx.available += ctx.get_add_back()
-                ctx.cancelled_event.set()
                 _log.info(
                     f"existing {symbol} {side.name} order {ctx.processing_order.client_id} "
                     "cancelled"
                 )
-                ctx.processing_order = None
+                ctx.allocate_fills()
+                ctx.time = order.time
+                ctx.cancelled_event.set()
 
                 # Additional logging.
                 filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
@@ -391,15 +340,79 @@ class Limit(Broker):
                 )
             elif isinstance(order, OrderUpdate.Done):
                 assert ctx.processing_order
-                ctx.fills.extend(ctx.fills_since_last_order)
-                ctx.time = order.time
                 _log.info(
                     f"existing {symbol} {side.name} order {ctx.processing_order.client_id} filled"
                 )
-                ctx.processing_order = None
+                ctx.allocate_fills()
+                ctx.time = order.time
+                ctx.done = True
                 raise _FilledFromTrack()
             else:
                 raise NotImplementedError(order)
+
+    async def _keep_limit_order_best(
+        self,
+        exchange: str,
+        account: Account,
+        symbol: Symbol,
+        side: Side,
+        ensure_size: bool,
+        ctx: _Context,
+    ) -> None:
+        _log.info(
+            f"managing {exchange} {symbol} limit order based on {self._order_placement_strategy} "
+            "strategy"
+        )
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
+        is_first = True
+        can_edit_order = self._user.can_edit_order(exchange)
+        async with self._orderbook.sync(exchange, symbol) as orderbook:
+            while True:
+                if is_first:
+                    is_first = False
+                else:
+                    await orderbook.updated.wait()
+
+                if ctx.done:
+                    break
+
+                asks = orderbook.list_asks()
+                bids = orderbook.list_bids()
+                ob_side = bids if side is Side.BUY else asks
+                ob_other_side = asks if side is Side.BUY else bids
+
+                price = self._find_order_placement_price(
+                    side, ob_side, ob_other_side, filters, ctx.requested_order
+                )
+                if price is None:  # None means we don't need to reposition our order.
+                    continue
+
+                if ctx.requested_order and not can_edit_order:
+                    # Cancel prev order.
+                    await self._cancel_order_and_wait(exchange, account, symbol, side, ctx)
+
+                if ctx.requested_order and can_edit_order:
+                    # Edit prev order (cancel + place in a single call).
+                    await self._edit_order_and_wait(
+                        exchange,
+                        account,
+                        symbol,
+                        side,
+                        price,
+                        ensure_size,
+                        ctx,
+                    )
+                else:
+                    # Place new order.
+                    await self._place_order_and_wait(
+                        exchange,
+                        account,
+                        symbol,
+                        side,
+                        price,
+                        ensure_size,
+                        ctx,
+                    )
 
     async def _place_order_and_wait(
         self,
@@ -489,9 +502,15 @@ class Limit(Broker):
                 size=size,
                 client_id=new_order.client_id,
             )
-        except OrderWouldBeTaker:
-            # Order would immediately match and take. Retry.
-            ctx.requested_order = prev_order
+        except OrderMissing:
+            # Probably filled.
+            ctx.requested_order = None
+        except (InsufficientFunds, OrderWouldBeTaker):
+            # Previous order was partially filled or order would be taker.
+            if self._user.can_edit_order_atomic(exchange):
+                ctx.requested_order = prev_order
+            else:
+                ctx.requested_order = None
             return
 
         try:
@@ -519,7 +538,7 @@ class Limit(Broker):
             f"cancelling previous {symbol} {side.name} order {client_id} at price "
             f"{ctx.requested_order.price}"
         )
-        if await self._cancel_order(
+        if await self._try_cancel_order(
             exchange=exchange,
             account=account,
             symbol=symbol,
@@ -537,7 +556,7 @@ class Limit(Broker):
                 raise
         ctx.requested_order = None
 
-    async def _cancel_order(
+    async def _try_cancel_order(
         self, exchange: str, account: Account, symbol: Symbol, client_id: ClientId
     ) -> bool:
         try:

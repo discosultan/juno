@@ -57,6 +57,7 @@ def mock_exchange(
     can_place_market_order: bool = True,
     can_place_market_order_quote: bool = True,
     can_edit_order: bool = True,
+    can_edit_order_atomic: bool = True,
 ) -> MagicMock:
     exchange = mocker.MagicMock(Exchange, autospec=True)
     exchange.name = "magicmock"
@@ -71,6 +72,7 @@ def mock_exchange(
     exchange.can_place_market_order = can_place_market_order
     exchange.can_place_market_order_quote = can_place_market_order_quote
     exchange.can_edit_order = can_edit_order
+    exchange.can_edit_order_atomic = can_edit_order_atomic
 
     exchange.generate_client_id.return_value = client_id
     exchange.get_exchange_info.return_value = exchange_info

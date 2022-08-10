@@ -16,13 +16,17 @@ class ExchangeException(Exception):
             raise ExchangeException(f"No handling for error {response.status} {content}")
 
 
-class OrderWouldBeTaker(Exception):
-    pass
-
-
-class OrderMissing(Exception):
-    pass
-
-
 class BadOrder(Exception):
+    pass
+
+
+class OrderWouldBeTaker(BadOrder):
+    pass
+
+
+class OrderMissing(BadOrder):
+    pass
+
+
+class InsufficientFunds(BadOrder):
     pass

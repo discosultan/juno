@@ -41,7 +41,7 @@ from juno import (
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.common import Account, BorrowInfo, OrderStatus
-from juno.errors import ExchangeException, OrderWouldBeTaker
+from juno.errors import ExchangeException, InsufficientFunds, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.math import precision_to_decimal
@@ -60,6 +60,7 @@ _PRIVATE_WS_URL = "wss://ws-auth.kraken.com"
 _ERR_UNKNOWN_ORDER = "EOrder:Unknown order"
 _ERR_RATE_LIMIT_EXCEEDED = "EOrder:Rate limit exceeded"
 _ERR_POST_ONLY_ORDER = "EOrder:Post only order"
+_ERR_INSUFFICIENT_FUNDS = "EOrder:Insufficient funds"
 
 _log = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ class Kraken(Exchange):
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
     can_edit_order: bool = True
+    can_edit_order_atomic: bool = True
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -394,6 +396,8 @@ class Kraken(Exchange):
                     raise OrderMissing(msg)
                 elif msg == _ERR_POST_ONLY_ORDER:
                     raise OrderWouldBeTaker(msg)
+                elif msg == _ERR_INSUFFICIENT_FUNDS:
+                    raise InsufficientFunds(msg)
             raise
         return OrderResult(time=0, status=OrderStatus.NEW)
 

@@ -49,6 +49,7 @@ class Exchange(AsyncContextManager, ABC):
     can_place_market_order_quote: bool = False
     # If order can be edited directly or has to be cancelled and recreated.
     can_edit_order: bool = False
+    can_edit_order_atomic: bool = False
     # TODO: Add can_receive_market_order_result_sync
 
     def generate_client_id(self) -> int | str:
