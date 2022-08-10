@@ -229,7 +229,7 @@ class User:
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[ClientId] = None,
-    ) -> None:
+    ) -> OrderResult:
         exchange_instance = self._exchanges[exchange]
         if not exchange_instance.can_edit_order:
             raise RuntimeError("Not supported")

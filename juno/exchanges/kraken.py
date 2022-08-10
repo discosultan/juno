@@ -395,8 +395,7 @@ class Kraken(Exchange):
                 elif msg == _ERR_POST_ONLY_ORDER:
                     raise OrderWouldBeTaker(msg)
             raise
-        # TODO: Just a dummy result.
-        return OrderResult(time=Timestamp_.now(), status=OrderStatus.NEW)
+        return OrderResult(time=0, status=OrderStatus.NEW)
 
     async def edit_order(
         self,
@@ -410,7 +409,7 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[ClientId] = None,
-    ) -> None:
+    ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/editOrder"""
         assert account == "spot"
         assert quote is None
@@ -447,6 +446,7 @@ class Kraken(Exchange):
                 elif msg == _ERR_POST_ONLY_ORDER:
                     raise OrderWouldBeTaker(msg)
             raise
+        return OrderResult(time=0, status=OrderStatus.NEW)
 
     async def cancel_order(
         self,

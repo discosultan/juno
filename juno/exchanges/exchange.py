@@ -132,7 +132,7 @@ class Exchange(AsyncContextManager, ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[ClientId] = None,
-    ) -> None:
+    ) -> OrderResult:
         raise NotImplementedError()
 
     async def cancel_order(

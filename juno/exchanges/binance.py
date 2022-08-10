@@ -110,7 +110,7 @@ class Binance(Exchange):
     can_margin_trade: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
-    can_edit_order: bool = False
+    can_edit_order: bool = True
 
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
         if not high_precision:
@@ -303,13 +303,14 @@ class Binance(Exchange):
                         apply_to_market=f["applyToMarket"],
                         avg_price_period=f["avgPriceMins"] * Interval_.MIN,
                     )
-            # TODO: Looks like `percent_price_by_side` is not available yet. Update the assertion
-            # once that has changed.
-            assert all((price, percent_price, lot_size, min_notional))
 
             base_asset = symbol_info["baseAsset"].lower()
             quote_asset = symbol_info["quoteAsset"].lower()
             symbol = f"{base_asset}-{quote_asset}"
+
+            if not all((price, percent_price or percent_price_by_side, lot_size, min_notional)):
+                raise RuntimeError(f"Not all filters available for {symbol}")
+
             filters[symbol] = Filters(
                 price=price or Price(),
                 percent_price=percent_price or PercentPrice(),
@@ -624,29 +625,91 @@ class Binance(Exchange):
             security=_SEC_TRADE,
         )
 
-        # In case of LIMIT_MARKET order, the following are not present in the response:
-        # - status
-        # - cummulativeQuoteQty
-        # - fills
-        total_quote = Decimal(q) if (q := content.get("cummulativeQuoteQty")) else Decimal("0.0")
-        return OrderResult(
-            time=content["transactTime"],
-            status=(
-                _from_order_status(status)
-                if (status := content.get("status"))
-                else OrderStatus.NEW
-            ),
-            fills=[
-                Fill(
-                    price=(p := Decimal(f["price"])),
-                    size=(s := Decimal(f["qty"])),
-                    quote=(p * s).quantize(total_quote),
-                    fee=Decimal(f["commission"]),
-                    fee_asset=f["commissionAsset"].lower(),
-                )
-                for f in content.get("fills", [])
-            ],
+        return _from_order_result(content)
+
+    async def edit_order(
+        self,
+        existing_id: ClientId,
+        account: Account,
+        symbol: Symbol,
+        side: Side,
+        type_: OrderType,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
+        client_id: Optional[ClientId] = None,
+    ) -> OrderResult:
+        """
+        https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md#cancel-an-existing-order-and-send-a-new-order-trade
+        """
+        data: dict[str, Any] = {
+            "symbol": _to_http_symbol(symbol),
+            "side": _to_side(side),
+            "type": _to_order_type(type_),
+            "cancelReplaceMode": "STOP_ON_FAILURE",
+            "cancelOrigClientOrderId": existing_id,
+        }
+        if size is not None:
+            data["quantity"] = _to_decimal(size)
+        if quote is not None:
+            data["quoteOrderQty"] = _to_decimal(quote)
+        if price is not None:
+            data["price"] = _to_decimal(price)
+        if time_in_force is not None:
+            data["timeInForce"] = _to_time_in_force(time_in_force)
+        if client_id is not None:
+            data["newClientOrderId"] = client_id
+        if account not in ["spot", "margin"]:
+            data["isIsolated"] = "TRUE"
+
+        if account == "spot":
+            url = "/api/v3/order/cancelReplace"
+            weight = 1
+        else:
+            # TODO: Probably not supported. Test!
+            url = "/sapi/v1/margin/order/cancelReplace"
+            weight = 1
+
+        response = await self._api_request(
+            method="POST",
+            url=url,
+            data=data,
+            weight=weight,
+            limiters=_LIMITERS_ORDER,
+            security=_SEC_TRADE,
         )
+        content = await response.json()
+
+        if isinstance(content, dict) and (error_code := content.get("code")) is not None:
+            error_msg = content.get("msg")
+            if error_code == -2022:
+                data = content["data"]
+                if data["cancelResult"] == "FAILURE":
+                    cancel_response = data["cancelResponse"]
+                    cancel_response_code = cancel_response["code"]
+                    cancel_response_msg = cancel_response["msg"]
+                    self._handle_order_error(cancel_response_code, cancel_response_msg)
+                    raise NotImplementedError(
+                        f"No handling for edit order cancel response {cancel_response_code}: "
+                        f"{cancel_response_msg}"
+                    )
+                if data["newOrderResult"] == "FAILURE":
+                    new_order_response = data["newOrderResponse"]
+                    new_order_response_code = new_order_response["code"]
+                    new_order_response_msg = new_order_response["msg"]
+                    self._handle_order_error(new_order_response_code, new_order_response_msg)
+                    raise NotImplementedError(
+                        "No handling for edit order new order response "
+                        f"{new_order_response_code}: {new_order_response_msg}"
+                    )
+            await self._handle_generic_error(error_code, error_msg, response.headers)
+            raise NotImplementedError(
+                f"No handling for edit order error code {error_code}: {error_msg}"
+            )
+        await ExchangeException.raise_for_status(response)
+
+        return _from_order_result(content["newOrderResponse"])
 
     async def cancel_order(
         self,
@@ -1029,7 +1092,34 @@ class Binance(Exchange):
         security: int = _SEC_NONE,
         data: Optional[Any] = None,
     ) -> Any:
-        # Preparation.
+        # Request.
+        response = await self._api_request(
+            method=method, url=url, weight=weight, limiters=limiters, security=security, data=data
+        )
+        content = await response.json()
+
+        # Error handling.
+        if isinstance(content, dict) and (error_code := content.get("code")) is not None:
+            error_msg = content.get("msg")
+            _log.warning(
+                f"received http status {response.status}; code {error_code}; msg {error_msg}"
+            )
+            self._handle_order_error(error_code, error_msg)
+            await self._handle_generic_error(error_code, error_msg, response.headers)
+            raise NotImplementedError(f"No handling for error: {response.status} {content}")
+        await ExchangeException.raise_for_status(response)
+
+        return content
+
+    async def _api_request(
+        self,
+        method: str,
+        url: str,
+        weight: int = 1,
+        limiters: int = _LIMITERS_BASIC,
+        security: int = _SEC_NONE,
+        data: Optional[Any] = None,
+    ) -> Any:
         limiter_tasks = [
             self._raw_reqs_limiter.acquire(),
             self._reqs_per_min_limiter.acquire(weight),
@@ -1066,54 +1156,7 @@ class Binance(Exchange):
         if data:
             kwargs["params" if method == "GET" else "data"] = data
 
-        # Request.
-        response = await self._request(method=method, url=_BASE_API_URL + url, **kwargs)
-        content = await response.json()
-
-        # Error handling.
-        if isinstance(content, dict) and (error_code := content.get("code")) is not None:
-            error_msg = content.get("msg")
-            _log.warning(
-                f"received http status {response.status}; code {error_code}; msg {error_msg}"
-            )
-            if error_code in {
-                _ERR_INVALID_LISTEN_KEY,
-                _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST,
-                _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS,
-                _ERR_SYSTEM_BUSY,
-                _ERR_UNKNOWN,
-                _ERR_DAILY_REDEEM_AMOUNT_ERROR,
-                _ERR_DAILY_REDEEM_TIME_ERROR,
-                _ERR_REQUEST_FREQUENCY_TOO_HIGH,
-            }:
-                raise ExchangeException(error_msg)
-            elif error_code == _ERR_INVALID_TIMESTAMP:
-                _log.warning("received invalid timestamp; syncing clock before exc")
-                self._clock.clear()
-                raise ExchangeException(error_msg)
-            elif error_code == _ERR_CANCEL_REJECTED:
-                raise OrderMissing(error_msg)
-            elif error_code in {_ERR_NEW_ORDER_REJECTED, _ERR_MARGIN_NEW_ORDER_REJECTED}:
-                if error_msg == "Order would immediately match and take.":
-                    raise OrderWouldBeTaker(error_msg)
-                else:
-                    # For example: 'Account has insufficient balance for requested action.'
-                    raise BadOrder(error_msg)
-            # TODO: Check only specific error codes.
-            elif error_code <= -9000:  # Filter error.
-                raise BadOrder(error_msg)
-            elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
-                raise BadOrder(error_msg)
-            elif error_code == _ERR_TOO_MANY_REQUESTS:
-                if retry_after := response.headers.get(istr("Retry-After")):
-                    _log.info(f"server provided retry-after {retry_after}; sleeping")
-                    await asyncio.sleep(float(retry_after))
-                raise ExchangeException(error_msg)
-            else:
-                raise NotImplementedError(f"No handling for error: {response.status} {content}")
-
-        await ExchangeException.raise_for_status(response)
-        return content
+        return await self._request(method=method, url=_BASE_API_URL + url, **kwargs)
 
     async def _gateway_request_json(self, method: str, url: str, **kwargs: Any) -> Any:
         response = await self._request(method, _BASE_GATEWAY_URL + url, **kwargs)
@@ -1169,6 +1212,48 @@ class Binance(Exchange):
             self._user_data_streams[account] = stream
             await stream.__aenter__()
         return stream
+
+    def _handle_order_error(self, code: int, msg: Optional[str]) -> None:
+        if code == _ERR_CANCEL_REJECTED:
+            raise OrderMissing(msg)
+        elif code in {_ERR_NEW_ORDER_REJECTED, _ERR_MARGIN_NEW_ORDER_REJECTED}:
+            if msg == "Order would immediately match and take.":
+                raise OrderWouldBeTaker(msg)
+            else:
+                # For example: 'Account has insufficient balance for requested action.'
+                raise BadOrder(msg)
+        # TODO: Check only specific error codes.
+        elif code <= -9000:  # Filter error.
+            raise BadOrder(msg)
+        elif code == -1013:  # TODO: Not documented but also a filter error O_o
+            raise BadOrder(msg)
+
+    async def _handle_generic_error(
+        self,
+        code: int,
+        msg: Optional[str],
+        headers: MultiDict,
+    ) -> None:
+        if code in {
+            _ERR_INVALID_LISTEN_KEY,
+            _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST,
+            _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS,
+            _ERR_SYSTEM_BUSY,
+            _ERR_UNKNOWN,
+            _ERR_DAILY_REDEEM_AMOUNT_ERROR,
+            _ERR_DAILY_REDEEM_TIME_ERROR,
+            _ERR_REQUEST_FREQUENCY_TOO_HIGH,
+        }:
+            raise ExchangeException(msg)
+        elif code == _ERR_INVALID_TIMESTAMP:
+            _log.warning("received invalid timestamp; syncing clock before exc")
+            self._clock.clear()
+            raise ExchangeException(msg)
+        elif code == _ERR_TOO_MANY_REQUESTS:
+            if retry_after := headers.get(istr("Retry-After")):
+                _log.info(f"server provided retry-after {retry_after}; sleeping")
+                await asyncio.sleep(float(retry_after))
+            raise ExchangeException(msg)
 
 
 class Clock:
@@ -1539,3 +1624,27 @@ def _to_decimal(value: Decimal) -> str:
     # Converts from scientific notation.
     # 6.4E-7 -> 0.0000_0064
     return f"{value:f}"
+
+
+def _from_order_result(content: Any) -> OrderResult:
+    # In case of LIMIT_MARKET order, the following are not present in the response:
+    # - status
+    # - cummulativeQuoteQty
+    # - fills
+    total_quote = Decimal(q) if (q := content.get("cummulativeQuoteQty")) else Decimal("0.0")
+    return OrderResult(
+        time=content["transactTime"],
+        status=(
+            _from_order_status(status) if (status := content.get("status")) else OrderStatus.NEW
+        ),
+        fills=[
+            Fill(
+                price=(p := Decimal(f["price"])),
+                size=(s := Decimal(f["qty"])),
+                quote=(p * s).quantize(total_quote),
+                fee=Decimal(f["commission"]),
+                fee_asset=f["commissionAsset"].lower(),
+            )
+            for f in content.get("fills", [])
+        ],
+    )

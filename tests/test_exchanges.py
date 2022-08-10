@@ -21,6 +21,7 @@ from juno import (
     SavingsProduct,
     Side,
     Ticker,
+    TimeInForce,
     Timestamp_,
     Trade,
     exchanges,
@@ -323,7 +324,7 @@ async def test_place_order_bad_order(request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@parametrize_exchange([Kraken])
+@parametrize_exchange([Binance, Kraken])
 async def test_edit_order_order_missing(request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -335,7 +336,8 @@ async def test_edit_order_order_missing(request, exchange: Exchange) -> None:
             side=Side.BUY,
             type_=OrderType.LIMIT,
             size=Decimal("1.0"),
-            price=Decimal("1.0"),
+            price=Decimal("0.1"),
+            time_in_force=TimeInForce.GTC,
         )
 
 
