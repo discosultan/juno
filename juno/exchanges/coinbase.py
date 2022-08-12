@@ -345,6 +345,7 @@ class Coinbase(Exchange):
         response = await self._private_request("POST", "/orders", data=data)
         content = await response.json()
 
+        # TODO: Trigger specific order exceptions.
         if response.status == 400:
             raise BadOrder(content["message"])
 

@@ -30,7 +30,7 @@ from juno.common import (
     Symbol,
     TimeInForce,
 )
-from juno.errors import OrderMissing, OrderWouldBeTaker
+from juno.errors import InsufficientFunds, OrderMissing, OrderWouldBeTaker
 from juno.filters import MinNotional, Price, Size
 from juno.http import ClientResponse, ClientSession
 from juno.math import precision_to_decimal
@@ -190,8 +190,12 @@ class GateIO(Exchange):
         async with self._request_signed("POST", "/api/v4/spot/orders", body=body) as response:
             if response.status == 400:
                 error = await response.json()
-                if error["label"] == "POC_FILL_IMMEDIATELY":
-                    raise OrderWouldBeTaker(error["message"])
+                error_label = error["label"]
+                error_msg = error["message"]
+                if error_label == "POC_FILL_IMMEDIATELY":
+                    raise OrderWouldBeTaker(error_msg)
+                elif error_label == "BALANCE_NOT_ENOUGH":
+                    raise InsufficientFunds(error_msg)
             response.raise_for_status()
             content = await response.json()
 

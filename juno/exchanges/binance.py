@@ -36,6 +36,7 @@ from juno import (
     ExchangeInfo,
     Fees,
     Fill,
+    InsufficientFunds,
     Interval,
     Interval_,
     Order,
@@ -683,7 +684,7 @@ class Binance(Exchange):
 
         if isinstance(content, dict) and (error_code := content.get("code")) is not None:
             error_msg = content.get("msg")
-            if error_code == -2022:
+            if error_code in {-2021, -2022}:
                 data = content["data"]
                 if data["cancelResult"] == "FAILURE":
                     cancel_response = data["cancelResponse"]
@@ -1219,6 +1220,8 @@ class Binance(Exchange):
         elif code in {_ERR_NEW_ORDER_REJECTED, _ERR_MARGIN_NEW_ORDER_REJECTED}:
             if msg == "Order would immediately match and take.":
                 raise OrderWouldBeTaker(msg)
+            elif msg == "Account has insufficient balance for requested action.":
+                raise InsufficientFunds(msg)
             else:
                 # For example: 'Account has insufficient balance for requested action.'
                 raise BadOrder(msg)

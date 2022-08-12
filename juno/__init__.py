@@ -23,7 +23,7 @@ from .common import (
     TimeInForce,
     Trade,
 )
-from .errors import BadOrder, ExchangeException, OrderMissing, OrderWouldBeTaker
+from .errors import BadOrder, ExchangeException, InsufficientFunds, OrderMissing, OrderWouldBeTaker
 from .filters import Filters
 from .primitives import Asset, Interval, Interval_, Symbol, Symbol_, Timestamp, Timestamp_
 
@@ -45,6 +45,7 @@ __all__ = [
     "Fees",
     "Fill",
     "Filters",
+    "InsufficientFunds",
     "Interval",
     "Interval_",
     "Order",

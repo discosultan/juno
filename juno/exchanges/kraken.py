@@ -41,7 +41,7 @@ from juno import (
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.common import Account, BorrowInfo, OrderStatus
-from juno.errors import ExchangeException, OrderWouldBeTaker
+from juno.errors import ExchangeException, InsufficientFunds, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.math import precision_to_decimal
@@ -60,6 +60,7 @@ _PRIVATE_WS_URL = "wss://ws-auth.kraken.com"
 _ERR_UNKNOWN_ORDER = "EOrder:Unknown order"
 _ERR_RATE_LIMIT_EXCEEDED = "EOrder:Rate limit exceeded"
 _ERR_POST_ONLY_ORDER = "EOrder:Post only order"
+_ERR_INSUFFICIENT_FUNDS = "EOrder:Insufficient funds"
 
 _log = logging.getLogger(__name__)
 
@@ -389,11 +390,7 @@ class Kraken(Exchange):
             )
         except KrakenException as exc:
             if len(exc.errors) == 1:
-                msg = exc.errors[0]
-                if msg == _ERR_UNKNOWN_ORDER:
-                    raise OrderMissing(msg)
-                elif msg == _ERR_POST_ONLY_ORDER:
-                    raise OrderWouldBeTaker(msg)
+                _handle_order_error(exc.errors[0])
             raise
         return OrderResult(time=0, status=OrderStatus.NEW)
 
@@ -440,11 +437,7 @@ class Kraken(Exchange):
             )
         except KrakenException as exc:
             if len(exc.errors) == 1:
-                msg = exc.errors[0]
-                if msg == _ERR_UNKNOWN_ORDER:
-                    raise OrderMissing(msg)
-                elif msg == _ERR_POST_ONLY_ORDER:
-                    raise OrderWouldBeTaker(msg)
+                _handle_order_error(exc.errors[0])
             raise
         return OrderResult(time=0, status=OrderStatus.NEW)
 
@@ -955,3 +948,12 @@ _margin_fee_schedule = {
     "xtz": Decimal("0.02"),
     "zec": Decimal("0.02"),
 }
+
+
+def _handle_order_error(msg: str) -> None:
+    if msg == _ERR_UNKNOWN_ORDER:
+        raise OrderMissing(msg)
+    elif msg == _ERR_POST_ONLY_ORDER:
+        raise OrderWouldBeTaker(msg)
+    elif msg == _ERR_INSUFFICIENT_FUNDS:
+        raise InsufficientFunds(msg)
