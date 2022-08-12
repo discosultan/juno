@@ -80,12 +80,27 @@ class Limit(Broker):
         orderbook: Orderbook,
         user: User,
         cancel_order_on_error: bool = True,
+        # There's an inherent risk when using an exchange edit order functionality. For example,
+        # we have placed order A. We are now editing order A to order B. During the edit request,
+        # there's a partial match to order A. Order B still gets placed with the full size (without
+        # taking the partial match into account). This way we can end in a situation where we spend
+        # more than we intended.
+        #
+        # Separate cancel + place requests don't suffer from the above issue because we ack the
+        # cancel request before placing the new request, knowing the price + size in advance.
+        #
+        # It's safe to use the edit order functionality as long as we trade with the full quote
+        # asset amount. In this case, we simply receive InsufficientFunds error after a
+        # partial match and can retry. As soon as we trade with a partial quote amount (as is the
+        # case with the multi trader, for example), we may overspend.
+        use_edit_order_if_possible: bool = False,
         order_placement_strategy: OrderPlacementStrategy = "matching",
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._user = user
         self._cancel_order_on_error = cancel_order_on_error
+        self._use_edit_order_if_possible = use_edit_order_if_possible
 
         self._order_placement_strategy = order_placement_strategy
         if order_placement_strategy == "leading":
@@ -228,11 +243,13 @@ class Limit(Broker):
             try:
                 await asyncio.gather(keep_limit_order_best_task, track_fills_task)
             except _FilledFromKeepAtBest:
+                _log.debug("filled from keep limit order best task; cancelling track fills task")
                 try:
                     await cancel(track_fills_task)
                 except _FilledFromTrack:
                     pass
             except _FilledFromTrack:
+                _log.debug("filled from track fills task, cancelling keep limit order best task")
                 try:
                     await cancel(keep_limit_order_best_task)
                 except _FilledFromKeepAtBest:
@@ -248,7 +265,7 @@ class Limit(Broker):
                         f"{ctx.processing_order.client_id} at price {ctx.processing_order.price} "
                         f"size {ctx.processing_order.size}"
                     )
-                    await self._cancel_order(
+                    await self._try_cancel_order(
                         exchange=exchange,
                         account=account,
                         symbol=symbol,
@@ -357,7 +374,7 @@ class Limit(Broker):
         )
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         is_first = True
-        can_edit_order = self._user.can_edit_order(exchange)
+        can_edit_order = self._user.can_edit_order(exchange) and self._use_edit_order_if_possible
         async with self._orderbook.sync(exchange, symbol) as orderbook:
             while True:
                 if is_first:
@@ -381,6 +398,7 @@ class Limit(Broker):
                     await self._cancel_order_and_wait(exchange, account, symbol, side, ctx)
 
                 if ctx.requested_order and can_edit_order:
+                    # Edit prev order (cancel + place in a single call).
                     await self._edit_order_and_wait(
                         exchange,
                         account,
@@ -391,6 +409,7 @@ class Limit(Broker):
                         ctx,
                     )
                 else:
+                    # Place new order.
                     await self._place_order_and_wait(
                         exchange,
                         account,
@@ -519,7 +538,7 @@ class Limit(Broker):
             f"cancelling previous {symbol} {side.name} order {client_id} at price "
             f"{ctx.requested_order.price}"
         )
-        if await self._cancel_order(
+        if await self._try_cancel_order(
             exchange=exchange,
             account=account,
             symbol=symbol,
@@ -537,7 +556,7 @@ class Limit(Broker):
                 raise
         ctx.requested_order = None
 
-    async def _cancel_order(
+    async def _try_cancel_order(
         self, exchange: str, account: Account, symbol: Symbol, client_id: ClientId
     ) -> bool:
         try:
