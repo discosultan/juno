@@ -256,6 +256,7 @@ class OrderStatus(IntEnum):
     FILLED = 2
     PARTIALLY_FILLED = 3
     CANCELLED = 4
+    REJECTED = 5
 
 
 class OrderType(IntEnum):

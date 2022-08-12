@@ -77,6 +77,7 @@ class Kraken(Exchange):
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
     can_edit_order: bool = True
+    can_edit_order_atomic: bool = True
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key

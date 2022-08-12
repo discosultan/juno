@@ -10,6 +10,7 @@ from juno import (
     ClientId,
     Fill,
     Filters,
+    InsufficientFunds,
     OrderMissing,
     OrderResult,
     OrderStatus,
@@ -47,6 +48,7 @@ class _Context:
         self.use_quote = use_quote
         self.new_event: Event[None] = Event(autoclear=True)
         self.cancelled_event: Event[None] = Event(autoclear=True)
+        self.done_event: Event[None] = Event(autoclear=True)
         self.fills: list[Fill] = []  # Fills from aggregated trades.
         self.fills_since_last_order: list[Fill] = []
         self.time: int = -1
@@ -54,6 +56,7 @@ class _Context:
 
         # Can be mutated by anyone.
         self.requested_order: Optional[_ActiveOrder] = None
+        self.wait_orderbook_update: bool = False
 
     def get_add_back(self) -> Decimal:
         assert self.processing_order
@@ -129,14 +132,16 @@ class Limit(Broker):
         if size is not None:
             _log.info(
                 f"buying {size} (ensure size: {ensure_size}) {base_asset} with limit orders at "
-                f"spread ({account} account) following {self._order_placement_strategy} strategy"
+                f"spread ({account} account) following {self._order_placement_strategy} strategy; "
+                f"using edit order if possible: {self._use_edit_order_if_possible}"
             )
             if ensure_size:
                 size = filters.with_fee(size, fees.maker)
         elif quote is not None:
             _log.info(
                 f"buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread "
-                f"({account} account) following {self._order_placement_strategy} strategy"
+                f"({account} account) following {self._order_placement_strategy} strategy; using "
+                f"edit order if possible: {self._use_edit_order_if_possible}"
             )
         else:
             raise NotImplementedError()
@@ -178,7 +183,8 @@ class Limit(Broker):
         base_asset, quote_asset = Symbol_.assets(symbol)
         _log.info(
             f"selling {size} {base_asset} with limit orders at spread ({account} account) "
-            f"following {self._order_placement_strategy} strategy"
+            f"following {self._order_placement_strategy} strategy; using edit order if possible: "
+            f"{self._use_edit_order_if_possible}"
         )
         res = await self._fill(exchange, account, symbol, Side.SELL, False, size=size)
 
@@ -351,6 +357,7 @@ class Limit(Broker):
                 assert ctx.processing_order
                 ctx.fills.extend(ctx.fills_since_last_order)
                 ctx.time = order.time
+                ctx.done_event.set()
                 _log.info(
                     f"existing {symbol} {side.name} order {ctx.processing_order.client_id} filled"
                 )
@@ -373,14 +380,15 @@ class Limit(Broker):
             "strategy"
         )
         _, filters = self._informant.get_fees_filters(exchange, symbol)
-        is_first = True
         can_edit_order = self._user.can_edit_order(exchange) and self._use_edit_order_if_possible
         async with self._orderbook.sync(exchange, symbol) as orderbook:
             while True:
-                if is_first:
-                    is_first = False
-                else:
+                if ctx.wait_orderbook_update:
                     await orderbook.updated.wait()
+                ctx.wait_orderbook_update = True
+
+                if ctx.done_event.is_set():
+                    break
 
                 asks = orderbook.list_asks()
                 bids = orderbook.list_bids()
@@ -456,6 +464,7 @@ class Limit(Broker):
             )
         except OrderWouldBeTaker:
             # Order would immediately match and take. Retry.
+            _log.debug("place order; order would be taker")
             ctx.requested_order = None
             return
 
@@ -508,9 +517,29 @@ class Limit(Broker):
                 size=size,
                 client_id=new_order.client_id,
             )
+        except OrderMissing:
+            _log.debug("edit order; order missing")
+            await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
+            ctx.requested_order = None
+            ctx.wait_orderbook_update = False
+            return
+        except InsufficientFunds:
+            _log.debug("edit order; insufficient funds")
+            ctx.wait_orderbook_update = False
+            if self._user.can_edit_order_atomic(exchange):
+                ctx.requested_order = prev_order
+            else:
+                await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
+                ctx.requested_order = None
+            return
         except OrderWouldBeTaker:
+            _log.debug("edit order; order would be taker")
             # Order would immediately match and take. Retry.
-            ctx.requested_order = prev_order
+            if self._user.can_edit_order_atomic(exchange):
+                ctx.requested_order = prev_order
+            else:
+                await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
+                ctx.requested_order = None
             return
 
         try:

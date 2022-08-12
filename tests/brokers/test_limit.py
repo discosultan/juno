@@ -7,7 +7,17 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from juno import BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus, OrderUpdate
+from juno import (
+    BadOrder,
+    Depth,
+    ExchangeInfo,
+    Fees,
+    Fill,
+    InsufficientFunds,
+    OrderResult,
+    OrderStatus,
+    OrderUpdate,
+)
 from juno.brokers import Limit
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
@@ -660,10 +670,108 @@ async def test_buy_matching_order_placement_strategy(mocker: MockerFixture) -> N
         assert exchange.cancel_order.call_count == 2
 
 
+async def test_edit_order_match_before_order_insufficient_funds(mocker: MockerFixture) -> None:
+    snapshot = Depth.Snapshot(
+        asks=[],
+        bids=[(Decimal("1.0"), Decimal("1.0"))],
+    )
+    exchange = mock_exchange(
+        mocker,
+        exchange_info=exchange_info,
+        depth=snapshot,
+        client_id=order_client_id,
+        can_stream_depth_snapshot=False,
+        can_edit_order=True,
+        can_edit_order_atomic=False,
+    )
+
+    def place_order(*args, **kwargs):
+        if exchange.place_order.call_count == 1:
+            exchange.stream_orders_queue.put_nowait(
+                OrderUpdate.New(
+                    client_id=order_client_id,
+                )
+            )
+            exchange.stream_depth_queue.put_nowait(
+                Depth.Update(bids=[(Decimal("2.0"), Decimal("1.0"))])
+            )
+            return OrderResult(time=0, status=OrderStatus.NEW)
+        elif exchange.place_order.call_count == 2:
+            exchange.stream_orders_queue.put_nowait(
+                OrderUpdate.New(
+                    client_id=order_client_id,
+                )
+            )
+            exchange.stream_orders_queue.put_nowait(
+                OrderUpdate.Match(
+                    client_id=order_client_id,
+                    fill=Fill(
+                        price=Decimal("2.0"),
+                        size=Decimal("0.25"),
+                        quote=Decimal("0.5"),
+                        fee=Decimal("0.025"),
+                        fee_asset="eth",
+                    ),
+                )
+            )
+            exchange.stream_orders_queue.put_nowait(
+                OrderUpdate.Done(
+                    time=0,
+                    client_id=order_client_id,
+                )
+            )
+
+    def edit_order(*args, **kwargs):
+        exchange.stream_orders_queue.put_nowait(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal("1.0"),
+                    size=Decimal("0.5"),
+                    quote=Decimal("0.5"),
+                    fee=Decimal("0.05"),
+                    fee_asset="eth",
+                ),
+            )
+        )
+        exchange.stream_orders_queue.put_nowait(
+            OrderUpdate.Cancelled(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        # Unable to place the new order because we received a match during order edit.
+        raise InsufficientFunds()
+
+    exchange.place_order.side_effect = place_order
+    exchange.edit_order.side_effect = edit_order
+
+    async with init_broker(
+        exchange,
+        use_edit_order_if_possible=True,
+        order_placement_strategy="matching",
+    ) as broker:
+        result = await broker.buy(
+            exchange=exchange.name,
+            account="spot",
+            symbol="eth-btc",
+            quote=Decimal("1"),
+            test=False,
+        )
+
+        assert result.status is OrderStatus.FILLED
+        assert len(result.fills) == 2
+        assert result.fills[0].size == Decimal("0.5")
+        assert result.fills[1].size == Decimal("0.25")
+        assert exchange.place_order.call_count == 2
+        assert exchange.edit_order.call_count == 1
+
+
 @asynccontextmanager
 async def init_broker(
     exchange: Exchange,
     cancel_order_on_error: bool = True,
+    use_edit_order_if_possible: bool = False,
     order_placement_strategy: Limit.OrderPlacementStrategy = "leading",
 ) -> AsyncIterator[Limit]:
     memory = Memory()
@@ -676,6 +784,7 @@ async def init_broker(
             orderbook=orderbook,
             user=user,
             cancel_order_on_error=cancel_order_on_error,
+            use_edit_order_if_possible=use_edit_order_if_possible,
             order_placement_strategy=order_placement_strategy,
         )
         yield broker

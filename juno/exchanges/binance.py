@@ -112,6 +112,7 @@ class Binance(Exchange):
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
     can_edit_order: bool = True
+    can_edit_order_atomic: bool = False
 
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
         if not high_precision:
@@ -531,6 +532,10 @@ class Binance(Exchange):
     async def connect_stream_orders(
         self, account: Account, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        """
+        https://github.com/binance/binance-spot-api-docs/blob/master/user-data-stream.md#order-update
+        """
+
         async def inner(stream: AsyncIterable[dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
                 res_symbol = _from_symbol(data["s"])
@@ -574,6 +579,11 @@ class Binance(Exchange):
                         time=data["T"],
                         client_id=data["C"],
                     )
+                elif status is OrderStatus.REJECTED:
+                    # Documentation mentions that this order status is never pushed to the user
+                    # data stream. However, this doesn't seem to be the case when dealing with edit
+                    # orders.
+                    _log.warning("order rejected")
                 else:
                     raise NotImplementedError(data)
 
@@ -1616,6 +1626,7 @@ def _from_order_status(status: str) -> OrderStatus:
         "PARTIALLY_FILLED": OrderStatus.PARTIALLY_FILLED,
         "FILLED": OrderStatus.FILLED,
         "CANCELED": OrderStatus.CANCELLED,
+        "REJECTED": OrderStatus.REJECTED,
     }
     mapped_status = status_map.get(status)
     if not mapped_status:

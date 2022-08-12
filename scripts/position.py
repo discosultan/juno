@@ -6,17 +6,19 @@ import logging
 from decimal import Decimal
 
 from juno.brokers import Limit
+from juno.common import Balance
 from juno.components import Chandler, Informant, Orderbook, User
-from juno.config import from_env, init_instance
 from juno.custodians import Savings, Spot, Stub
-from juno.exchanges import Binance
+from juno.exchanges import Exchange
 from juno.positioner import Positioner
+from juno.primitives.symbol import Symbol_
 from juno.storages import SQLite
 from juno.trading import CloseReason, TradingMode
 
 parser = argparse.ArgumentParser()
 parser.add_argument("symbols", type=lambda s: s.split(","))
-parser.add_argument("quote", type=Decimal)
+parser.add_argument("-e", "--exchange", default="binance")
+parser.add_argument("-q", "--quote", type=Decimal, default=None)
 parser.add_argument(
     "-s",
     "--short",
@@ -29,17 +31,28 @@ parser.add_argument("--custodian", default="spot", help="either savings, spot or
 parser.add_argument(
     "--sleep", type=float, default=0.0, help="seconds to sleep before closing positions"
 )
+parser.add_argument(
+    "--use-edit-order-if-possible",
+    action="store_true",
+    default=False,
+    help="if set, the broker will try to use edit order instead of cancel order + place order",
+)
 args = parser.parse_args()
 
 
 async def main() -> None:
-    exchange = init_instance(Binance, from_env())
+    exchange = Exchange.from_env(args.exchange)
     storage = SQLite()
     informant = Informant(storage=storage, exchanges=[exchange])
     chandler = Chandler(storage=storage, exchanges=[exchange])
     user = User(exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange])
-    broker = Limit(informant=informant, orderbook=orderbook, user=user)
+    broker = Limit(
+        informant=informant,
+        orderbook=orderbook,
+        user=user,
+        use_edit_order_if_possible=args.use_edit_order_if_possible,
+    )
     positioner = Positioner(
         informant=informant,
         chandler=chandler,
@@ -47,7 +60,18 @@ async def main() -> None:
         user=user,
         custodians=[Savings(user), Spot(user), Stub()],
     )
+
     async with exchange, informant, chandler, user, orderbook:
+        quote_assets = {Symbol_.quote_asset(s) for s in args.symbols}
+        if args.quote:
+            quotes = {asset: args.quote for asset in quote_assets}
+        else:
+            balances = (await user.map_balances(exchange=args.exchange, accounts=["spot"]))["spot"]
+            quotes = {
+                asset: balances.get(asset, Balance.zero()).available for asset in quote_assets
+            }
+        logging.info(quotes)
+
         for i in range(args.cycles):
             logging.info(f"cycle {i}")
 
@@ -55,10 +79,10 @@ async def main() -> None:
                 f"opening {'short' if args.short else 'long'} position(s) for {args.symbols}"
             )
             positions = await positioner.open_positions(
-                exchange="binance",
+                exchange=args.exchange,
                 custodian=args.custodian,
                 mode=TradingMode.LIVE,
-                entries=[(s, args.quote, args.short) for s in args.symbols],
+                entries=[(s, quotes[Symbol_.quote_asset(s)], args.short) for s in args.symbols],
             )
 
             if args.sleep > 0:
@@ -68,11 +92,14 @@ async def main() -> None:
             logging.info(
                 f"closing {'short' if args.short else 'long'} position(s) for {args.symbols}"
             )
-            await positioner.close_positions(
+            closed_positions = await positioner.close_positions(
                 custodian=args.custodian,
                 mode=TradingMode.LIVE,
                 entries=[(p, CloseReason.STRATEGY) for p in positions],
             )
+
+            for closed_position in closed_positions:
+                quotes[Symbol_.quote_asset(closed_position.symbol)] += closed_position.profit
 
 
 asyncio.run(main())

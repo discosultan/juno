@@ -218,7 +218,7 @@ class Orderbook:
                 task = self._sync_tasks[key]
                 del self._sync_tasks[key]
                 del self._sync_ctxs[key]
-                await cancel(task)
+                await asyncio.shield(cancel(task))
 
     async def _sync_orderbook(self, exchange: str, symbol: Symbol, synced: asyncio.Event) -> None:
         ctxs = self._sync_ctxs[(exchange, symbol)]

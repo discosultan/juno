@@ -210,6 +210,9 @@ class User:
     def can_edit_order(self, exchange: str) -> bool:
         return self._exchanges[exchange].can_edit_order
 
+    def can_edit_order_atomic(self, exchange: str) -> bool:
+        return self._exchanges[exchange].can_edit_order_atomic
+
     @retry(
         stop=stop_after_attempt(10),
         wait=wait_exponential(),
