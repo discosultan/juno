@@ -50,7 +50,7 @@ class MultiConfig:
     start: Optional[Timestamp] = None  # None means max earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     trail_stop_loss: bool = True
-    adjusted_start: Optional[Union[Timestamp, Literal["strategy"]]] = "strategy"
+    adjusted_start: Optional[Union[Timestamp, Literal["strategy"]]] = None
     mode: TradingMode = TradingMode.BACKTEST
     channel: str = "default"
     long: bool = True  # Take long positions.

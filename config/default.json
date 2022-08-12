@@ -10,21 +10,11 @@
             "quote": 1.0,
             "trader": {
                 "type": "basic",
-                "symbol": "eth-btc",
-                "long": true,
-                "short": true,
-                "adjusted_start": null
+                "symbol": "eth-btc"
             },
             "strategy": {
-                "type": "fourweekrule",
-                "ma": "ema"
-            },
-            "stop_loss": {
-                "type": "trailing",
-                "up_threshold": 0.1
-            },
-            "fiat_asset": "eur",
-            "fiat_exchange": "coinbase"
+                "type": "fourweekrule"
+            }
         }
     ]
 }
