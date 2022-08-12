@@ -258,65 +258,6 @@ class Limit(Broker):
         assert ctx.time >= 0
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
 
-    async def _keep_limit_order_best(
-        self,
-        exchange: str,
-        account: Account,
-        symbol: Symbol,
-        side: Side,
-        ensure_size: bool,
-        ctx: _Context,
-    ) -> None:
-        _log.info(
-            f"managing {exchange} {symbol} limit order based on {self._order_placement_strategy} "
-            "strategy"
-        )
-        _, filters = self._informant.get_fees_filters(exchange, symbol)
-        is_first = True
-        can_edit_order = self._user.can_edit_order(exchange)
-        async with self._orderbook.sync(exchange, symbol) as orderbook:
-            while True:
-                if is_first:
-                    is_first = False
-                else:
-                    await orderbook.updated.wait()
-
-                asks = orderbook.list_asks()
-                bids = orderbook.list_bids()
-                ob_side = bids if side is Side.BUY else asks
-                ob_other_side = asks if side is Side.BUY else bids
-
-                price = self._find_order_placement_price(
-                    side, ob_side, ob_other_side, filters, ctx.requested_order
-                )
-                if price is None:  # None means we don't need to reposition our order.
-                    continue
-
-                if ctx.requested_order and not can_edit_order:
-                    # Cancel prev order.
-                    await self._cancel_order_and_wait(exchange, account, symbol, side, ctx)
-
-                if ctx.requested_order and can_edit_order:
-                    await self._edit_order_and_wait(
-                        exchange,
-                        account,
-                        symbol,
-                        side,
-                        price,
-                        ensure_size,
-                        ctx,
-                    )
-                else:
-                    await self._place_order_and_wait(
-                        exchange,
-                        account,
-                        symbol,
-                        side,
-                        price,
-                        ensure_size,
-                        ctx,
-                    )
-
     async def _track_fills(
         self,
         symbol: Symbol,
@@ -400,6 +341,65 @@ class Limit(Broker):
                 raise _FilledFromTrack()
             else:
                 raise NotImplementedError(order)
+
+    async def _keep_limit_order_best(
+        self,
+        exchange: str,
+        account: Account,
+        symbol: Symbol,
+        side: Side,
+        ensure_size: bool,
+        ctx: _Context,
+    ) -> None:
+        _log.info(
+            f"managing {exchange} {symbol} limit order based on {self._order_placement_strategy} "
+            "strategy"
+        )
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
+        is_first = True
+        can_edit_order = self._user.can_edit_order(exchange)
+        async with self._orderbook.sync(exchange, symbol) as orderbook:
+            while True:
+                if is_first:
+                    is_first = False
+                else:
+                    await orderbook.updated.wait()
+
+                asks = orderbook.list_asks()
+                bids = orderbook.list_bids()
+                ob_side = bids if side is Side.BUY else asks
+                ob_other_side = asks if side is Side.BUY else bids
+
+                price = self._find_order_placement_price(
+                    side, ob_side, ob_other_side, filters, ctx.requested_order
+                )
+                if price is None:  # None means we don't need to reposition our order.
+                    continue
+
+                if ctx.requested_order and not can_edit_order:
+                    # Cancel prev order.
+                    await self._cancel_order_and_wait(exchange, account, symbol, side, ctx)
+
+                if ctx.requested_order and can_edit_order:
+                    await self._edit_order_and_wait(
+                        exchange,
+                        account,
+                        symbol,
+                        side,
+                        price,
+                        ensure_size,
+                        ctx,
+                    )
+                else:
+                    await self._place_order_and_wait(
+                        exchange,
+                        account,
+                        symbol,
+                        side,
+                        price,
+                        ensure_size,
+                        ctx,
+                    )
 
     async def _place_order_and_wait(
         self,
