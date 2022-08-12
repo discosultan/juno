@@ -41,15 +41,3 @@ class InsufficientFunds(BadOrder):
     there was a trade during the request which changed the original balance."""
 
     pass
-
-
-class OrderWouldBeTaker(BadOrder):
-    pass
-
-
-class OrderMissing(BadOrder):
-    pass
-
-
-class InsufficientFunds(BadOrder):
-    pass
