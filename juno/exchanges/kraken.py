@@ -391,13 +391,7 @@ class Kraken(Exchange):
             )
         except KrakenException as exc:
             if len(exc.errors) == 1:
-                msg = exc.errors[0]
-                if msg == _ERR_UNKNOWN_ORDER:
-                    raise OrderMissing(msg)
-                elif msg == _ERR_POST_ONLY_ORDER:
-                    raise OrderWouldBeTaker(msg)
-                elif msg == _ERR_INSUFFICIENT_FUNDS:
-                    raise InsufficientFunds(msg)
+                _handle_order_error(exc.errors[0])
             raise
         return OrderResult(time=0, status=OrderStatus.NEW)
 
@@ -444,11 +438,7 @@ class Kraken(Exchange):
             )
         except KrakenException as exc:
             if len(exc.errors) == 1:
-                msg = exc.errors[0]
-                if msg == _ERR_UNKNOWN_ORDER:
-                    raise OrderMissing(msg)
-                elif msg == _ERR_POST_ONLY_ORDER:
-                    raise OrderWouldBeTaker(msg)
+                _handle_order_error(exc.errors[0])
             raise
         return OrderResult(time=0, status=OrderStatus.NEW)
 
@@ -959,3 +949,12 @@ _margin_fee_schedule = {
     "xtz": Decimal("0.02"),
     "zec": Decimal("0.02"),
 }
+
+
+def _handle_order_error(msg: str) -> None:
+    if msg == _ERR_UNKNOWN_ORDER:
+        raise OrderMissing(msg)
+    elif msg == _ERR_POST_ONLY_ORDER:
+        raise OrderWouldBeTaker(msg)
+    elif msg == _ERR_INSUFFICIENT_FUNDS:
+        raise InsufficientFunds(msg)

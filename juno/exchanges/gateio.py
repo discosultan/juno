@@ -196,7 +196,6 @@ class GateIO(Exchange):
                     raise OrderWouldBeTaker(error_msg)
                 elif error_label == "BALANCE_NOT_ENOUGH":
                     raise InsufficientFunds(error_msg)
-
             response.raise_for_status()
             content = await response.json()
 

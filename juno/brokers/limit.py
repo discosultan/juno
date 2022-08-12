@@ -89,12 +89,27 @@ class Limit(Broker):
         orderbook: Orderbook,
         user: User,
         cancel_order_on_error: bool = True,
+        # There's an inherent risk when using an exchange edit order functionality. For example,
+        # we have placed order A. We are now editing order A to order B. During the edit request,
+        # there's a partial match to order A. Order B still gets placed with the full size (without
+        # taking the partial match into account). This way we can end in a situation where we spend
+        # more than we intended.
+        #
+        # Separate cancel + place requests don't suffer from the above issue because we ack the
+        # cancel request before placing the new request, knowing the price + size in advance.
+        #
+        # It's safe to use the edit order functionality as long as we trade with the full quote
+        # asset amount. In this case, we simply receive InsufficientFunds error after a
+        # partial match and can retry. As soon as we trade with a partial quote amount (as is the
+        # case with the multi trader, for example), we may overspend.
+        use_edit_order_if_possible: bool = False,
         order_placement_strategy: OrderPlacementStrategy = "matching",
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._user = user
         self._cancel_order_on_error = cancel_order_on_error
+        self._use_edit_order_if_possible = use_edit_order_if_possible
 
         self._order_placement_strategy = order_placement_strategy
         if order_placement_strategy == "leading":
@@ -365,7 +380,7 @@ class Limit(Broker):
         )
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         is_first = True
-        can_edit_order = self._user.can_edit_order(exchange)
+        can_edit_order = self._user.can_edit_order(exchange) and self._use_edit_order_if_possible
         async with self._orderbook.sync(exchange, symbol) as orderbook:
             while True:
                 if is_first:
