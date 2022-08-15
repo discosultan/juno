@@ -4,7 +4,7 @@ from .limit import Limit
 
 
 # TODO: Consolidate into limit broker.
-class LimitLeading(Limit):
+class LimitMatchingEdit(Limit):
     def __init__(
         self,
         informant: Informant,
@@ -18,6 +18,6 @@ class LimitLeading(Limit):
             orderbook=orderbook,
             user=user,
             cancel_order_on_error=cancel_order_on_error,
-            use_edit_order_if_possible=False,
-            order_placement_strategy="leading",
+            use_edit_order_if_possible=True,
+            order_placement_strategy="matching",
         )

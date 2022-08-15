@@ -23,6 +23,7 @@ _log = logging.getLogger(__name__)
 # Differs from Market by listening for order fills over websocket. We should consolidate this
 # logic into market broker an support differentiating between filling modes by capability or
 # setting.
+# TODO: Consolidate into market broker.
 class Market2(Broker):
     def __init__(
         self,
