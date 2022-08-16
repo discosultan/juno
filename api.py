@@ -1,5 +1,6 @@
 import logging
 import os
+from functools import partial
 from typing import Any, AsyncIterator, Literal, Mapping
 
 import aiohttp_cors
@@ -35,7 +36,10 @@ async def juno(app: web.Application) -> AsyncIterator[None]:
 
 
 def raw_json_response(result: Any) -> web.Response:
-    return web.json_response(serialization.raw.serialize(result), dumps=json.dumps)
+    # We indent the response for easier debugging. Note that this is inefficient though.
+    return web.json_response(
+        serialization.raw.serialize(result), dumps=partial(json.dumps, indent=4)
+    )
 
 
 def query_get_candle_type(query: Mapping[str, str]) -> Literal["regular", "heikin-ashi"]:

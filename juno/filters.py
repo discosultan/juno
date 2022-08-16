@@ -35,36 +35,33 @@ class Price:
 
 @dataclass(frozen=True)
 class PercentPrice:
-    multiplier_up: Decimal = Decimal("Inf")
+    multiplier_up: Decimal = Decimal("0.0")  # 0 means disabled.
     multiplier_down: Decimal = Decimal("0.0")
     avg_price_period: int = 0  # 0 means the last price is used.
 
     def valid(self, price: Decimal, weighted_average_price: Decimal) -> bool:
         return (
-            price <= weighted_average_price * self.multiplier_up
-            and price >= weighted_average_price * self.multiplier_down
-        )
+            not self.multiplier_up or price <= weighted_average_price * self.multiplier_up
+        ) and price >= weighted_average_price * self.multiplier_down
 
 
 @dataclass(frozen=True)
 class PercentPriceBySide:
-    bid_multiplier_up: Decimal = Decimal("Inf")
+    bid_multiplier_up: Decimal = Decimal("0.0")  # 0 means disabled.
     bid_multiplier_down: Decimal = Decimal("0.0")
-    ask_multiplier_up: Decimal = Decimal("Inf")
+    ask_multiplier_up: Decimal = Decimal("0.0")  # 0 means disabled.
     ask_multiplier_down: Decimal = Decimal("0.0")
     avg_price_period: int = 0  # 0 means the last price is used.
 
     def valid_bid(self, price: Decimal, weighted_average_price: Decimal) -> bool:
         return (
-            price <= weighted_average_price * self.bid_multiplier_up
-            and price >= weighted_average_price * self.bid_multiplier_down
-        )
+            not self.bid_multiplier_up or price <= weighted_average_price * self.bid_multiplier_up
+        ) and price >= weighted_average_price * self.bid_multiplier_down
 
     def valid_ask(self, price: Decimal, weighted_average_price: Decimal) -> bool:
         return (
-            price <= weighted_average_price * self.ask_multiplier_up
-            and price >= weighted_average_price * self.ask_multiplier_down
-        )
+            not self.ask_multiplier_up or price <= weighted_average_price * self.ask_multiplier_up
+        ) and price >= weighted_average_price * self.ask_multiplier_down
 
 
 @dataclass(frozen=True)
