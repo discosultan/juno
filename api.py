@@ -8,6 +8,7 @@ from aiohttp import web
 
 from juno import json, serialization
 from juno.components import Chandler, Informant, Prices, Trades
+from juno.components.prices import InsufficientPrices
 from juno.exchanges import Binance, Exchange
 from juno.logging import create_handlers
 from juno.storages import SQLite
@@ -39,6 +40,18 @@ def raw_json_response(result: Any) -> web.Response:
     # We indent the response for easier debugging. Note that this is inefficient though.
     return web.json_response(
         serialization.raw.serialize(result), dumps=partial(json.dumps, indent=4)
+    )
+
+
+def raise_bad_request_response(message: str) -> None:
+    raise web.HTTPBadRequest(
+        content_type="application/json",
+        body=json.dumps(
+            {
+                "message": message,
+            },
+            indent=4,
+        ),
     )
 
 
@@ -123,14 +136,17 @@ async def prices(request: web.Request) -> web.Response:
     prices: Prices = request.app["prices"]
     query = request.query
 
-    result = await prices.map_asset_prices(
-        exchange=query["exchange"],
-        assets=query["assets"].split(","),
-        interval=int(query["interval"]),
-        start=int(query["start"]),
-        end=int(query["end"]),
-        target_asset=query["target_asset"],
-    )
+    try:
+        result = await prices.map_asset_prices(
+            exchange=query["exchange"],
+            assets=query["assets"].split(","),
+            interval=int(query["interval"]),
+            start=int(query["start"]),
+            end=int(query["end"]),
+            target_asset=query["target_asset"],
+        )
+    except InsufficientPrices as exc:
+        raise_bad_request_response(str(exc))
 
     return raw_json_response(result)
 
