@@ -23,7 +23,7 @@ from juno import (
     Timestamp,
     Timestamp_,
 )
-from juno.asyncio import aclose, first_async, stream_with_timeout
+from juno.asyncio import aclose, first_async, gather_dict, stream_with_timeout
 from juno.common import CandleType
 from juno.contextlib import AsyncContextManager
 from juno.exchanges import Exchange
@@ -103,6 +103,28 @@ class Chandler(AsyncContextManager):
 
         await asyncio.gather(*(aclose(stream) for _, stream in future_streams))
 
+    async def map_candles_fill_missing_with_none(
+        self,
+        exchange: str,
+        entries: list[CandleMeta],
+        start: Timestamp,
+        end: Timestamp = Timestamp_.MAX_TIME,
+    ) -> dict[CandleMeta, list[Optional[Candle]]]:
+        unique_entries = set(entries)
+        return await gather_dict(
+            {
+                (symbol, interval, type_): self.list_candles_fill_missing_with_none(
+                    exchange=exchange,
+                    symbol=symbol,
+                    interval=interval,
+                    start=start,
+                    end=end,
+                    type_=type_,
+                )
+                for symbol, interval, type_ in unique_entries
+            }
+        )
+
     async def list_candles_fill_missing_with_none(
         self,
         exchange: str,
@@ -166,6 +188,28 @@ class Chandler(AsyncContextManager):
             _log.info(f"filling {num_missed} candle(s) with None")
             for _ in range(num_missed):
                 yield None
+
+    async def map_candles(
+        self,
+        exchange: str,
+        entries: list[CandleMeta],
+        start: Timestamp,
+        end: Timestamp = Timestamp_.MAX_TIME,
+    ) -> dict[CandleMeta, list[Candle]]:
+        unique_entries = set(entries)
+        return await gather_dict(
+            {
+                (symbol, interval, type_): self.list_candles(
+                    exchange=exchange,
+                    symbol=symbol,
+                    interval=interval,
+                    start=start,
+                    end=end,
+                    type_=type_,
+                )
+                for symbol, interval, type_ in unique_entries
+            }
+        )
 
     async def list_candles(
         self,

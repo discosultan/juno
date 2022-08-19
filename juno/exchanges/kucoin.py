@@ -94,19 +94,19 @@ class KuCoin(Exchange):
 
     def list_candle_intervals(self) -> list[int]:
         return [
-            Interval_.MIN,
+            1 * Interval_.MIN,
             3 * Interval_.MIN,
             5 * Interval_.MIN,
             15 * Interval_.MIN,
             30 * Interval_.MIN,
-            Interval_.HOUR,
+            1 * Interval_.HOUR,
             2 * Interval_.HOUR,
             4 * Interval_.HOUR,
             6 * Interval_.HOUR,
             8 * Interval_.HOUR,
             12 * Interval_.HOUR,
-            Interval_.DAY,
-            Interval_.WEEK,
+            1 * Interval_.DAY,
+            1 * Interval_.WEEK,
         ]
 
     async def get_exchange_info(self) -> ExchangeInfo:
