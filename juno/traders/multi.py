@@ -61,7 +61,6 @@ class MultiConfig:
     track_count: int = 4
     track_required_start: Optional[Timestamp] = None
     position_count: int = 2
-    exchange_candle_timeout: Optional[Interval] = None
     allowed_age_drift: int = 0
     quote_asset: str = "btc"
     repick_symbols: bool = True
@@ -457,7 +456,6 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
             interval=config.interval,
             start=symbol_state.next_,
             end=config.end,
-            exchange_timeout=config.exchange_candle_timeout,
         ):
             # Skip initial empty candles.
             if not last_candle and not candle:

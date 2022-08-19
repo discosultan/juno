@@ -30,30 +30,12 @@ class Chandler(components.Chandler):
         interval,
         start,
         end,
-        fill_missing_with_last=False,
-        simulate_open_from_interval=None,
-        exchange_timeout=None,
         type_="regular",
     ):
         # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):
-            last_candle = None
             for candle in (c for c in candles if c.time >= start and c.time < end):
-                time_diff = candle.time - last_candle.time if last_candle else 0
-                if time_diff >= interval * 2:
-                    num_missed = time_diff // interval - 1
-                    if fill_missing_with_last:
-                        for i in range(1, num_missed + 1):
-                            yield Candle(
-                                time=last_candle.time + i * interval,
-                                open=last_candle.open,
-                                high=last_candle.high,
-                                low=last_candle.low,
-                                close=last_candle.close,
-                                volume=last_candle.volume,
-                            )
                 yield candle
-                last_candle = candle
 
         if future_candles := self.future_candle_queues.get((exchange, symbol, interval)):
             while True:

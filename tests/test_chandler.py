@@ -518,7 +518,7 @@ async def test_get_first_candle_by_search(
         storage=storage,
         exchanges=[exchange],
         get_time_ms=fakes.Time(time).get_time,
-        earliest_exchange_start=earliest_exchange_start,
+        exchange_earliest_start=earliest_exchange_start,
     )
 
     first_candle = await chandler.get_first_candle(exchange.name, "eth-btc", 2)
@@ -548,7 +548,7 @@ async def test_get_first_candle_by_search_not_found(
         storage=storage,
         exchanges=[exchange],
         get_time_ms=fakes.Time(time).get_time,
-        earliest_exchange_start=earliest_exchange_start,
+        exchange_earliest_start=earliest_exchange_start,
     )
 
     with pytest.raises(ValueError):
@@ -567,7 +567,7 @@ async def test_get_first_candle_caching_to_storage(
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
-        earliest_exchange_start=0,
+        exchange_earliest_start=0,
     )
 
     await chandler.get_first_candle(exchange.name, "eth-btc", 1)

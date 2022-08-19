@@ -54,8 +54,6 @@ class BasicConfig:
     long: bool = True  # Take long positions.
     short: bool = True  # Take short positions.
     close_on_exit: bool = True  # Whether to close open position on exit.
-    # Timeout in case no candle (including open) from exchange.
-    exchange_candle_timeout: Optional[Interval] = None
     custodian: str = "stub"
     candle_type: CandleType = "regular"
 
@@ -258,7 +256,6 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 ),
                 start=state.next_,
                 end=config.end,
-                exchange_timeout=config.exchange_candle_timeout,
             ):
                 await self._tick(state, candle, candle_meta)
         except BadOrder:

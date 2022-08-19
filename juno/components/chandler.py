@@ -47,7 +47,8 @@ class Chandler(AsyncContextManager):
         trades: Optional[Trades] = None,
         get_time_ms: Callable[[], int] = Timestamp_.now,
         storage_batch_size: int = 1000,
-        earliest_exchange_start: int = 1293840000000,  # 2011-01-01
+        exchange_earliest_start: int = 1293840000000,  # 2011-01-01
+        exchange_timeout: Optional[float] = None,
     ) -> None:
         assert storage_batch_size > 0
 
@@ -56,7 +57,8 @@ class Chandler(AsyncContextManager):
         self._trades = trades
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
-        self._earliest_exchange_start = earliest_exchange_start
+        self._exchange_earliest_start = exchange_earliest_start
+        self._exchange_timeout = exchange_timeout
 
     async def stream_concurrent_candles(
         self,
@@ -64,7 +66,6 @@ class Chandler(AsyncContextManager):
         entries: list[CandleMeta],
         start: Timestamp,
         end: Timestamp = Timestamp_.MAX_TIME,
-        exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[tuple[Candle, CandleMeta]]:
         unique_entries = set(entries)
         desc_sorted_entries = sorted(unique_entries, key=lambda e: e[1], reverse=True)
@@ -78,7 +79,6 @@ class Chandler(AsyncContextManager):
                         interval=interval,
                         start=start,
                         end=end,
-                        exchange_timeout=exchange_timeout,
                         type_=type_,
                     )
                 ),
@@ -110,7 +110,6 @@ class Chandler(AsyncContextManager):
         interval: Interval,
         start: Timestamp,
         end: Timestamp = Timestamp_.MAX_TIME,
-        exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> list[Optional[Candle]]:
         return await list_async(
@@ -120,7 +119,6 @@ class Chandler(AsyncContextManager):
                 interval=interval,
                 start=start,
                 end=end,
-                exchange_timeout=exchange_timeout,
                 type_=type_,
             )
         )
@@ -132,7 +130,6 @@ class Chandler(AsyncContextManager):
         interval: Interval,
         start: Timestamp,
         end: Timestamp = Timestamp_.MAX_TIME,
-        exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> AsyncIterable[Optional[Candle]]:
         start = Timestamp_.floor(start, interval)
@@ -144,7 +141,6 @@ class Chandler(AsyncContextManager):
             interval=interval,
             start=start,
             end=end,
-            exchange_timeout=exchange_timeout,
             type_=type_,
         )
         try:
@@ -178,7 +174,6 @@ class Chandler(AsyncContextManager):
         interval: Interval,
         start: Timestamp,
         end: Timestamp = Timestamp_.MAX_TIME,
-        exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> list[Candle]:
         return await list_async(
@@ -188,7 +183,6 @@ class Chandler(AsyncContextManager):
                 interval=interval,
                 start=start,
                 end=end,
-                exchange_timeout=exchange_timeout,
                 type_=type_,
             )
         )
@@ -200,7 +194,6 @@ class Chandler(AsyncContextManager):
         interval: Interval,
         start: Timestamp,
         end: Timestamp = Timestamp_.MAX_TIME,
-        exchange_timeout: Optional[float] = None,
         type_: CandleType = "regular",
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
@@ -250,7 +243,6 @@ class Chandler(AsyncContextManager):
                     interval=interval,
                     start=span_start,
                     end=span_end,
-                    exchange_timeout=exchange_timeout,
                 )
             try:
                 async for candle in stream:
@@ -296,7 +288,6 @@ class Chandler(AsyncContextManager):
         interval: Interval,
         start: Timestamp,
         end: Timestamp,
-        exchange_timeout: Optional[float],
     ) -> AsyncGenerator[Candle, None]:
         shard = Storage.key(exchange, symbol, interval)
         # Note that we need to use a context manager based retrying because retry decorators do not
@@ -325,7 +316,6 @@ class Chandler(AsyncContextManager):
                             start=start,
                             end=end,
                             current=current,
-                            timeout=exchange_timeout,
                         )
                     ) as stream:
                         async for candle in stream:
@@ -375,7 +365,6 @@ class Chandler(AsyncContextManager):
         start: Timestamp,
         end: Timestamp,
         current: Timestamp,
-        timeout: Optional[float],
     ) -> AsyncGenerator[Candle, None]:
         exchange_instance = self._exchanges[exchange]
         intervals = exchange_instance.list_candle_intervals()
@@ -437,7 +426,7 @@ class Chandler(AsyncContextManager):
             last_candle_time = -1
             outer_stream = stream_with_timeout(
                 inner(stream),
-                None if timeout is None else timeout / 1000,
+                None if self._exchange_timeout is None else self._exchange_timeout / 1000,
             )
             try:
                 async for candle in outer_stream:
@@ -474,7 +463,12 @@ class Chandler(AsyncContextManager):
                 await aclose(outer_stream)
 
     async def _stream_construct_candles(
-        self, exchange: str, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
+        self,
+        exchange: str,
+        symbol: Symbol,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp,
     ) -> AsyncGenerator[Candle, None]:
         if not self._trades:
             raise ValueError("Trades component not configured. Unable to construct candles")
@@ -530,7 +524,12 @@ class Chandler(AsyncContextManager):
             )
 
     async def _stream_construct_candles_by_volume(
-        self, exchange: str, symbol: Symbol, volume: Decimal, start: Timestamp, end: Timestamp
+        self,
+        exchange: str,
+        symbol: Symbol,
+        volume: Decimal,
+        start: Timestamp,
+        end: Timestamp,
     ) -> AsyncGenerator[Candle, None]:
         if not self._trades:
             raise ValueError("Trades component not configured. Unable to construct candles")
@@ -575,7 +574,12 @@ class Chandler(AsyncContextManager):
                 low = trade.price
                 close = trade.price
 
-    async def get_first_candle(self, exchange: str, symbol: Symbol, interval: Interval) -> Candle:
+    async def get_first_candle(
+        self,
+        exchange: str,
+        symbol: Symbol,
+        interval: Interval,
+    ) -> Candle:
         shard = Storage.key(exchange, symbol, interval)
         candle = await self._storage.get(
             shard=shard,
@@ -622,7 +626,7 @@ class Chandler(AsyncContextManager):
         )
 
         # TODO: Does not handle missing candles, hence, may yield incorrect results!
-        start = Timestamp_.ceil(self._earliest_exchange_start, interval)
+        start = Timestamp_.ceil(self._exchange_earliest_start, interval)
         end = Timestamp_.floor(self._get_time_ms(), interval)
         final_end = end  # We need this to not go into the future. We will mutate `end`.
         while True:
@@ -675,7 +679,9 @@ class Chandler(AsyncContextManager):
         return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}
 
     def list_candle_intervals(
-        self, exchange: str, patterns: Optional[list[int]] = None
+        self,
+        exchange: str,
+        patterns: Optional[list[int]] = None,
     ) -> list[int]:
         intervals = self._exchanges[exchange].list_candle_intervals()
         if patterns is None:
