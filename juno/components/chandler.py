@@ -115,13 +115,13 @@ class Chandler(AsyncContextManager):
     ) -> list[Optional[Candle]]:
         return await list_async(
             self.stream_candles_fill_missing_with_none(
-                exchange,
-                symbol,
-                interval,
-                start,
-                end,
-                exchange_timeout,
-                type_,
+                exchange=exchange,
+                symbol=symbol,
+                interval=interval,
+                start=start,
+                end=end,
+                exchange_timeout=exchange_timeout,
+                type_=type_,
             )
         )
 
@@ -183,13 +183,13 @@ class Chandler(AsyncContextManager):
     ) -> list[Candle]:
         return await list_async(
             self.stream_candles(
-                exchange,
-                symbol,
-                interval,
-                start,
-                end,
-                exchange_timeout,
-                type_,
+                exchange=exchange,
+                symbol=symbol,
+                interval=interval,
+                start=start,
+                end=end,
+                exchange_timeout=exchange_timeout,
+                type_=type_,
             )
         )
 

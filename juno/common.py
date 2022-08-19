@@ -116,7 +116,7 @@ class Candle(NamedTuple):
 
 
 CandleType = Literal["regular", "heikin-ashi"]
-CandleMeta = tuple[str, Interval, CandleType]  # symbol, interval, type
+CandleMeta = tuple[Symbol, Interval, CandleType]
 
 
 class Depth(ModuleType):
