@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator, Literal, Mapping
 import aiohttp_cors
 from aiohttp import web
 
-from juno import json, serialization
+from juno import json, serialization, yaml
 from juno.components import Chandler, Informant, Prices, Trades
 from juno.components.prices import InsufficientPrices
 from juno.exchanges import Binance, Exchange
@@ -36,10 +36,54 @@ async def juno(app: web.Application) -> AsyncIterator[None]:
         yield
 
 
-def raw_json_response(result: Any) -> web.Response:
+async def json_body(request: web.Request, type_: Any) -> Any:
+    content_type = request.headers.get("Content-Type")
+    if content_type is None or content_type == "*/*":
+        content_type = "application/json"
+    elif content_type not in {"application/json", "application/yaml"}:
+        raise_bad_request_response(f"Unsupported Content-Type header: {content_type}")
+
+    juno_content_type = request.headers.get("Juno-Content-Type")
+    if juno_content_type is None:
+        juno_content_type = "raw"
+    elif juno_content_type not in {"raw", "config"}:
+        raise_bad_request_response(f"Unsupported Juno-Content-Type header: {juno_content_type}")
+
+    deserialize = yaml.load if content_type == "application/yaml" else json.loads
+    juno_deserialize = (
+        serialization.config.deserialize
+        if juno_content_type == "config"
+        else serialization.raw.deserialize
+    )
+    return juno_deserialize(deserialize(await request.text()), type_)
+
+
+def json_response(request: web.Request, result: Any) -> web.Response:
+    accept = request.headers.get("Accept")
+    if accept is None or accept == "*/*":
+        accept = "application/json"
+    elif accept not in {"application/json", "application/yaml"}:
+        raise_bad_request_response(f"Unsupported Accept header: {accept}")
+
+    juno_accept = request.headers.get("Juno-Accept")
+    if juno_accept is None:
+        juno_accept = "raw"
+    elif juno_accept not in {"raw", "config"}:
+        raise_bad_request_response(f"Unsupported Juno-Accept header: {juno_accept}")
+
     # We indent the response for easier debugging. Note that this is inefficient though.
-    return web.json_response(
-        serialization.raw.serialize(result), dumps=partial(json.dumps, indent=4)
+    serialize = (
+        partial(yaml.dump, indent=4)
+        if accept == "application/yaml"
+        else partial(json.dumps, indent=4)
+    )
+    juno_serialize = (
+        serialization.config.serialize if juno_accept == "config" else serialization.raw.serialize
+    )
+    return web.Response(
+        text=serialize(juno_serialize(result)),
+        status=200,
+        content_type=accept,
     )
 
 
@@ -82,7 +126,7 @@ async def exchange_info(request: web.Request) -> web.Response:
 
     result = await binance.get_exchange_info()
 
-    return raw_json_response(result)
+    return json_response(request, result)
 
 
 @routes.get("/candles")
@@ -99,7 +143,7 @@ async def candles(request: web.Request) -> web.Response:
         type_=query_get_candle_type(query),
     )
 
-    return raw_json_response(result)
+    return json_response(request, result)
 
 
 @routes.get("/candles_fill_missing_with_none")
@@ -116,7 +160,7 @@ async def candles_fill_missing_with_none(request: web.Request) -> web.Response:
         type_=query_get_candle_type(query),
     )
 
-    return raw_json_response(result)
+    return json_response(request, result)
 
 
 @routes.get("/candle_intervals")
@@ -128,7 +172,7 @@ async def candle_intervals(request: web.Request) -> web.Response:
         exchange=query["exchange"],
     )
 
-    return raw_json_response(result)
+    return json_response(request, result)
 
 
 @routes.get("/prices")
@@ -148,7 +192,7 @@ async def prices(request: web.Request) -> web.Response:
     except InsufficientPrices as exc:
         raise_bad_request_response(str(exc))
 
-    return raw_json_response(result)
+    return json_response(request, result)
 
 
 # Main.
