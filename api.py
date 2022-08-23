@@ -1,12 +1,13 @@
 import logging
 import os
+from decimal import Decimal
 from functools import partial
-from typing import Any, AsyncIterator, Literal, Mapping
+from typing import Any, AsyncIterator, Literal, Mapping, Optional
 
 import aiohttp_cors
 from aiohttp import web
 
-from juno import json, serialization, yaml
+from juno import Asset, Candle, ExchangeInfo, Interval, json, serialization, yaml
 from juno.components import Chandler, Informant, Prices, Trades
 from juno.components.prices import InsufficientPrices
 from juno.exchanges import Binance, Exchange
@@ -58,7 +59,7 @@ async def json_body(request: web.Request, type_: Any) -> Any:
     return juno_deserialize(deserialize(await request.text()), type_)
 
 
-def json_response(request: web.Request, result: Any) -> web.Response:
+def json_response(request: web.Request, result: Any, type_: Any) -> web.Response:
     accept = request.headers.get("Accept")
     if accept is None or accept == "*/*":
         accept = "application/json"
@@ -81,7 +82,7 @@ def json_response(request: web.Request, result: Any) -> web.Response:
         serialization.config.serialize if juno_accept == "config" else serialization.raw.serialize
     )
     return web.Response(
-        text=serialize(juno_serialize(result)),
+        text=serialize(juno_serialize(result, type_)),
         status=200,
         content_type=accept,
     )
@@ -126,7 +127,7 @@ async def exchange_info(request: web.Request) -> web.Response:
 
     result = await binance.get_exchange_info()
 
-    return json_response(request, result)
+    return json_response(request, result, ExchangeInfo)
 
 
 @routes.get("/candles")
@@ -143,7 +144,7 @@ async def candles(request: web.Request) -> web.Response:
         type_=query_get_candle_type(query),
     )
 
-    return json_response(request, result)
+    return json_response(request, result, list[Candle])
 
 
 @routes.get("/candles_fill_missing_with_none")
@@ -160,7 +161,7 @@ async def candles_fill_missing_with_none(request: web.Request) -> web.Response:
         type_=query_get_candle_type(query),
     )
 
-    return json_response(request, result)
+    return json_response(request, result, list[Optional[Candle]])
 
 
 @routes.get("/candle_intervals")
@@ -172,7 +173,7 @@ async def candle_intervals(request: web.Request) -> web.Response:
         exchange=query["exchange"],
     )
 
-    return json_response(request, result)
+    return json_response(request, result, list[Interval])
 
 
 @routes.get("/prices")
@@ -192,7 +193,7 @@ async def prices(request: web.Request) -> web.Response:
     except InsufficientPrices as exc:
         raise_bad_request_response(str(exc))
 
-    return json_response(request, result)
+    return json_response(request, result, list[dict[Asset, Decimal]])
 
 
 # Main.
