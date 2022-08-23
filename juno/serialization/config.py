@@ -1,6 +1,4 @@
-import inspect
 from dataclasses import is_dataclass
-from enum import Enum
 from types import NoneType
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
@@ -88,7 +86,7 @@ def serialize(value: Any, type_: Any = None) -> Any:
             skt, svt = get_args(type_)
             return {serialize(sk, skt): serialize(sv, svt) for sk, sv in value.items()}
 
-    if inspect.isclass(type_) and issubclass(type_, Enum):
+    if isenum(type_):
         return value.name.lower()
     if isnamedtuple(type_) or is_dataclass(type_):
         type_hints = get_type_hints(type_)
