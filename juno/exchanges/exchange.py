@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Optional
@@ -58,6 +58,7 @@ class Exchange(AsyncContextManager, ABC):
     def list_candle_intervals(self) -> list[int]:
         raise NotImplementedError()
 
+    @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
         raise NotImplementedError()
 
