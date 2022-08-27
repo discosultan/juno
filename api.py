@@ -2,17 +2,29 @@ import logging
 import os
 from decimal import Decimal
 from functools import partial
-from typing import Any, AsyncIterator, Literal, Mapping, Optional
+from typing import AsyncIterator, Optional, Type, TypedDict, TypeVar
 
 import aiohttp_cors
 from aiohttp import web
 
-from juno import Asset, Candle, ExchangeInfo, Interval, json, serialization, yaml
+from juno import (
+    Asset,
+    Candle,
+    CandleType,
+    ExchangeInfo,
+    Interval,
+    Timestamp,
+    json,
+    serialization,
+    yaml,
+)
 from juno.components import Chandler, Informant, Prices, Trades
 from juno.components.prices import InsufficientPrices
 from juno.exchanges import Binance, Exchange
 from juno.logging import create_handlers
 from juno.storages import SQLite
+
+T = TypeVar("T")
 
 
 async def juno(app: web.Application) -> AsyncIterator[None]:
@@ -37,7 +49,7 @@ async def juno(app: web.Application) -> AsyncIterator[None]:
         yield
 
 
-async def json_body(request: web.Request, type_: Any) -> Any:
+async def body(request: web.Request, type_: Type[T]) -> T:
     content_type = request.headers.get("Content-Type")
     if content_type is None or content_type == "*/*":
         content_type = "application/json"
@@ -59,27 +71,27 @@ async def json_body(request: web.Request, type_: Any) -> Any:
     return juno_deserialize(deserialize(await request.text()), type_)
 
 
-def json_response(request: web.Request, result: Any, type_: Any) -> web.Response:
-    accept = request.headers.get("Accept")
-    if accept is None or accept == "*/*":
-        accept = "application/json"
-    elif accept not in {"application/json", "application/yaml"}:
-        raise_bad_request_response(f"Unsupported Accept header: {accept}")
-
+def response(request: web.Request, result: T, type_: Type[T]) -> web.Response:
     juno_accept = request.headers.get("Juno-Accept")
     if juno_accept is None:
         juno_accept = "raw"
     elif juno_accept not in {"raw", "config"}:
         raise_bad_request_response(f"Unsupported Juno-Accept header: {juno_accept}")
 
+    accept = request.headers.get("Accept")
+    if accept is None or accept == "*/*":
+        accept = "application/json"
+    elif accept not in {"application/json", "application/yaml"}:
+        raise_bad_request_response(f"Unsupported Accept header: {accept}")
+
+    juno_serialize = (
+        serialization.config.serialize if juno_accept == "config" else serialization.raw.serialize
+    )
     # We indent the response for easier debugging. Note that this is inefficient though.
     serialize = (
         partial(yaml.dump, indent=4)
         if accept == "application/yaml"
         else partial(json.dumps, indent=4)
-    )
-    juno_serialize = (
-        serialization.config.serialize if juno_accept == "config" else serialization.raw.serialize
     )
     return web.Response(
         text=serialize(juno_serialize(result, type_)),
@@ -100,11 +112,6 @@ def raise_bad_request_response(message: str) -> None:
     )
 
 
-def query_get_candle_type(query: Mapping[str, str]) -> Literal["regular", "heikin-ashi"]:
-    value = query.get("type")
-    return "heikin-ashi" if value == "heikin-ashi" else "regular"
-
-
 # Routing.
 
 routes = web.RouteTableDef()
@@ -115,85 +122,86 @@ async def hello(request: web.Request) -> web.Response:
     return web.Response(text="Hello, world")
 
 
-@routes.get("/exchange_info")
+class ExchangeRequest(TypedDict):
+    exchange: str
+
+
+@routes.post("/exchange_info")
 async def exchange_info(request: web.Request) -> web.Response:
-    binance: Binance = request.app["binance"]
-    query = request.query
+    payload = await body(request, ExchangeRequest)
 
-    exchange = query["exchange"]
-
-    if exchange != "binance":
+    exchange: Optional[Exchange] = request.app.get(payload["exchange"])  # type: ignore
+    if exchange is None:
         raise web.HTTPBadRequest()
 
-    result = await binance.get_exchange_info()
+    result = await exchange.get_exchange_info()
 
-    return json_response(request, result, ExchangeInfo)
+    return response(request, result, ExchangeInfo)
 
 
-@routes.get("/candles")
+class CandlesRequest(TypedDict):
+    exchange: str
+    symbol: str
+    interval: Interval
+    start: Timestamp
+    end: Timestamp
+    type_: CandleType
+
+
+@routes.post("/candles")
 async def candles(request: web.Request) -> web.Response:
+    payload = await body(request, CandlesRequest)
+
     chandler: Chandler = request.app["chandler"]
-    query = request.query
 
-    result = await chandler.list_candles(
-        exchange=query["exchange"],
-        symbol=query["symbol"],
-        interval=int(query["interval"]),
-        start=int(query["start"]),
-        end=int(query["end"]),
-        type_=query_get_candle_type(query),
-    )
+    result = await chandler.list_candles(**payload)
 
-    return json_response(request, result, list[Candle])
+    return response(request, result, list[Candle])
 
 
-@routes.get("/candles_fill_missing_with_none")
+@routes.post("/candles_fill_missing_with_none")
 async def candles_fill_missing_with_none(request: web.Request) -> web.Response:
+    payload = await body(request, CandlesRequest)
+
     chandler: Chandler = request.app["chandler"]
-    query = request.query
 
-    result = await chandler.list_candles_fill_missing_with_none(
-        exchange=query["exchange"],
-        symbol=query["symbol"],
-        interval=int(query["interval"]),
-        start=int(query["start"]),
-        end=int(query["end"]),
-        type_=query_get_candle_type(query),
-    )
+    result = await chandler.list_candles_fill_missing_with_none(**payload)
 
-    return json_response(request, result, list[Optional[Candle]])
+    return response(request, result, list[Optional[Candle]])
 
 
-@routes.get("/candle_intervals")
+@routes.post("/candle_intervals")
 async def candle_intervals(request: web.Request) -> web.Response:
+    payload = await body(request, ExchangeRequest)
+
     chandler: Chandler = request.app["chandler"]
-    query = request.query
 
-    result = chandler.list_candle_intervals(
-        exchange=query["exchange"],
-    )
+    result = chandler.list_candle_intervals(**payload)
 
-    return json_response(request, result, list[Interval])
+    return response(request, result, list[Interval])
 
 
-@routes.get("/prices")
+class PricesRequest(TypedDict):
+    exchange: str
+    assets: list[Asset]
+    interval: Interval
+    start: Timestamp
+    end: Timestamp
+    target_asset: Asset
+
+
+@routes.post("/prices")
 async def prices(request: web.Request) -> web.Response:
+    payload = await body(request, PricesRequest)
+
     prices: Prices = request.app["prices"]
-    query = request.query
 
     try:
-        result = await prices.map_asset_prices(
-            exchange=query["exchange"],
-            assets=query["assets"].split(","),
-            interval=int(query["interval"]),
-            start=int(query["start"]),
-            end=int(query["end"]),
-            target_asset=query["target_asset"],
-        )
+        result = await prices.map_asset_prices(**payload)
     except InsufficientPrices as exc:
         raise_bad_request_response(str(exc))
 
-    return json_response(request, result, list[dict[Asset, Decimal]])
+    return response(request, result, dict[Asset, list[Decimal]])
 
 
 # Main.

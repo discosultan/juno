@@ -9,6 +9,7 @@ from typing import (  # type: ignore
     NamedTuple,
     Optional,
     Tuple,
+    TypedDict,
     TypeVar,
     Union,
     _GenericAlias,
@@ -73,6 +74,10 @@ class CombinedDataClass(Generic[T1, T2, T3]):
     value9: Optional[Union[int, BasicNamedTuple]]
 
 
+class BasicTypedDict(TypedDict):
+    value: int
+
+
 @pytest.mark.parametrize(
     "obj,type_,expected_output",
     [
@@ -117,6 +122,7 @@ class CombinedDataClass(Generic[T1, T2, T3]):
         ({"value": 1}, FieldDataClass, FieldDataClass(value=1)),
         ([1, 2], Tuple[int, ...], (1, 2)),
         ("foo", Literal["foo"], "foo"),
+        ({"value": 1}, BasicTypedDict, BasicTypedDict(value=1)),
     ],
 )
 def test_deserialize(obj, type_, expected_output) -> None:
@@ -124,11 +130,12 @@ def test_deserialize(obj, type_, expected_output) -> None:
 
 
 @pytest.mark.parametrize(
-    "obj,expected_output",
+    "obj,type_,expected_output",
     [
-        (BasicEnum.VALUE, 1),
-        (StringEnum.VALUE, "foo"),
+        (BasicNamedTuple(1, 2), BasicNamedTuple, [1, 2]),
+        (BasicEnum.VALUE, None, 1),
+        (StringEnum.VALUE, None, "foo"),
     ],
 )
-def test_serialize(obj, expected_output) -> None:
-    assert serialization.raw.serialize(obj) == expected_output
+def test_serialize(obj, type_, expected_output) -> None:
+    assert serialization.raw.serialize(obj, type_) == expected_output

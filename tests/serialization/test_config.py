@@ -1,70 +1,80 @@
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any, Literal, NamedTuple, Optional, Union
+from typing import Literal, NamedTuple, Optional, Tuple, TypedDict, Union
+
+import pytest
 
 from juno import Interval, Interval_, Timestamp, serialization
 
 
-class SomeEnum(IntEnum):
+class BasicEnum(IntEnum):
     KEY = 1
 
 
-class Foo(NamedTuple):
-    name: str
-    timestamp: Timestamp
-    interval: Interval
-    optional_interval: Optional[Interval]
-    missing_optional_interval: Optional[Interval]
-    decimal: Decimal
-    list_of_intervals: list[Interval]
-    dict_of_intervals: dict[Interval, Interval]
-    enum: SomeEnum
-    union1: Union[str, int]
-    union2: Union[str, int]
-    literal: Literal["foo"]
-    optional_union: Optional[Union[str, int]]
+class BasicNamedTuple(NamedTuple):
+    value: Interval
 
 
-def test_deserialize_serialize() -> None:
-    input_: dict[str, Any] = {
-        "name": "bar",
-        "timestamp": "2000-01-01T00:00:00+00:00",
-        "interval": "1h",
-        "optional_interval": "2h",
-        "missing_optional_interval": None,
-        "decimal": Decimal("1.5"),
-        "list_of_intervals": ["1h", "2h"],
-        "dict_of_intervals": {"1h": "2h"},
-        "enum": "key",
-        "union1": "foo",
-        "union2": 1,
-        "literal": "foo",
-        "optional_union": "foo",
-    }
-    expected_output: Union[dict[str, Any], Foo] = Foo(
-        name="bar",
-        timestamp=946_684_800_000,
-        interval=Interval_.HOUR,
-        optional_interval=2 * Interval_.HOUR,
-        missing_optional_interval=None,
-        decimal=Decimal("1.5"),
-        list_of_intervals=[Interval_.HOUR, 2 * Interval_.HOUR],
-        dict_of_intervals={Interval_.HOUR: 2 * Interval_.HOUR},
-        enum=SomeEnum.KEY,
-        union1="foo",
-        union2=1,
-        literal="foo",
-        optional_union="foo",
-    )
+class BasicTypedDict(TypedDict):
+    value: Interval
 
-    output = serialization.config.deserialize(input_, Foo)
-    assert output == expected_output
 
-    expected_output = input_
-    input_ = output
+@dataclass
+class BasicDataClass:
+    value: Interval
 
-    output = serialization.config.serialize(input_, Foo)
-    assert output == expected_output
+
+@pytest.mark.parametrize(
+    "obj,type_,expected_output",
+    [
+        ("bar", str, "bar"),
+        ("2020-01-01T00:00:00+00:00", Timestamp, 1577836800000),
+        ("1d", Interval, Interval_.DAY),
+        ("2h", Optional[Interval], 2 * Interval_.HOUR),
+        (None, Optional[Interval], None),
+        (Decimal("1.5"), Decimal, Decimal("1.5")),
+        (["1h", "2h"], list[Interval], [Interval_.HOUR, 2 * Interval_.HOUR]),
+        ({"1h": "2h"}, dict[Interval, Interval], {Interval_.HOUR: 2 * Interval_.HOUR}),
+        ("key", BasicEnum, BasicEnum.KEY),
+        ("foo", Union[str, int], "foo"),
+        (1, Union[str, int], 1),
+        ("foo", Literal["foo"], "foo"),
+        ("foo", Optional[Union[str, int]], "foo"),
+        (["a", 1], Tuple[str, int], ("a", 1)),
+        (["1h"], BasicNamedTuple, BasicNamedTuple(value=Interval_.HOUR)),
+        ({"value": "1h"}, BasicTypedDict, BasicTypedDict(value=Interval_.HOUR)),
+        ({"value": "1h"}, BasicDataClass, BasicDataClass(value=Interval_.HOUR)),
+    ],
+)
+def test_deserialize(obj, type_, expected_output) -> None:
+    assert serialization.config.deserialize(obj, type_) == expected_output
+
+
+@pytest.mark.parametrize(
+    "obj,type_,expected_output",
+    [
+        ("bar", str, "bar"),
+        (1577836800000, Timestamp, "2020-01-01T00:00:00+00:00"),
+        (Interval_.DAY, Interval, "1d"),
+        (2 * Interval_.HOUR, Optional[Interval], "2h"),
+        (None, Optional[Interval], None),
+        (Decimal("1.5"), Decimal, Decimal("1.5")),
+        ([Interval_.HOUR, 2 * Interval_.HOUR], list[Interval], ["1h", "2h"]),
+        ({Interval_.HOUR: 2 * Interval_.HOUR}, dict[Interval, Interval], {"1h": "2h"}),
+        (BasicEnum.KEY, BasicEnum, "key"),
+        ("foo", Union[str, int], "foo"),
+        (1, Union[str, int], 1),
+        ("foo", Literal["foo"], "foo"),
+        ("foo", Optional[Union[str, int]], "foo"),
+        (("a", 1), Tuple[str, int], ["a", 1]),
+        (BasicNamedTuple(value=Interval_.HOUR), BasicNamedTuple, ["1h"]),
+        (BasicTypedDict(value=Interval_.HOUR), BasicTypedDict, {"value": "1h"}),
+        (BasicDataClass(value=Interval_.HOUR), BasicDataClass, {"value": "1h"}),
+    ],
+)
+def test_serialize(obj, type_, expected_output) -> None:
+    assert serialization.config.serialize(obj, type_) == expected_output
 
 
 class Bar(NamedTuple):
@@ -73,7 +83,8 @@ class Bar(NamedTuple):
 
 
 def test_deserialize_with_defaults() -> None:
-    input_ = {"value1": 1}
+    # input_ = {"value1": 1}
+    input_ = [1]
 
     output = serialization.config.deserialize(input_, Bar)
 

@@ -25,6 +25,10 @@ def isenum(obj: Any) -> bool:
     return inspect.isclass(obj) and issubclass(obj, Enum)
 
 
+def istypeddict(obj: Any) -> bool:
+    return inspect.isclass(obj) and issubclass(obj, dict) and len(get_type_hints(obj)) > 0
+
+
 def extract_public(obj: Any, exclude: Sequence[str] = []) -> Any:
     """Turns all public fields and properties of an object into typed output. Non-recursive."""
 

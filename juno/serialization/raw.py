@@ -17,6 +17,7 @@ from juno.inspect import (
     get_type_by_fully_qualified_name,
     isenum,
     isnamedtuple,
+    istypeddict,
 )
 from juno.typing import get_root_origin
 
@@ -90,11 +91,13 @@ def deserialize(value: Any, type_: Any) -> Any:
         else:
             return tuple(deserialize(sv, st) for sv, st in zip(value, sub_types))
 
+    if istypeddict(resolved_type):
+        annotations = get_type_hints(resolved_type)
+        return {key: deserialize(sub_value, annotations[key]) for key, sub_value in value.items()}
+
     if resolved_type is dict:
         _, sub_type = get_args(type_)
-        for key, sub_value in value.items():
-            value[key] = deserialize(sub_value, sub_type)
-        return value
+        return {key: deserialize(sub_value, sub_type) for key, sub_value in value.items()}
 
     if resolved_type is Literal:
         return value

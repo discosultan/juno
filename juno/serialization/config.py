@@ -3,7 +3,7 @@ from types import NoneType
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from juno import Interval, Interval_, Timestamp, Timestamp_
-from juno.inspect import isenum, isnamedtuple
+from juno.inspect import isenum, isnamedtuple, istypeddict
 
 
 def deserialize(value: Any, type_: Any) -> Any:
@@ -35,16 +35,38 @@ def deserialize(value: Any, type_: Any) -> Any:
         if origin is list:  # typing.list[T]
             (st,) = get_args(type_)
             return [deserialize(sv, st) for sv in value]
+        if origin is tuple:
+            sub_types = get_args(type_)
+            # Handle ellipsis. special case. I.e `tuple[int, ...]`.
+            if len(sub_types) == 2 and sub_types[1] is Ellipsis:
+                sub_type = sub_types[0]
+                return tuple(deserialize(sv, sub_type) for sv in value)
+            # Handle regular cases. I.e `tuple[int, str, float]`.
+            else:
+                return tuple(deserialize(sv, st) for sv, st in zip(value, sub_types))
         if origin is dict:  # typing.dict[T, Y]
             skt, svt = get_args(type_)
             return {deserialize(sk, skt): deserialize(sv, svt) for sk, sv in value.items()}
 
     if isenum(type_):
         return type_[value.upper()]
-    if isnamedtuple(type_) or is_dataclass(type_):
+    if isnamedtuple(type_):
+        type_hints = get_type_hints(type_)
+        return type_(
+            *(
+                deserialize(sub_value, sub_type)
+                for sub_value, sub_type in zip(value, type_hints.values())
+            )
+        )
+    if is_dataclass(type_):
         type_hints = get_type_hints(type_)
         return type_(
             **{sn: deserialize(value[sn], st) for sn, st in type_hints.items() if sn in value}
+        )
+    if istypeddict(type_):
+        annotations = get_type_hints(type_)
+        return type_(
+            **{key: deserialize(sub_value, annotations[key]) for key, sub_value in value.items()}
         )
 
     return value
@@ -82,14 +104,29 @@ def serialize(value: Any, type_: Any = None) -> Any:
         if origin is list:  # typing.list[T]
             (st,) = get_args(type_)
             return [serialize(sv, st) for sv in value]
+        if origin is tuple:
+            sub_types = get_args(type_)
+            # Handle ellipsis. special case. I.e `tuple[int, ...]`.
+            if len(sub_types) == 2 and sub_types[1] is Ellipsis:
+                sub_type = sub_types[0]
+                return [serialize(sv, sub_type) for sv in value]
+            # Handle regular cases. I.e `tuple[int, str, float]`.
+            else:
+                return [serialize(sv, st) for sv, st in zip(value, sub_types)]
         if origin is dict:  # typing.dict[T, Y]
             skt, svt = get_args(type_)
             return {serialize(sk, skt): serialize(sv, svt) for sk, sv in value.items()}
 
     if isenum(type_):
         return value.name.lower()
-    if isnamedtuple(type_) or is_dataclass(type_):
+    if isnamedtuple(type_):
+        type_hints = get_type_hints(type_)
+        return [serialize(getattr(value, sn), st) for sn, st in type_hints.items()]
+    if is_dataclass(type_):
         type_hints = get_type_hints(type_)
         return {sn: serialize(getattr(value, sn), st) for sn, st in type_hints.items()}
+    if istypeddict(type_):
+        annotations = get_type_hints(type_)
+        return {key: serialize(sub_value, annotations[key]) for key, sub_value in value.items()}
 
     return value
