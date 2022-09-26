@@ -310,8 +310,8 @@ class Binance(Exchange):
             quote_asset = symbol_info["quoteAsset"].lower()
             symbol = f"{base_asset}-{quote_asset}"
 
-            if not all((price, percent_price or percent_price_by_side, lot_size, min_notional)):
-                raise RuntimeError(f"Not all filters available for {symbol}")
+            if not all((price, lot_size, min_notional)):
+                raise RuntimeError(f"Not all required filters available for {symbol}")
 
             filters[symbol] = Filters(
                 price=price or Price(),
