@@ -344,7 +344,6 @@ class Limit(Broker):
                     f"existing {symbol} {side.name} order {ctx.processing_order.client_id} "
                     "cancelled"
                 )
-                ctx.processing_order = None
 
                 # Additional logging.
                 filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
@@ -353,6 +352,12 @@ class Limit(Broker):
                     f"last {symbol} {side.name} order size {ctx.requested_order.size} but filled "
                     f"{filled_size_since_last_order}; {size_to_be_filled} still to be filled"
                 )
+
+                ctx.processing_order = None
+                # We also want to set requested order to none here because it may be that the
+                # cancellation due to "order would be taker" may come through a websocket message
+                # instead of the REST API call.
+                ctx.requested_order = None
             elif isinstance(order, OrderUpdate.Done):
                 assert ctx.processing_order
                 ctx.fills.extend(ctx.fills_since_last_order)
@@ -468,6 +473,7 @@ class Limit(Broker):
             ctx.requested_order = None
             return
 
+        _log.info(f"waiting for {symbol} {side.name} order {client_id} to be confirmed")
         try:
             await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
         except TimeoutError:
@@ -542,8 +548,12 @@ class Limit(Broker):
                 ctx.requested_order = None
             return
 
+        # An edit request results in a CANCEL + NEW order updates.
+        _log.info(
+            f"waiting for {symbol} {side.name} order {prev_order.client_id} to be cancelled "
+            f"and order {new_order.client_id} to be confirmed"
+        )
         try:
-            # An edit request results in a CANCEL + NEW order updates.
             await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
             await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
         except TimeoutError:
@@ -689,8 +699,12 @@ def _get_size_for_price(
     if len(ctx.fills) == 0:
         # We only want to raise an exception if the filters fail while we haven't had
         # any fills yet.
-        filters.size.validate(size)
-        filters.min_notional.validate_limit(price=price, size=size)
+        try:
+            filters.size.validate(size)
+            filters.min_notional.validate_limit(price=price, size=size)
+        except BadOrder as e:
+            _log.error(e)
+            raise
     else:
         try:
             filters.size.validate(size)

@@ -4,12 +4,17 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import itertools
 import logging
+import random
 import urllib.parse
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional, TypedDict
+
+from typing_extensions import NotRequired
 
 from juno import (
     Asset,
@@ -39,7 +44,7 @@ from juno import (
     json,
 )
 from juno.aiolimiter import AsyncLimiter
-from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
+from juno.asyncio import cancel, create_task_sigint_on_exception, stream_queue
 from juno.common import Account, BorrowInfo, OrderStatus
 from juno.errors import ExchangeException, InsufficientFunds, OrderWouldBeTaker
 from juno.filters import Price, Size
@@ -109,10 +114,9 @@ class Kraken(Exchange):
         await self._session.__aexit__(exc_type, exc, tb)
 
     def generate_client_id(self) -> int | str:
-        # Have to convert to seconds because only 32 bits are allowed.
-        # TODO: Can cause issues with order tracking if multiple orders are placed within the same
-        #       second.
-        return Timestamp_.now() // 1000
+        # Kraken supports only 32 bits for client id.
+        # The subtraction is to get a signed instead of an unsigned value.
+        return random.getrandbits(32) - 2**31
 
     def list_candle_intervals(self) -> list[int]:
         return [
@@ -142,7 +146,7 @@ class Kraken(Exchange):
 
         fees, filters = {}, {}
         for key, val in symbols_res["result"].items():
-            symbol = _from_symbol(key)
+            symbol = _from_http_symbol(key)
             base_asset, quote_asset = Symbol_.assets(symbol)
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val["fees"][0][1] / 100
@@ -191,7 +195,7 @@ class Kraken(Exchange):
 
         res = await self._request_public("GET", "/0/public/Ticker", data=data)
         return {
-            _from_symbol(pair): Ticker(
+            _from_http_symbol(pair): Ticker(
                 volume=Decimal(val["v"][1]),
                 quote_volume=Decimal("0.0"),  # Not supported.
                 price=Decimal(val["c"][0]),
@@ -223,13 +227,11 @@ class Kraken(Exchange):
         # https://docs.kraken.com/websockets/#message-ohlc
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for c in ws:
-                # TODO: Kraken doesn't publish candles for intervals where there are no trades.
-                # We should fill those caps ourselves.
-                # They also send multiple candles per interval. We need to determine when a candle
-                # is closed ourselves. Trickier than with Binance.
+                # We have to use end time instead of start time because end time is aligned with
+                # interval boundaries. We simply subtract interval to get the start time.
+                time = int(Decimal(c[1]) * 1000) - interval
                 yield Candle(
-                    # They provide end and not start time, hence we subtract interval.
-                    time=int(Decimal(c[1]) * 1000) - interval,
+                    time=time,
                     open=Decimal(c[2]),
                     high=Decimal(c[3]),
                     low=Decimal(c[4]),
@@ -238,7 +240,12 @@ class Kraken(Exchange):
                 )
 
         async with self._public_ws.subscribe(
-            {"name": "ohlc", "interval": interval // Interval_.MIN}, [_to_ws_symbol(symbol)]
+            {
+                "name": "ohlc",
+                # Kraken expects interval in minutes.
+                "interval": interval // Interval_.MIN,
+            },
+            {symbol},
         ) as ws:
             yield inner(ws)
 
@@ -268,7 +275,7 @@ class Kraken(Exchange):
                 "name": "book",
                 "depth": 10,
             },
-            [_to_ws_symbol(symbol)],
+            {symbol},
         ) as ws:
             yield inner(ws)
 
@@ -341,7 +348,7 @@ class Kraken(Exchange):
                 size=Decimal(o["vol"]),
             )
             for o in res["result"]["open"].values()
-            if (order_symbol := _from_symbol(o["descr"]["pair"])) == symbol or symbol is None
+            if (order_symbol := _from_http_symbol(o["descr"]["pair"])) == symbol or symbol is None
         ]
 
     async def place_order(
@@ -505,7 +512,7 @@ class Kraken(Exchange):
                         size=Decimal(trade[1]),
                     )
 
-        async with self._public_ws.subscribe({"name": "trade"}, [_to_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe({"name": "trade"}, {symbol}) as ws:
             yield inner(ws)
 
     async def _get_websockets_token(self) -> str:
@@ -576,6 +583,19 @@ class Kraken(Exchange):
             return result
 
 
+class Subscription(TypedDict):
+    name: str
+    interval: NotRequired[int]
+    depth: NotRequired[int]
+
+
+@dataclass
+class Listener:
+    queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    subscribed: asyncio.Event = field(default_factory=asyncio.Event)
+    unsubscribed: asyncio.Event = field(default_factory=asyncio.Event)
+
+
 class KrakenPublicFeed:
     def __init__(self, url: str) -> None:
         self.url = url
@@ -586,11 +606,10 @@ class KrakenPublicFeed:
         self.ws_lock = asyncio.Lock()
         self.process_task: Optional[asyncio.Task] = None
 
-        self.reqid = 1
-        self.subscriptions: dict[int, Event[asyncio.Queue[Any]]] = defaultdict(
-            lambda: Event(autoclear=True)
-        )
-        self.channels: dict[int, asyncio.Queue[Any]] = defaultdict(asyncio.Queue)
+        self.req_ids = itertools.count(1)
+        self.listeners: dict[int, Listener] = {}
+
+        self.channels: dict[str, dict[int, asyncio.Queue]] = defaultdict(dict)
 
     async def __aenter__(self) -> KrakenPublicFeed:
         await self.session.__aenter__()
@@ -606,30 +625,58 @@ class KrakenPublicFeed:
 
     @asynccontextmanager
     async def subscribe(
-        self, subscription: Any, symbols: Optional[list[str]] = None
+        self, subscription: Subscription, symbols: Optional[set[Symbol]] = None
     ) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_connection()
 
-        reqid = self.reqid
-        subscribed = self.subscriptions[reqid]
-        self.reqid += 1
+        listener = Listener()
+        reqid = next(self.req_ids)
+        self.listeners[reqid] = listener
+
+        await self._send_subscribe(reqid, subscription, symbols)
+        await listener.subscribed.wait()
+
+        try:
+            yield (
+                self._get_value_from_payload(e)
+                async for e in stream_queue(listener.queue)
+                if symbols is None
+                or _from_ws_symbol(self._get_symbol_from_payload(e)) in set(symbols)
+            )
+        finally:
+            await self._send_unsubscribe(reqid, subscription, symbols)
+            await listener.unsubscribed.wait()
+            del self.listeners[reqid]
+
+    async def _send_subscribe(
+        self,
+        reqid: int,
+        subscription: Any,
+        symbols: Optional[set[Symbol]],
+    ) -> None:
         payload = {
             "event": "subscribe",
             "reqid": reqid,
             "subscription": subscription,
         }
         if symbols is not None:
-            payload["pair"] = symbols
-
+            payload["pair"] = list(map(_to_ws_symbol, symbols))
         await self._send(payload)
 
-        received = await subscribed.wait()
-
-        try:
-            yield stream_queue(received)
-        finally:
-            # TODO: unsubscribe
-            pass
+    async def _send_unsubscribe(
+        self,
+        reqid: int,
+        subscription: Any,
+        symbols: Optional[set[Symbol]],
+    ) -> None:
+        payload = {
+            "event": "unsubscribe",
+            "reqid": reqid,
+            "subscription": subscription,
+        }
+        if symbols is not None:
+            payload["pair"] = list(map(_to_ws_symbol, symbols))
+        await self._send(payload)
 
     async def _send(self, msg: Any) -> None:
         assert self.ws
@@ -654,25 +701,44 @@ class KrakenPublicFeed:
 
     def _process_message(self, data: Any) -> None:
         if isinstance(data, dict):
-            if data["event"] == "subscriptionStatus":
+            event = data["event"]
+            if event == "subscriptionStatus":
                 _validate_subscription_status(data)
-                subscribed = self.subscriptions[data["reqid"]]
-                received = self.channels[data["channelID"]]
-                subscribed.set(received)
-        else:  # List.
-            channel_id = data[0]
+                req_id = data["reqid"]
+                listener = self.listeners[req_id]
+                channel = self.channels[data["channelName"]]
 
-            if len(data) > 4:
-                # Consolidate.
-                val: Any = {}
-                for consolidate in data[1 : len(data) - 2]:
-                    val.update(consolidate)
+                status = data["status"]
+                if status == "subscribed":
+                    listener.subscribed.set()
+                    channel[req_id] = listener.queue
+                elif status == "unsubscribed":
+                    listener.unsubscribed.set()
+                    del channel[req_id]
+                else:
+                    raise NotImplementedError(f"Unknown subscription status {status}")
+            elif event == "systemStatus":
+                _log.info("system status: %s", data["status"])
+            elif event == "heartbeat":
+                pass
             else:
-                val = data[1]
+                raise NotImplementedError(f"Unknown event {event}")
+        else:  # List.
+            channel = self.channels[self._get_channel_name_from_payload(data)]
+            for queue in channel.values():
+                queue.put_nowait(data)
 
-            # type_ = data[-2]
-            # pa_onir = data[-1]
-            self.channels[channel_id].put_nowait(val)  # type: ignore
+    def _get_value_from_payload(self, data: Any) -> Any:
+        # For example, book channel may return value in two separate fields. We merge them.
+        if len(data) == 5:
+            return data[1] | data[2]
+        return data[1]
+
+    def _get_channel_name_from_payload(self, data: Any) -> str:
+        return data[-2]
+
+    def _get_symbol_from_payload(self, data: Any) -> str:
+        return data[-1]
 
 
 class KrakenPrivateFeed(KrakenPublicFeed):
@@ -688,16 +754,11 @@ class KrakenPrivateFeed(KrakenPublicFeed):
         payload["subscription"]["token"] = self.token
         await super()._send(payload)
 
-    def _process_message(self, data: Any) -> None:
-        if isinstance(data, dict):
-            if data["event"] == "subscriptionStatus":
-                _validate_subscription_status(data)
-                subscribed = self.subscriptions[data["reqid"]]
-                received = self.channels[data["channelName"]]
-                subscribed.set(received)
-        else:  # List.
-            channel_id = data[1]
-            self.channels[channel_id].put_nowait(data[0])  # type: ignore
+    def _get_value_from_payload(self, data: Any) -> Any:
+        return data[0]
+
+    def _get_channel_name_from_payload(self, data: Any) -> str:
+        return data[1]
 
 
 class KrakenException(Exception):
@@ -724,10 +785,6 @@ def _from_ws_time(time: str) -> int:
 def _to_time(time: int) -> int:
     # Convert milliseconds to nanoseconds.
     return time * 1_000_000
-
-
-def _to_ws_symbol(symbol: Symbol) -> str:
-    return symbol.replace("-", "/").upper()
 
 
 # The asset names we are dealing with can be in three different forms:
@@ -849,7 +906,7 @@ def _from_asset(value: str) -> Asset:
     return _ASSET_ALIAS_MAP.get(value, value)
 
 
-def _from_symbol(value: str) -> Symbol:
+def _from_http_symbol(value: str) -> Symbol:
     # 1. Normalize to lowercase.
     value = value.lower()
     # 2. Go from Kraken old format to new format.
@@ -867,6 +924,15 @@ def _from_symbol(value: str) -> Symbol:
     return f"{base}-{quote}"
 
 
+def _from_ws_symbol(value: str) -> Symbol:
+    # 1. Normalize to lowercase.
+    value = value.lower()
+    # 2. Split to base and quote.
+    base, quote = value.split("/")
+    # 3. Map aliases.
+    return f"{_ASSET_ALIAS_MAP.get(base, base)}-{_ASSET_ALIAS_MAP.get(quote, quote)}"
+
+
 def _to_http_symbol(symbol: Symbol) -> str:
     # 1. Go from Juno format to Kraken new format.
     base, quote = Symbol_.assets(symbol)
@@ -874,6 +940,10 @@ def _to_http_symbol(symbol: Symbol) -> str:
     quote = _REVERSE_ASSET_ALIAS_MAP.get(quote, quote)
     # 2. Transform to uppercase.
     return (f"{base}{quote}").upper()
+
+
+def _to_ws_symbol(symbol: Symbol) -> str:
+    return symbol.replace("-", "/").upper()
 
 
 def _to_order_type(order_type: OrderType) -> str:
