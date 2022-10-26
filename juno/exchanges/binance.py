@@ -1561,6 +1561,7 @@ _KNOWN_QUOTE_ASSETS = [
     "IDRT",
     "NGN",
     "PAX",
+    "PLN",
     "RUB",
     "TRX",
     "TRY",

@@ -4,7 +4,7 @@ setup(
     name="juno",
     version="0.5.0",
     packages=find_packages(),
-    python_requires=">= 3.10",
+    python_requires=">= 3.11",
     install_requires=[
         "aiohttp",
         "aiolimiter",
