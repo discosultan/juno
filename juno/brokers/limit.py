@@ -349,7 +349,7 @@ class Limit(Broker):
                 filled_size_since_last_order = Fill.total_size(ctx.fills_since_last_order)
                 size_to_be_filled = ctx.requested_order.size - filled_size_since_last_order
                 _log.info(
-                    f"last {symbol} {side.name} order size {ctx.requested_order.size} but filled "
+                    f"last {symbol} {side.name} order size {ctx.processing_order.size} but filled "
                     f"{filled_size_since_last_order}; {size_to_be_filled} still to be filled"
                 )
 
