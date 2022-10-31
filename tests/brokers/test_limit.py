@@ -487,8 +487,8 @@ async def test_cancels_open_order_on_error(mocker: MockerFixture) -> None:
         )
         await yield_control()
 
+        task.cancel()
         try:
-            task.cancel()
             await task
         except asyncio.CancelledError:
             pass
