@@ -254,12 +254,14 @@ class Limit(Broker):
                     await cancel(track_fills_task)
                 except _FilledFromTrack:
                     pass
+                _log.debug("cancelled track fills task")
             except _FilledFromTrack:
                 _log.debug("filled from track fills task, cancelling keep limit order best task")
                 try:
                     await cancel(keep_limit_order_best_task)
                 except _FilledFromKeepAtBest:
                     pass
+                _log.debug("cancelled keep limit order best task")
             except Exception:
                 await cancel(keep_limit_order_best_task, track_fills_task)
                 raise
@@ -357,6 +359,7 @@ class Limit(Broker):
                 # We also want to set requested order to none here because it may be that the
                 # cancellation due to "order would be taker" may come through a websocket message
                 # instead of the REST API call.
+                # TODO: This is a bug and causes issues when using edit orders.
                 ctx.requested_order = None
             elif isinstance(order, OrderUpdate.Done):
                 assert ctx.processing_order
