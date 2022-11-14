@@ -49,7 +49,7 @@ setup(
             "rope",
         ],
         "discord": [
-            "nextcord",
+            "discord.py",
         ],
         "plotly": [
             "plotly",

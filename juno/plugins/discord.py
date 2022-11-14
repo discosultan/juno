@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
+from discord import File, Intents, TextChannel
+from discord.ext.commands import Bot, Context
 from more_itertools import sliced
-from nextcord import File, Intents
-from nextcord.ext.commands.bot import Bot, Context
 
 from juno import Interval_, Timestamp_, json, serialization
 from juno.asyncio import cancel, create_task_sigint_on_exception
@@ -24,9 +24,6 @@ from .plugin import Plugin
 
 _log = logging.getLogger(__name__)
 
-_intents = Intents.default()
-_intents.message_content = True
-
 
 class _TraderContext:
     def __init__(self, state: Any, instance: Trader) -> None:
@@ -35,7 +32,7 @@ class _TraderContext:
 
 
 # We use simulated position mixin to provide info for the `.status` command.
-class Discord(Bot, Plugin):
+class Discord(Plugin):
     def __init__(
         self,
         chandler: Chandler,
@@ -43,8 +40,6 @@ class Discord(Bot, Plugin):
         events: Events,
         config: dict[str, Any],
     ) -> None:
-        super().__init__(command_prefix=".", intents=_intents)
-
         discord_config = config.get(type(self).__name__.lower(), {})
 
         if not (token := discord_config.get("token")):
@@ -58,6 +53,9 @@ class Discord(Bot, Plugin):
                 f"Channel IDs should be a map but was a {type(channel_ids).__name__} instead"
             )
 
+        intents = Intents.default()
+        intents.message_content = True
+        self._bot = Bot(command_prefix=".", intents=intents)
         self._chandler = chandler
         self._informant = informant
         self._events = events
@@ -66,12 +64,12 @@ class Discord(Bot, Plugin):
         self._simulated_positioner = SimulatedPositioner(informant=informant)
 
     async def __aenter__(self) -> Discord:
-        self._start_task = create_task_sigint_on_exception(self.start(self._token))
+        self._start_task = create_task_sigint_on_exception(self._bot.start(self._token))
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(self._start_task)
-        await self.close()
+        await self._bot.close()
 
     @property
     def informant(self) -> Informant:
@@ -202,15 +200,21 @@ class Discord(Bot, Plugin):
                 await send_message(msg)
                 raise
 
-        @self.command(help="Opens new long positions by specified comma-separated symbols")
+        @self._bot.command(  # type: ignore
+            help="Opens new long positions by specified comma-separated symbols"
+        )
         async def open_long_positions(ctx: Context, value: str) -> None:
             await open_positions(ctx, value, False)
 
-        @self.command(help="Opens new short positions by specified comma-separated symbols")
+        @self._bot.command(  # type: ignore
+            help="Opens new short positions by specified comma-separated symbols"
+        )
         async def open_short_positions(ctx: Context, value: str) -> None:
             await open_positions(ctx, value, True)
 
-        @self.command(help="Closes open positions by specified comma-separated symbols")
+        @self._bot.command(  # type: ignore
+            help="Closes open positions by specified comma-separated symbols"
+        )
         async def close_positions(ctx: Context, value: str) -> None:
             if ctx.channel.id != channel_id:
                 return
@@ -233,7 +237,7 @@ class Discord(Bot, Plugin):
                 await send_message(msg)
                 raise
 
-        @self.command(help="Sets whether trader closes positions on exit")
+        @self._bot.command(help="Sets whether trader closes positions on exit")  # type: ignore
         async def close_on_exit(ctx: Context, value: str) -> None:
             if ctx.channel.id != channel_id:
                 return
@@ -253,7 +257,7 @@ class Discord(Bot, Plugin):
             _log.info(msg)
             await send_message(msg)
 
-        @self.command(help="Sets whether trader opens new positions")
+        @self._bot.command(help="Sets whether trader opens new positions")  # type: ignore
         async def open_new_positions(ctx: Context, value: str) -> None:
             if ctx.channel.id != channel_id:
                 return
@@ -273,7 +277,9 @@ class Discord(Bot, Plugin):
             _log.info(msg)
             await send_message(msg)
 
-        @self.command(help="Gets trading summary if all open positions were closed right now")
+        @self._bot.command(  # type: ignore
+            help="Gets trading summary if all open positions were closed right now"
+        )
         async def status(ctx: Context) -> None:
             if ctx.channel.id != channel_id:
                 return
@@ -328,18 +334,22 @@ class Discord(Bot, Plugin):
         )
 
     async def _send_message(self, channel_id: int, msg: str) -> None:
-        await self.wait_until_ready()
-        channel = self.get_channel(channel_id)
+        await self._bot.wait_until_ready()
+        channel = self._bot.get_channel(channel_id)
+        if not isinstance(channel, TextChannel):
+            raise Exception("Invalid channel type.")
         max_length = 2000
         # We break the message and send it in chunks in case it exceeds the max allowed limit.
         # Note that this is bad as it will break formatting. Splitting is done by chars and not
         # words.
         for msg_slice in sliced(msg, max_length):
-            await channel.send(msg_slice)
+            await channel.send(content=cast(str, msg_slice))
 
     async def _send_file(self, channel_id: int, path: str) -> None:
-        await self.wait_until_ready()
-        channel = self.get_channel(channel_id)
+        await self._bot.wait_until_ready()
+        channel = self._bot.get_channel(channel_id)
+        if not isinstance(channel, TextChannel):
+            raise Exception("Invalid channel type.")
         await channel.send(file=File(path))
 
 
