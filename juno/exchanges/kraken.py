@@ -17,9 +17,12 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optio
 from typing_extensions import NotRequired
 
 from juno import (
+    Account,
     Asset,
     AssetInfo,
     Balance,
+    BorrowInfo,
+    CancelledReason,
     Candle,
     ClientId,
     Depth,
@@ -31,6 +34,7 @@ from juno import (
     Order,
     OrderMissing,
     OrderResult,
+    OrderStatus,
     OrderType,
     OrderUpdate,
     Side,
@@ -45,7 +49,6 @@ from juno import (
 )
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import cancel, create_task_sigint_on_exception, stream_queue
-from juno.common import Account, BorrowInfo, OrderStatus
 from juno.errors import ExchangeException, InsufficientFunds, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -311,6 +314,7 @@ class Kraken(Exchange):
                         yield OrderUpdate.Cancelled(
                             time=_from_ws_time(update["lastupdated"]),
                             client_id=client_id,
+                            reason=_from_cancelled_reason(update["cancel_reason"]),
                         )
                     elif status == "closed":
                         yield OrderUpdate.Done(
@@ -933,6 +937,10 @@ def _from_ws_symbol(value: str) -> Symbol:
     return f"{_ASSET_ALIAS_MAP.get(base, base)}-{_ASSET_ALIAS_MAP.get(quote, quote)}"
 
 
+def _from_cancelled_reason(value: str) -> CancelledReason:
+    return CancelledReason.UNKNOWN
+
+
 def _to_http_symbol(symbol: Symbol) -> str:
     # 1. Go from Juno format to Kraken new format.
     base, quote = Symbol_.assets(symbol)
@@ -1028,3 +1036,4 @@ def _handle_order_error(msg: str) -> None:
         raise OrderWouldBeTaker(msg)
     elif msg == _ERR_INSUFFICIENT_FUNDS:
         raise InsufficientFunds(msg)
+    # TODO: Handle EOrder:Not enough leaves qty

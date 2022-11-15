@@ -9,6 +9,7 @@ from pytest_mock import MockerFixture
 
 from juno import (
     BadOrder,
+    CancelledReason,
     Depth,
     ExchangeInfo,
     Fees,
@@ -170,6 +171,7 @@ async def test_partial_fill_adjust_fill(mocker: MockerFixture) -> None:
             OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
+                reason=CancelledReason.UNKNOWN,
             )
         )
         await yield_control()
@@ -260,6 +262,7 @@ async def test_multiple_cancels(mocker: MockerFixture) -> None:
             OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
+                reason=CancelledReason.UNKNOWN,
             )
         )
         await yield_control()  # New order.
@@ -277,6 +280,7 @@ async def test_multiple_cancels(mocker: MockerFixture) -> None:
             OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
+                reason=CancelledReason.UNKNOWN,
             )
         )
         await yield_control()  # New order.
@@ -379,6 +383,7 @@ async def test_partial_fill_cancel_min_notional(mocker: MockerFixture) -> None:
             OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
+                reason=CancelledReason.UNKNOWN,
             )
         )
         await yield_control()
@@ -636,6 +641,7 @@ async def test_buy_matching_order_placement_strategy(mocker: MockerFixture) -> N
                 OrderUpdate.Cancelled(
                     time=0,
                     client_id=order_client_id,
+                    reason=CancelledReason.UNKNOWN,
                 )
             )
             exchange.stream_depth_queue.put_nowait(
@@ -646,6 +652,7 @@ async def test_buy_matching_order_placement_strategy(mocker: MockerFixture) -> N
                 OrderUpdate.Cancelled(
                     time=0,
                     client_id=order_client_id,
+                    reason=CancelledReason.UNKNOWN,
                 )
             )
             exchange.stream_depth_queue.put_nowait(
@@ -668,6 +675,87 @@ async def test_buy_matching_order_placement_strategy(mocker: MockerFixture) -> N
         assert Fill.total_size(result.fills) == Decimal("1.5")
         assert exchange.place_order.call_count == 3
         assert exchange.cancel_order.call_count == 2
+
+
+async def test_edit_order(mocker: MockerFixture) -> None:
+    snapshot = Depth.Snapshot(
+        asks=[],
+        bids=[(Decimal("1.0"), Decimal("1.0"))],
+    )
+    exchange = mock_exchange(
+        mocker,
+        exchange_info=exchange_info,
+        depth=snapshot,
+        client_id=order_client_id,
+        can_stream_depth_snapshot=False,
+        can_edit_order=True,
+        can_edit_order_atomic=False,
+    )
+
+    def place_order(*args, **kwargs):
+        exchange.stream_orders_queue.put_nowait(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        exchange.stream_depth_queue.put_nowait(
+            Depth.Update(bids=[(Decimal("2.0"), Decimal("1.0"))])
+        )
+        return OrderResult(time=0, status=OrderStatus.NEW)
+
+    def edit_order(*args, **kwargs):
+        for order_update in [
+            OrderUpdate.Cancelled(
+                time=0,
+                client_id=order_client_id,
+                reason=CancelledReason.UNKNOWN,
+            ),
+            OrderUpdate.New(
+                client_id=order_client_id,
+            ),
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal("2.0"),
+                    size=Decimal("0.5"),
+                    quote=Decimal("1.0"),
+                    fee=Decimal("0.05"),
+                    fee_asset="eth",
+                ),
+            ),
+            OrderUpdate.Done(
+                time=1,
+                client_id=order_client_id,
+            ),
+        ]:
+            exchange.stream_orders_queue.put_nowait(order_update)
+        # TODO: This is completely unnecessary. However, the test hangs without it. We probably
+        # don't cleanup async generator somewhere correctly
+        exchange.stream_depth_queue.put_nowait(
+            Depth.Update(bids=[(Decimal("0.0"), Decimal("0.0"))])
+        )
+
+    exchange.place_order.side_effect = place_order
+    exchange.edit_order.side_effect = edit_order
+
+    async with init_broker(
+        exchange,
+        use_edit_order_if_possible=True,
+        order_placement_strategy="matching",
+    ) as broker:
+        result = await broker.buy(
+            exchange=exchange.name,
+            account="spot",
+            symbol="eth-btc",
+            quote=Decimal("1"),
+            test=False,
+        )
+
+        assert result.status is OrderStatus.FILLED
+        assert len(result.fills) == 1
+        assert result.fills[0].size == Decimal("0.5")
+        assert exchange.place_order.call_count == 1
+        assert exchange.edit_order.call_count == 1
 
 
 async def test_edit_order_match_before_order_insufficient_funds(mocker: MockerFixture) -> None:
@@ -738,6 +826,7 @@ async def test_edit_order_match_before_order_insufficient_funds(mocker: MockerFi
             OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
+                reason=CancelledReason.UNKNOWN,
             )
         )
         # Unable to place the new order because we received a match during order edit.

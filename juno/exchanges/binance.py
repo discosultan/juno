@@ -29,6 +29,7 @@ from juno import (
     BadOrder,
     Balance,
     BorrowInfo,
+    CancelledReason,
     Candle,
     ClientId,
     Depth,
@@ -578,6 +579,7 @@ class Binance(Exchange):
                     yield OrderUpdate.Cancelled(
                         time=data["T"],
                         client_id=data["C"],
+                        reason=_from_cancelled_reason(data["r"]),
                     )
                 elif status is OrderStatus.REJECTED:
                     # Documentation mentions that this order status is never pushed to the user
@@ -1663,3 +1665,7 @@ def _from_order_result(content: Any) -> OrderResult:
             for f in content.get("fills", [])
         ],
     )
+
+
+def _from_cancelled_reason(value: str) -> CancelledReason:
+    return CancelledReason.UNKNOWN

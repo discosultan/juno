@@ -21,6 +21,7 @@ from juno import (
     AssetInfo,
     BadOrder,
     Balance,
+    CancelledReason,
     Candle,
     ClientId,
     Depth,
@@ -292,6 +293,7 @@ class Coinbase(Exchange):
                         yield OrderUpdate.Cancelled(
                             time=_from_datetime(data["time"]),
                             client_id=client_id,
+                            reason=CancelledReason.UNKNOWN,
                         )
                     else:
                         raise NotImplementedError(data)

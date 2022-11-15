@@ -18,6 +18,7 @@ from juno import (
     Asset,
     AssetInfo,
     Balance,
+    CancelledReason,
     ClientId,
     Depth,
     ExchangeException,
@@ -289,6 +290,7 @@ class KuCoin(Exchange):
                         yield OrderUpdate.Cancelled(
                             client_id=data["clientOid"],
                             time=data["ts"],
+                            reason=CancelledReason.UNKNOWN,
                         )
                     else:
                         raise NotImplementedError(f"unhandled order type {type_}")

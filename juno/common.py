@@ -283,6 +283,11 @@ class Order:
             raise ValueError("Order size cannot be zero or negative")
 
 
+class CancelledReason(IntEnum):
+    UNKNOWN = 0
+    ORDER_WOULD_BE_TAKER = 1
+
+
 class OrderUpdate(ModuleType):
     class New(NamedTuple):
         client_id: ClientId
@@ -303,6 +308,7 @@ class OrderUpdate(ModuleType):
     class Cancelled(NamedTuple):
         time: Timestamp
         client_id: ClientId
+        reason: CancelledReason
 
     class Done(NamedTuple):
         time: Timestamp

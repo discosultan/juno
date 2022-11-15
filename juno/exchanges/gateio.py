@@ -14,6 +14,7 @@ from juno.common import (
     Account,
     Asset,
     Balance,
+    CancelledReason,
     Candle,
     ClientId,
     Depth,
@@ -279,6 +280,7 @@ class GateIO(Exchange):
                             yield OrderUpdate.Cancelled(
                                 client_id=client_id,
                                 time=time,
+                                reason=CancelledReason.UNKNOWN,
                             )
                         del track_orders[client_id]
                     else:

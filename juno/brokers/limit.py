@@ -22,6 +22,7 @@ from juno import (
     Symbol_,
 )
 from juno.asyncio import Event, cancel
+from juno.common import CancelledReason
 from juno.components import Informant, Orderbook, User
 from juno.math import round_up
 
@@ -29,8 +30,7 @@ from .broker import Broker
 
 _log = logging.getLogger(__name__)
 
-_NEW_EVENT_WAIT_TIMEOUT = 60
-_CANCELLED_EVENT_WAIT_TIMEOUT = 60
+_WS_EVENT_WAIT_TIMEOUT = 60
 
 
 class _ActiveOrder(NamedTuple):
@@ -48,7 +48,7 @@ class _Context:
         self.use_quote = use_quote
         self.new_event: Event[None] = Event(autoclear=True)
         self.cancelled_event: Event[None] = Event(autoclear=True)
-        self.done_event: Event[None] = Event(autoclear=True)
+        self.done_event: Event[None] = Event(autoclear=False)
         self.fills: list[Fill] = []  # Fills from aggregated trades.
         self.fills_since_last_order: list[Fill] = []
         self.time: int = -1
@@ -96,7 +96,7 @@ class Limit(Broker):
         # asset amount. In this case, we simply receive InsufficientFunds error after a
         # partial match and can retry. As soon as we trade with a partial quote amount (as is the
         # case with the multi trader, for example), we may overspend.
-        use_edit_order_if_possible: bool = False,
+        use_edit_order_if_possible: bool = True,
         order_placement_strategy: OrderPlacementStrategy = "matching",
     ) -> None:
         self._informant = informant
@@ -359,8 +359,8 @@ class Limit(Broker):
                 # We also want to set requested order to none here because it may be that the
                 # cancellation due to "order would be taker" may come through a websocket message
                 # instead of the REST API call.
-                # TODO: This is a bug and causes issues when using edit orders.
-                ctx.requested_order = None
+                if order.reason is CancelledReason.ORDER_WOULD_BE_TAKER:
+                    ctx.requested_order = None
             elif isinstance(order, OrderUpdate.Done):
                 assert ctx.processing_order
                 ctx.fills.extend(ctx.fills_since_last_order)
@@ -478,7 +478,7 @@ class Limit(Broker):
 
         _log.info(f"waiting for {symbol} {side.name} order {client_id} to be confirmed")
         try:
-            await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
+            await asyncio.wait_for(ctx.new_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
         except TimeoutError:
             _log.exception(
                 f"timed out waiting for {symbol} {side.name} order {client_id} to be confirmed"
@@ -528,7 +528,7 @@ class Limit(Broker):
             )
         except OrderMissing:
             _log.debug("edit order; order missing")
-            await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
+            await asyncio.wait_for(ctx.cancelled_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
             ctx.requested_order = None
             ctx.wait_orderbook_update = False
             return
@@ -538,7 +538,7 @@ class Limit(Broker):
             if self._user.can_edit_order_atomic(exchange):
                 ctx.requested_order = prev_order
             else:
-                await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
+                await asyncio.wait_for(ctx.cancelled_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
                 ctx.requested_order = None
             return
         except OrderWouldBeTaker:
@@ -547,7 +547,7 @@ class Limit(Broker):
             if self._user.can_edit_order_atomic(exchange):
                 ctx.requested_order = prev_order
             else:
-                await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
+                await asyncio.wait_for(ctx.cancelled_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
                 ctx.requested_order = None
             return
 
@@ -557,8 +557,8 @@ class Limit(Broker):
             f"and order {new_order.client_id} to be confirmed"
         )
         try:
-            await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
-            await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
+            await asyncio.wait_for(ctx.cancelled_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
+            await asyncio.wait_for(ctx.new_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
         except TimeoutError:
             _log.exception(
                 f"timed out waiting for {symbol} {side.name} order {prev_order.client_id} to be "
@@ -588,7 +588,18 @@ class Limit(Broker):
         ):
             _log.info(f"waiting for {symbol} {side.name} order {client_id} to be cancelled")
             try:
-                await asyncio.wait_for(ctx.cancelled_event.wait(), _CANCELLED_EVENT_WAIT_TIMEOUT)
+                await asyncio.wait_for(ctx.cancelled_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
+            except TimeoutError:
+                _log.exception(
+                    f"timed out waiting for {symbol} {side.name} order "
+                    f"{client_id} to be "
+                    "cancelled"
+                )
+                raise
+        else:
+            _log.info(f"waiting for {symbol} {side.name} order {client_id} to be done")
+            try:
+                await asyncio.wait_for(ctx.done_event.wait(), _WS_EVENT_WAIT_TIMEOUT)
             except TimeoutError:
                 _log.exception(
                     f"timed out waiting for {symbol} {side.name} order "
