@@ -90,7 +90,7 @@ class TripleMA(Signal):
         self._medium_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
-        if self._long_ma.mature:
+        if self.mature:
             if (
                 self._short_ma.value > self._medium_ma.value
                 and self._medium_ma.value > self._long_ma.value

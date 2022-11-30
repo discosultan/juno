@@ -130,7 +130,7 @@ class ExchangeRequest(TypedDict):
 async def exchange_info(request: web.Request) -> web.Response:
     payload = await body(request, ExchangeRequest)
 
-    exchange: Optional[Exchange] = request.app.get(payload["exchange"])  # type: ignore
+    exchange: Optional[Exchange] = request.app.get(payload["exchange"])
     if exchange is None:
         raise web.HTTPBadRequest()
 
