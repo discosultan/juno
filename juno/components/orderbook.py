@@ -69,7 +69,7 @@ class Orderbook:
                 raise ValueError()
 
             result = []
-            base_asset, quote_asset = Symbol_.assets(self.symbol)
+            base_asset = Symbol_.base_asset(self.symbol)
             if size is not None:
                 for aprice, asize in self.list_asks():
                     if asize >= size:
