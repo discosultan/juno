@@ -8,7 +8,7 @@ from types import ModuleType
 from typing import Literal, NamedTuple, Optional, Union
 
 from juno.filters import Filters
-from juno.math import round_down, round_half_up, round_up
+from juno.math import precision_to_decimal, round_down, round_half_up, round_up
 from juno.primitives import Asset, Interval, Interval_, Symbol, Timestamp, Timestamp_
 
 Account = Union[Literal["spot", "margin", "isolated"], Symbol]
@@ -371,6 +371,10 @@ class ExchangeInfo:
 @dataclass(frozen=True)
 class AssetInfo:
     precision: int = 8
+
+    @property
+    def precision_decimal(self) -> Decimal:
+        return precision_to_decimal(self.precision)
 
     def __post_init__(self) -> None:
         if self.precision < 0:
