@@ -1,9 +1,10 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Iterable, Optional
+from typing import Collection, Iterable, Optional
 
 from juno import Asset, Candle, Interval, Interval_, Symbol, Symbol_, Timestamp, Timestamp_
+from juno.asyncio import gather_dict
 from juno.components import Chandler, Informant
 from juno.contextlib import AsyncContextManager
 from juno.math import floor_multiple
@@ -101,6 +102,70 @@ class Prices(AsyncContextManager):
             result[target_asset] = [Decimal("1.0")] * (((end - start) // interval) + 1)
 
         return result
+
+    async def map_asset_prices_for_timestamp(
+        self,
+        exchange: str,
+        assets: Collection[Asset],
+        time: Timestamp,
+        target_asset: Asset = "usdt",
+        # If False, will raise an exception on missing price. If True, will set missing price to
+        # Decimal("NaN")
+        ignore_missing_price: bool = False,
+    ) -> dict[Asset, Decimal]:
+        """Creates a mapping of assets to target asset price."""
+        intervals = self._chandler.list_candle_intervals(exchange)
+        intervals.sort()
+        interval = Interval_.DAY
+        time = floor_multiple(time, interval)
+
+        supported_symbols = set(self._informant.list_symbols(exchange))
+
+        async def symbol_price(asset: Asset) -> Decimal:
+            symbol = f"{asset}-{target_asset}"
+            if symbol in supported_symbols:
+                candles = await self._chandler.list_candles(
+                    exchange=exchange,
+                    symbol=symbol,
+                    interval=interval,
+                    start=time,
+                    end=time + interval,
+                )
+                if len(candles) == 0:
+                    if ignore_missing_price:
+                        return Decimal("NaN")
+                    else:
+                        raise RuntimeError(f"Missing price for {symbol}")
+                else:
+                    return candles[0].open
+            elif (reverse_symbol := Symbol_.swap(symbol)) in supported_symbols:
+                candles = await self._chandler.list_candles(
+                    exchange=exchange,
+                    symbol=reverse_symbol,
+                    interval=interval,
+                    start=time,
+                    end=time + interval,
+                )
+                if len(candles) == 0:
+                    if ignore_missing_price:
+                        return Decimal("NaN")
+                    else:
+                        raise RuntimeError(f"Missing price for {reverse_symbol}")
+                else:
+                    return Decimal("1.0") / candles[0].open
+            else:
+                if ignore_missing_price:
+                    return Decimal("NaN")
+                else:
+                    raise RuntimeError(
+                        f"Neither {symbol} nor {reverse_symbol} found in supported symbols."
+                    )
+
+        symbol_prices: dict[Asset, Decimal] = await gather_dict(
+            {asset: symbol_price(asset) for asset in assets if asset != target_asset}
+        )
+
+        return {asset: symbol_prices.get(asset, Decimal("1.0")) for asset in assets}
 
     async def _list_prices(
         self,
