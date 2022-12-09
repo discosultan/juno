@@ -1,18 +1,7 @@
-# This script expects as an input Binance transaction history. To get that:
-# 1. Go to https://www.binance.com/en/my/wallet/history/deposit-crypto.
-# 2. Click on "Generate all statements".
-# 3. Choose a time range.
-# 4. Ensure account is "All".
-# 5. Ensure coin is "All".
-# 6. Ensure sub-account is "None".
-# 7. Ensure "Hide transfer record" is ticked.
-
 import argparse
 import asyncio
 import csv
 import logging
-import os
-import os.path
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from decimal import Decimal
@@ -22,11 +11,12 @@ from juno import Asset, Timestamp, Timestamp_, json
 from juno.components.chandler import Chandler
 from juno.components.informant import Informant
 from juno.components.prices import Prices
+from juno.components.trades import Trades
 from juno.exchanges.exchange import Exchange
 from juno.storages.sqlite import SQLite
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dir", help="Path to directory containing Binance transactions CSV files.")
+parser.add_argument("--file", help="Path to CSV file containing Daedalus transactions.")
 parser.add_argument("--date", type=Timestamp_.parse, help="The date of the account statement.")
 parser.add_argument(
     "--dump",
@@ -35,15 +25,9 @@ parser.add_argument(
 )
 parser.add_argument("--name", default=None, help="Optional name to put on the account statement.")
 parser.add_argument(
-    "--user-id",
+    "--public-key",
     default=None,
-    help="Optional user ID to put on the account statement.",
-)
-parser.add_argument(
-    "--account-date",
-    default=None,
-    type=Timestamp_.parse,
-    help="Optional date the account was opened to put on the account statement.",
+    help="Optional public key to put on the account statement.",
 )
 parser.add_argument(
     "--threshold",
@@ -55,17 +39,26 @@ args = parser.parse_args()
 
 btc_precision = Decimal("0.00000001")
 eur_precision = Decimal("0.01")
-prices_exchange = "binance"
+price_exchange = "binance"
 
 
-class TransactionRow(TypedDict):
-    User_ID: str
-    UTC_Time: str
-    Account: str
-    Operation: str
-    Coin: str
-    Change: str
-    Remark: str
+TransactionRow = TypedDict(
+    "TransactionRow",
+    {
+        "ID": str,
+        "Type": str,
+        "TOTAL (ADA)": str,
+        "Sent amount (ADA)": str,
+        "Deposit amount (ADA)": str,
+        "Fee (ADA)": str,
+        "Tokens (unformatted amounts)": str,
+        "Date & time": str,
+        "Status": str,
+        "Addresses from": str,
+        "Addresses to": str,
+        "Withdrawals": str,
+    },
+)
 
 
 @dataclass
@@ -86,46 +79,40 @@ class Balance:
 
 async def main() -> None:
     # Read input data.
-    paths = os.listdir(args.dir)
-    transactions: list[Transaction] = []
-    for path in (path for path in paths if path.endswith(".csv")):
-        with open(os.path.join(args.dir, path), mode="r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            # Convert to domain model.
-            file_transactions = (to_transaction(row) for row in reader)  # type: ignore
-            # Exclude if transaction past statement date.
-            file_transactions = (tx for tx in file_transactions if tx.time <= args.date)
-            transactions.extend(file_transactions)
+    with open(args.file, mode="r", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        # Convert to domain model.
+        file_transactions = (to_transaction(row) for row in reader)  # type: ignore
+        # Exclude if transaction past statement date.
+        file_transactions = (tx for tx in file_transactions if tx.time <= args.date)
+        transactions = list(file_transactions)
 
     # Sort by time.
     transactions.sort(key=lambda x: x.time)
 
-    # Calculate balances.
+    # Find balances by taking the last asset entry before target date.
     asset_balances: dict[str, Decimal] = defaultdict(lambda: Decimal("0.0"))
     for transaction in transactions:
-        # Add savings balances prefixed with `ld*` to their non-savings counterparts.
-        asset = transaction.asset
-        if len(asset) >= 5 and asset.startswith("ld"):
-            asset = asset[2:]
-        asset_balances[asset] += transaction.change
+        asset_balances[transaction.asset] += transaction.change
 
     # Find prices for date.
     storage = SQLite()
-    exchange = Exchange.from_env(prices_exchange)
+    exchange = Exchange.from_env(price_exchange)
     informant = Informant(storage, [exchange])
-    chandler = Chandler(storage, [exchange])
+    trades = Trades(storage, [exchange])
+    chandler = Chandler(storage, [exchange], trades=trades)
     prices = Prices(informant, chandler)
-    async with exchange, storage, informant, chandler, prices:
+    async with exchange, storage, informant, trades, chandler, prices:
         asset_btc_prices, btc_eur_prices = await asyncio.gather(
             prices.map_asset_prices_for_timestamp(
-                exchange=prices_exchange,
+                exchange=price_exchange,
                 assets=set(asset_balances.keys()),
                 time=args.date,
                 target_asset="btc",
                 ignore_missing_price=True,
             ),
             prices.map_asset_prices_for_timestamp(
-                exchange=prices_exchange,
+                exchange=price_exchange,
                 assets={"btc"},
                 time=args.date,
                 target_asset="eur",
@@ -161,9 +148,9 @@ async def main() -> None:
 
 def to_transaction(row: TransactionRow) -> Transaction:
     return Transaction(
-        time=Timestamp_.parse(row["UTC_Time"]),
-        asset=row["Coin"].lower(),
-        change=Decimal(row["Change"]),
+        time=Timestamp_.parse(row["Date & time"]),
+        asset="ada",
+        change=Decimal(row["TOTAL (ADA)"].replace(" ", "")),
     )
 
 
@@ -176,24 +163,19 @@ def generate_statement(
     btc_eur_rate: Decimal,
 ) -> None:
     lines = [
-        "Binance Account Statement",
+        f"Cardano Wallet Statement",
     ]
 
     if args.name:
         lines.extend(["", "Attention:", args.name])
 
     name = args.name if args.name else "the person"
-    user_id = f" {args.user_id}" if args.user_id else ""
-    account_date = (
-        f" This account was opened on {format_timestamp(args.account_date)}."
-        if args.account_date
-        else ""
-    )
+    public_key = f" with public key {args.public_key}" if args.public_key else ""
     lines.extend(
         [
             "",
-            f"This letter confirms that {name} maintains an individual trading account"
-            f"{user_id} with Binance.com.{account_date}",
+            f"This letter confirms that {name} maintains an individual wallet{public_key} "
+            f"on the Cardano blockchain.",
         ]
     )
 
@@ -206,14 +188,14 @@ def generate_statement(
         ]
     )
 
-    headers = ["Date", "User ID", "Account Type", "Wallet", "Rate"]
-    values = [
-        format_timestamp(args.date),
-        args.user_id,
-        "MasterAccount",
-        "All",
-        f"BTC 1 = EUR {btc_eur_rate.quantize(eur_precision)}",
-    ]
+    headers = ["Date"]
+    if args.public_key:
+        headers.append("Public Key")
+    headers.append("Rate")
+    values = [format_timestamp(args.date)]
+    if args.public_key:
+        values.append(args.public_key)
+    values.append(f"BTC 1 = EUR {btc_eur_rate.quantize(eur_precision)}")
     lines.extend(format_overview(headers, values))
 
     total_btc_value = sum(
@@ -264,7 +246,7 @@ def get_filename() -> str:
     name = ""
     if args.name:
         name += "_".join(args.name.split()).lower() + "_"
-    name += "binance"
+    name += "cardano"
     name += "_" + format_timestamp(args.date).replace("-", "_")
     name += ".txt"
     return name
