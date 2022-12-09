@@ -163,7 +163,7 @@ def generate_statement(
     btc_eur_rate: Decimal,
 ) -> None:
     lines = [
-        f"Cardano Wallet Statement",
+        "Cardano Wallet Statement",
     ]
 
     if args.name:
@@ -175,7 +175,7 @@ def generate_statement(
         [
             "",
             f"This letter confirms that {name} maintains an individual wallet{public_key} "
-            f"on the Cardano blockchain.",
+            "on the Cardano blockchain.",
         ]
     )
 

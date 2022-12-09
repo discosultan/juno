@@ -38,7 +38,6 @@ setup(
             "flake8-bugbear",
             "flake8-comprehensions",
             "flake8-isort",
-            "flake8-quotes",
             "isort",
             "mypy",
             "pytest",

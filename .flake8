@@ -1,13 +1,19 @@
+
+
 [flake8]
 exclude =
     .git
     .vscode
     build
     config
+# B006: Do not use mutable data structures for argument defaults.
+# B008: Do not perform function calls in argument defaults.
+# E203: Whitespace before ':'. Recommended by `black`.
+# W503: Line break before binary operator.
 ignore =
-    B006  # Do not use mutable data structures for argument defaults.
-    B008  # Do not perform function calls in argument defaults.
-    E203  # Whitespace before ':'. Recommended by `black`.
-    W503  # Line break before binary operator.
+    B006
+    B008
+    E203
+    W503
 inline-quotes = "
 max-line-length = 99
