@@ -1,20 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
-from dateutil.tz import UTC
 
 from juno.primitives.interval import Interval, Interval_
 from juno.primitives.timestamp import Timestamp, Timestamp_
 
 
 def test_from_datetime_utc() -> None:
-    output = Timestamp_.from_datetime_utc(datetime(2000, 1, 1, tzinfo=UTC))
+    output = Timestamp_.from_datetime_utc(datetime(2000, 1, 1, tzinfo=timezone.utc))
     assert output == 946_684_800_000
 
 
 def test_to_datetime_utc() -> None:
     output = Timestamp_.to_datetime_utc(946_684_800_000)
-    assert output == datetime(2000, 1, 1, tzinfo=UTC)
+    assert output == datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 
 def test_format():

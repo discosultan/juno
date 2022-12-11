@@ -1,9 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from time import time
 from types import ModuleType
-
-from dateutil.parser import isoparse
-from dateutil.tz import UTC
 
 from juno.math import ceil_multiple, ceil_multiple_offset, floor_multiple, floor_multiple_offset
 
@@ -25,12 +22,12 @@ class Timestamp_(ModuleType):
 
     @staticmethod
     def from_datetime_utc(dt: datetime) -> Timestamp:
-        assert dt.tzinfo == UTC
+        assert dt.tzinfo == timezone.utc
         return int(round(dt.timestamp() * 1000.0))
 
     @staticmethod
     def to_datetime_utc(ms: Timestamp) -> datetime:
-        return datetime.utcfromtimestamp(ms / 1000.0).replace(tzinfo=UTC)
+        return datetime.utcfromtimestamp(ms / 1000.0).replace(tzinfo=timezone.utc)
 
     @staticmethod
     def format_span(start: Timestamp, end: Timestamp) -> str:
@@ -43,11 +40,11 @@ class Timestamp_(ModuleType):
     @staticmethod
     def parse(timestamp: str) -> Timestamp:
         # Naive is handled as UTC.
-        dt = isoparse(timestamp)
+        dt = datetime.fromisoformat(timestamp)
         if dt.tzinfo:
-            dt = dt.astimezone(UTC)
+            dt = dt.astimezone(timezone.utc)
         else:
-            dt = dt.replace(tzinfo=UTC)
+            dt = dt.replace(tzinfo=timezone.utc)
         return Timestamp_.from_datetime_utc(dt)
 
     @staticmethod

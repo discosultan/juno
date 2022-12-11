@@ -7,13 +7,12 @@ import hmac
 import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from time import time
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 import aiohttp
-from dateutil.tz import UTC
 from multidict import istr
 
 from juno import (
@@ -617,7 +616,9 @@ def _from_datetime(dt: str) -> Timestamp:
     # - '%Y-%m-%dT%H:%M:%S.%fZ'
     # - '%Y-%m-%dT%H:%M:%SZ'
     dt_format = "%Y-%m-%dT%H:%M:%S.%fZ" if "." in dt else "%Y-%m-%dT%H:%M:%SZ"
-    return Timestamp_.from_datetime_utc(datetime.strptime(dt, dt_format).replace(tzinfo=UTC))
+    return Timestamp_.from_datetime_utc(
+        datetime.strptime(dt, dt_format).replace(tzinfo=timezone.utc)
+    )
 
 
 def _to_time_in_force(time_in_force: TimeInForce) -> str:
