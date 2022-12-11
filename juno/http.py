@@ -150,7 +150,7 @@ async def connect_refreshing_stream(
     """Streams messages over WebSocket. The connection is restarted every `interval` seconds.
     Ensures no data is lost during restart when switching from one connection to another.
     """
-    name2 = name or next(_random_words)
+    name = name or next(_random_words)
     counter = cycle(range(0, 10))
     ctx, to_close_ctx = None, None
     timeout_task, receive_task = None, None
@@ -171,7 +171,7 @@ async def connect_refreshing_stream(
                 if timeout_task in done:
                     _log.info(f"refreshing ws {ctx.name} connection")
                     to_close_ctx = ctx
-                    ctx = await _WSConnectionContext.connect(session, url, name2, counter)
+                    ctx = await _WSConnectionContext.connect(session, url, name, counter)
 
                     if receive_task.done():
                         new_msg = await _receive(ctx.ws)
@@ -209,13 +209,13 @@ async def connect_refreshing_stream(
                             "reconnecting"
                         )
                         await asyncio.gather(ctx.close(), cancel(timeout_task))
-                        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
+                        ctx = await _WSConnectionContext.connect(session, url, name, counter)
                         break
 
                 yield loads(msg.data)
 
     try:
-        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
+        ctx = await _WSConnectionContext.connect(session, url, name, counter)
         yield inner()
     finally:
         await cancel(receive_task, timeout_task)
