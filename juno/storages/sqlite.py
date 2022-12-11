@@ -235,7 +235,7 @@ def _create_table(c: sqlite3.Cursor, type_: type[Any], name: str) -> None:
 
 
 def _type_to_sql_type(type_: type[Primitive]) -> str:
-    if type_ in [Interval, Timestamp, int]:
+    if type_ in {Interval, Timestamp, int}:
         return "INTEGER"
     if type_ is float:
         return "REAL"

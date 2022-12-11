@@ -158,7 +158,7 @@ class Positioner:
     async def _open_long_position(
         self, exchange: str, symbol: Symbol, quote: Decimal, mode: TradingMode
     ) -> Position.Open:
-        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        assert mode in {TradingMode.PAPER, TradingMode.LIVE}
         _log.info(f"opening long position {symbol} {mode.name} with {quote} quote")
 
         res = await self._broker.buy(
@@ -182,7 +182,7 @@ class Positioner:
     async def _close_long_position(
         self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Closed:
-        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        assert mode in {TradingMode.PAPER, TradingMode.LIVE}
         _log.info(f"closing long position {position.symbol} {mode.name}")
 
         res = await self._broker.sell(
@@ -205,7 +205,7 @@ class Positioner:
     async def _open_short_position(
         self, exchange: str, symbol: Symbol, collateral: Decimal, mode: TradingMode
     ) -> Position.Open:
-        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        assert mode in {TradingMode.PAPER, TradingMode.LIVE}
         _log.info(f"opening short position {symbol} {mode.name} with {collateral} collateral")
 
         base_asset, quote_asset = Symbol_.assets(symbol)
@@ -308,7 +308,7 @@ class Positioner:
     async def _close_short_position(
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Closed:
-        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        assert mode in {TradingMode.PAPER, TradingMode.LIVE}
         _log.info(f"closing short position {position.symbol} {mode.name}")
 
         base_asset, quote_asset = Symbol_.assets(position.symbol)

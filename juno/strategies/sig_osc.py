@@ -29,7 +29,7 @@ class SigOsc(Signal):
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
     ) -> None:
-        assert osc_filter in ["enforce", "prevent"]
+        assert osc_filter in {"enforce", "prevent"}
 
         self._sig = init_module_instance(strategies, sig)
         self._osc = init_module_instance(strategies, osc)

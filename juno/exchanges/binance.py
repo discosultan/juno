@@ -490,7 +490,7 @@ class Binance(Exchange):
             yield inner(ws)
 
     async def list_orders(self, account: Account, symbol: Optional[str] = None) -> list[Order]:
-        if account not in ["spot", "margin"]:
+        if account not in {"spot", "margin"}:
             if symbol is None:
                 symbol = account
             elif symbol != account:
@@ -510,7 +510,7 @@ class Binance(Exchange):
         data = {}
         if symbol is not None:
             data["symbol"] = _to_http_symbol(symbol)
-        if account not in ["spot", "margin"]:
+        if account not in {"spot", "margin"}:
             data["isIsolated"] = "TRUE"
         content = await self._api_request_json(
             method="GET",
@@ -621,7 +621,7 @@ class Binance(Exchange):
             data["timeInForce"] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data["newClientOrderId"] = client_id
-        if account not in ["spot", "margin"]:
+        if account not in {"spot", "margin"}:
             data["isIsolated"] = "TRUE"
         if account == "spot":
             url = "/api/v3/order"
@@ -673,7 +673,7 @@ class Binance(Exchange):
             data["timeInForce"] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data["newClientOrderId"] = client_id
-        if account not in ["spot", "margin"]:
+        if account not in {"spot", "margin"}:
             data["isIsolated"] = "TRUE"
 
         if account == "spot":
@@ -735,7 +735,7 @@ class Binance(Exchange):
             "symbol": _to_http_symbol(symbol),
             "origClientOrderId": client_id,
         }
-        if account not in ["spot", "margin"]:
+        if account not in {"spot", "margin"}:
             data["isIsolated"] = "TRUE"
         await self._api_request_json(
             method="DELETE",
@@ -871,7 +871,7 @@ class Binance(Exchange):
     async def transfer(
         self, asset: Asset, size: Decimal, from_account: str, to_account: str
     ) -> None:
-        if from_account in ["spot", "margin"] and to_account in ["spot", "margin"]:
+        if from_account in {"spot", "margin"} and to_account in {"spot", "margin"}:
             assert from_account != to_account
             await self._api_request_json(
                 method="POST",
@@ -1148,16 +1148,16 @@ class Binance(Exchange):
 
         kwargs: dict[str, Any] = {}
 
-        if security in [
+        if security in {
             _SEC_TRADE,
             _SEC_USER_DATA,
             _SEC_MARGIN,
             _SEC_USER_STREAM,
             _SEC_MARKET_DATA,
-        ]:
+        }:
             kwargs["headers"] = {"X-MBX-APIKEY": self._api_key}
 
-        if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN]:
+        if security in {_SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN}:
             await self._clock.wait()
 
             data = data or {}
@@ -1480,7 +1480,7 @@ class UserDataStream:
     async def _create_listen_key(self) -> CreateListenKeyResult:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         data = {}
-        if self._account not in ["spot", "margin"]:
+        if self._account not in {"spot", "margin"}:
             data["symbol"] = _to_http_symbol(self._account)
         return await self._binance._api_request_json(
             method="POST",
@@ -1498,7 +1498,7 @@ class UserDataStream:
     async def _update_listen_key(self, listen_key: str) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         data = {"listenKey": listen_key}
-        if self._account not in ["spot", "margin"]:
+        if self._account not in {"spot", "margin"}:
             data["symbol"] = _to_http_symbol(self._account)
         await self._binance._api_request_json(
             method="PUT",
@@ -1516,7 +1516,7 @@ class UserDataStream:
     async def _delete_listen_key(self, listen_key: str) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         data = {"listenKey": listen_key}
-        if self._account not in ["spot", "margin"]:
+        if self._account not in {"spot", "margin"}:
             data["symbol"] = _to_http_symbol(self._account)
         await self._binance._api_request_json(
             method="DELETE",

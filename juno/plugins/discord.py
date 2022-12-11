@@ -241,7 +241,7 @@ class Discord(Plugin):
         async def close_on_exit(ctx: Context, value: str) -> None:
             if ctx.channel.id != channel_id:
                 return
-            if value not in ["true", "false"]:
+            if value not in {"true", "false"}:
                 await send_message(
                     "please pass true/false to set whether trader will close positions on exit"
                 )
@@ -261,7 +261,7 @@ class Discord(Plugin):
         async def open_new_positions(ctx: Context, value: str) -> None:
             if ctx.channel.id != channel_id:
                 return
-            if value not in ["true", "false"]:
+            if value not in {"true", "false"}:
                 await send_message(
                     "please pass true/false to set whether trader will open new positions"
                 )

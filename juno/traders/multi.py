@@ -527,10 +527,10 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
                 )
                 advice = Advice.LIQUIDATE
                 reason = CloseReason.TAKE_PROFIT
-        elif isinstance(symbol_state.open_position, Position.OpenShort) and advice not in [
+        elif isinstance(symbol_state.open_position, Position.OpenShort) and advice not in {
             Advice.LONG,
             Advice.LIQUIDATE,
-        ]:
+        }:
             if symbol_state.stop_loss.downside_hit:
                 _log.info(
                     f"{symbol_state.symbol} downside stop loss hit at {config.stop_loss} "
@@ -572,7 +572,7 @@ class Multi(Trader[MultiConfig, MultiState], StartMixin):
 
         # If the advice is overridden by stop loss or take profit, we don't want to affect the
         # strategy related `changed` filter.
-        if reason in [CloseReason.STOP_LOSS, CloseReason.TAKE_PROFIT]:
+        if reason in {CloseReason.STOP_LOSS, CloseReason.TAKE_PROFIT}:
             symbol_state.advice = advice
         else:
             # We use prevailing advice here because the configuration may allow an action based

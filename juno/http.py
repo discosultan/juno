@@ -228,11 +228,11 @@ async def connect_refreshing_stream(
 async def _receive(ws: ClientWebSocketResponse) -> aiohttp.WSMessage:
     while True:
         msg = await ws.receive()
-        if msg.type in [aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.CLOSED]:
+        if msg.type in {aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.CLOSED}:
             return msg
         # Ping is handled implicitly by aiohttp because `autoping=True`. It will never reach here.
         # Close is handled implicitly by aiohttp because `autoclose=True`. It will reach here.
-        if msg.type in [aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSE]:
+        if msg.type in {aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSE}:
             continue
         raise NotImplementedError(f"Unhandled WS message. Type: {msg.type}; data: {msg.data}")
 

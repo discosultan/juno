@@ -57,7 +57,7 @@ def deserialize(value: Any, type_: Any) -> Any:
         return type_(value)
 
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
-    if resolved_type in [bool, int, float, str, Decimal]:
+    if resolved_type in {bool, int, float, str, Decimal}:
         return value
 
     if resolved_type is list:

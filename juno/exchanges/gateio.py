@@ -170,7 +170,7 @@ class GateIO(Exchange):
         client_id: Optional[ClientId] = None,
     ) -> OrderResult:
         assert account == "spot"
-        assert type_ in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        assert type_ in {OrderType.LIMIT, OrderType.LIMIT_MAKER}
         assert quote is None
         assert size is not None
         assert price is not None
@@ -494,7 +494,7 @@ def _to_order_type_and_time_in_force(
     ot = "limit"
     tif = None
 
-    if type not in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
+    if type not in {OrderType.LIMIT, OrderType.LIMIT_MAKER}:
         raise NotImplementedError()
 
     if type is OrderType.LIMIT_MAKER:

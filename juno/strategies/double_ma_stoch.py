@@ -54,7 +54,7 @@ class DoubleMAStoch(Signal):
                 self._advice = Advice.LIQUIDATE
 
             # Entry conditions.
-            if self._advice not in [Advice.LONG, Advice.SHORT]:
+            if self._advice not in {Advice.LONG, Advice.SHORT}:
                 if ma_advice is Advice.LONG and self._stoch.indicator.k < 50:
                     self._advice = Advice.LONG
                 elif ma_advice is Advice.SHORT and self._stoch.indicator.k >= 50:

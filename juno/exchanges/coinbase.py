@@ -296,7 +296,7 @@ class Coinbase(Exchange):
                         )
                     else:
                         raise NotImplementedError(data)
-                elif type_ in ["open", "match"]:
+                elif type_ in {"open", "match"}:
                     pass
                 else:
                     raise NotImplementedError(data)
@@ -321,7 +321,7 @@ class Coinbase(Exchange):
         # https://docs.pro.coinbase.com/#place-a-new-order
         if account != "spot":
             raise NotImplementedError()
-        if type_ not in [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]:
+        if type_ not in {OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER}:
             # Supports stop orders through params.
             raise NotImplementedError()
 
