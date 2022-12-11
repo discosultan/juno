@@ -160,18 +160,19 @@ class SQLite(Storage):
                 row = conn.execute(
                     f"SELECT * FROM {_KEY_VALUE_PAIR_KEY} WHERE key=? LIMIT 1", [key]
                 ).fetchone()
-                return serialization.raw.deserialize(json.loads(row[1]), type_) if row else None
+            return serialization.raw.deserialize(json.loads(row[1]), type_) if row else None
 
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def set(self, shard: str, key: str, item: T) -> None:
         def inner() -> None:
             _log.info(f"setting {key} to shard {shard}")
+            value = json.dumps(serialization.raw.serialize(item))
             with self._connect(shard) as conn:
                 self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 conn.execute(
                     f"INSERT OR REPLACE INTO {_KEY_VALUE_PAIR_KEY} VALUES (?, ?)",
-                    [key, json.dumps(serialization.raw.serialize(item))],
+                    [key, value],
                 )
                 conn.commit()
 
