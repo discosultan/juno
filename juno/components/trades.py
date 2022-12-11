@@ -17,7 +17,7 @@ from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponent
 
 _log = logging.getLogger(__name__)
 
-TRADE_KEY = Trade.__name__.lower()
+_TRADE_KEY = Trade.__name__.lower()
 
 
 class Trades(AsyncContextManager):
@@ -45,7 +45,7 @@ class Trades(AsyncContextManager):
         existing_spans = await list_async(
             self._storage.stream_time_series_spans(
                 shard=shard,
-                key=TRADE_KEY,
+                key=_TRADE_KEY,
                 start=start,
                 end=end,
             )
@@ -63,7 +63,7 @@ class Trades(AsyncContextManager):
                 _log.info(f"local {trade_msg} exist between {period_msg}")
                 stream = self._storage.stream_time_series(
                     shard=shard,
-                    key=TRADE_KEY,
+                    key=_TRADE_KEY,
                     type_=Trade,
                     start=span_start,
                     end=span_end,
@@ -122,7 +122,7 @@ class Trades(AsyncContextManager):
                             start = batch_end
                             await self._storage.store_time_series_and_span(
                                 shard=shard,
-                                key=TRADE_KEY,
+                                key=_TRADE_KEY,
                                 items=swap_batch,
                                 start=batch_start,
                                 end=batch_end,
@@ -135,7 +135,7 @@ class Trades(AsyncContextManager):
                         start = batch_end
                         await self._storage.store_time_series_and_span(
                             shard=shard,
-                            key=TRADE_KEY,
+                            key=_TRADE_KEY,
                             items=batch,
                             start=batch_start,
                             end=batch_end,
@@ -145,7 +145,7 @@ class Trades(AsyncContextManager):
                     current = self._get_time_ms()
                     await self._storage.store_time_series_and_span(
                         shard=shard,
-                        key=TRADE_KEY,
+                        key=_TRADE_KEY,
                         items=batch,
                         start=start,
                         end=min(current, end),
