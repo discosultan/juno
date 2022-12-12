@@ -863,7 +863,7 @@ class Binance(Exchange):
         async with self._connect_refreshing_stream(
             url=f"/ws/{_to_ws_symbol(symbol)}@trade",
             interval=12 * Interval_.HOUR_SEC,
-            name="trade",
+            name="trades",
             raise_on_disconnect=True,
         ) as ws:
             yield inner(ws)
