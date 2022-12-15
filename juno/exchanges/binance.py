@@ -1564,6 +1564,7 @@ _KNOWN_QUOTE_ASSETS = [
     "NGN",
     "PAX",
     "PLN",
+    "RON",
     "RUB",
     "TRX",
     "TRY",

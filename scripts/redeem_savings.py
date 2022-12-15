@@ -35,10 +35,11 @@ async def redeem_asset(
 
     if size == Decimal("0.0"):
         logging.info(f"nothing to redeem for {asset}")
-    else:
-        product_id = products[asset].product_id
-        await user.redeem_savings_product("binance", product_id, size)
+    elif (product := products.get(asset)):
+        await user.redeem_savings_product("binance", product.product_id, size)
         logging.info(f"redeemed {size} {asset}")
+    else:
+        logging.info(f"{asset} product not available; available are: {list(products.keys())}")
 
 
 asyncio.run(main())
