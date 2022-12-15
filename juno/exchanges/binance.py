@@ -788,6 +788,8 @@ class Binance(Exchange):
     async def connect_stream_candles(
         self, symbol: Symbol, interval: Interval
     ) -> AsyncIterator[AsyncIterable[Candle]]:
+        """https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-streams"""
+
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
@@ -850,6 +852,8 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_trades(self, symbol: Symbol) -> AsyncIterator[AsyncIterable[Trade]]:
+        """https://binance-docs.github.io/apidocs/spot/en/#trade-streams"""
+
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for data in ws:
                 yield Trade(
@@ -859,7 +863,6 @@ class Binance(Exchange):
                     size=Decimal(data["q"]),
                 )
 
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
         async with self._connect_refreshing_stream(
             url=f"/ws/{_to_ws_symbol(symbol)}@trade",
             interval=12 * Interval_.HOUR_SEC,
@@ -1039,10 +1042,21 @@ class Binance(Exchange):
 
     # Savings.
 
-    async def map_savings_products(self) -> dict[str, SavingsProduct]:
+    async def map_savings_products(
+        self,
+        asset: Optional[Asset] = None,
+    ) -> dict[str, SavingsProduct]:
+        """https://binance-docs.github.io/apidocs/spot/en/#get-flexible-product-list-user_data"""
+        # TODO: This endpoint is paginated but only fetches the first page.
+        data: dict[str, Any] = {
+            "size": 100,
+        }
+        if asset is not None:
+            data["asset"] = _to_asset(asset)
         content = await self._api_request_json(
             method="GET",
             url="/sapi/v1/lending/daily/product/list",
+            data=data,
             security=_SEC_USER_DATA,
         )
         result = {}
@@ -1062,6 +1076,7 @@ class Binance(Exchange):
         return result
 
     async def purchase_savings_product(self, product_id: str, size: Decimal) -> None:
+        """https://binance-docs.github.io/apidocs/spot/en/#purchase-flexible-product-user_data"""
         await self._api_request_json(
             method="POST",
             url="/sapi/v1/lending/daily/purchase",
@@ -1073,6 +1088,7 @@ class Binance(Exchange):
         )
 
     async def redeem_savings_product(self, product_id: str, size: Decimal) -> None:
+        """https://binance-docs.github.io/apidocs/spot/en/#redeem-flexible-product-user_data"""
         await self._api_request_json(
             method="POST",
             url="/sapi/v1/lending/daily/redeem",
@@ -1085,6 +1101,9 @@ class Binance(Exchange):
         )
 
     async def get_savings_product_position(self, asset: Asset) -> Any:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#get-flexible-product-position-user_data
+        """
         return await self._api_request_json(
             method="GET",
             url="/sapi/v1/lending/daily/token/position",

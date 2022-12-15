@@ -18,7 +18,10 @@ async def main() -> None:
     exchange = init_instance(Binance, from_env())
     user = User([exchange])
     async with exchange, user:
-        products = await user.map_savings_products("binance")
+        products = await user.map_savings_products(
+            exchange="binance",
+            asset=args.assets[0] if len(args.assets) == 1 else None,
+        )
         balances = (await user.map_balances("binance", ["spot"]))["spot"]
         await asyncio.gather(*(redeem_asset(user, products, balances, a) for a in args.assets))
 
@@ -35,7 +38,7 @@ async def redeem_asset(
 
     if size == Decimal("0.0"):
         logging.info(f"nothing to redeem for {asset}")
-    elif (product := products.get(asset)):
+    elif product := products.get(asset):
         await user.redeem_savings_product("binance", product.product_id, size)
         logging.info(f"redeemed {size} {asset}")
     else:

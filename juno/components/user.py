@@ -319,8 +319,12 @@ class User:
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
-    async def map_savings_products(self, exchange: str) -> dict[str, SavingsProduct]:
-        return await self._exchanges[exchange].map_savings_products()
+    async def map_savings_products(
+        self,
+        exchange: str,
+        asset: Optional[Asset] = None,
+    ) -> dict[str, SavingsProduct]:
+        return await self._exchanges[exchange].map_savings_products(asset=asset)
 
     @retry(
         stop=stop_after_attempt(10),
@@ -329,7 +333,10 @@ class User:
         before_sleep=before_sleep_log(_log, logging.WARNING),
     )
     async def purchase_savings_product(
-        self, exchange: str, product_id: str, size: Decimal
+        self,
+        exchange: str,
+        product_id: str,
+        size: Decimal,
     ) -> None:
         return await self._exchanges[exchange].purchase_savings_product(product_id, size)
 

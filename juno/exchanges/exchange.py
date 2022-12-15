@@ -178,7 +178,9 @@ class Exchange(AsyncContextManager, ABC):
 
     # Savings.
 
-    async def map_savings_products(self) -> dict[str, SavingsProduct]:
+    async def map_savings_products(
+        self, asset: Optional[Asset] = None
+    ) -> dict[str, SavingsProduct]:
         raise NotImplementedError()
 
     async def purchase_savings_product(self, product_id: str, size: Decimal) -> None:
