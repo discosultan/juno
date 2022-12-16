@@ -106,7 +106,10 @@ class Savings(Custodian):
         _log.info(f"purchased {savings_amount} worth of {asset} flexible savings product")
 
     async def _wait_for_wallet_updated_with(
-        self, wallet: User.WalletSyncContext, asset: Asset, amount: Decimal
+        self,
+        wallet: User.WalletSyncContext,
+        asset: Asset,
+        amount: Decimal,
     ) -> None:
         while True:
             await wallet.updated.wait()
@@ -114,14 +117,16 @@ class Savings(Custodian):
                 return
 
     async def _wait_for_product_status_purchasing(
-        self, exchange: str, asset: Asset
+        self,
+        exchange: str,
+        asset: Asset,
     ) -> Optional[SavingsProduct]:
         # A product can be in status "PURCHASING" or "PREHEATING". "PURCHASING" is when the product
         # is available. "PREHEATING" means the product is being processed. This happens usually at
         # 23:50 - 00:10 UTC.
         # https://dev.binance.vision/t/failure-to-fast-redeem-a-flexible-savings-product-right-after-midnight-00-00-utc/5785
         while True:
-            products = await self._user.map_savings_products(exchange)
+            products = await self._user.map_savings_products(exchange=exchange, asset=asset)
 
             product = products.get(asset)
             if product is None:
