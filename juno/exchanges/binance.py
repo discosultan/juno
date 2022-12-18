@@ -181,8 +181,10 @@ class Binance(Exchange):
         ]
 
     async def get_exchange_info(self) -> ExchangeInfo:
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#trade-fee-user_data
+        https://binance-docs.github.io/apidocs/spot/en/#exchange-information
+        """
         fees_res, filters_res, isolated_pairs, margin_res, isolated_res = await asyncio.gather(
             self._api_request_json(
                 method="GET",
@@ -335,6 +337,9 @@ class Binance(Exchange):
         )
 
     async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#24hr-ticker-price-change-statistics
+        """
         if len(symbols) > 1:
             raise NotImplementedError()
 
@@ -357,6 +362,11 @@ class Binance(Exchange):
         }
 
     async def map_balances(self, account: Account) -> dict[str, dict[str, Balance]]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#account-information-user_data
+        https://binance-docs.github.io/apidocs/spot/en/#query-cross-margin-account-details-user_data
+        https://binance-docs.github.io/apidocs/spot/en/#query-isolated-margin-account-info-user_data
+        """
         result = {}
         if account == "spot":
             content = await self._api_request_json(
@@ -389,8 +399,7 @@ class Binance(Exchange):
             }
         elif account == "isolated":
             # TODO: Binance also accepts a symbols param here to return only up to 5 account info.
-            # The weight is the same though, so not much benefit to using that.
-            # https://binance-docs.github.io/apidocs/spot/en/#query-isolated-margin-account-info-user_data
+            # The weight is the same though, so not much benefit in using that.
             content = await self._api_request_json(
                 method="GET",
                 url="/sapi/v1/margin/isolated/account",
@@ -422,6 +431,10 @@ class Binance(Exchange):
     async def connect_stream_balances(
         self, account: Account
     ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#payload-account-update
+        """
+
         async def inner(
             stream: AsyncIterable[dict[str, Any]]
         ) -> AsyncIterable[dict[str, Balance]]:
@@ -439,6 +452,9 @@ class Binance(Exchange):
             yield inner(stream)
 
     async def get_depth(self, symbol: Symbol) -> Depth.Snapshot:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#order-book
+        """
         # TODO: We might wanna increase that and accept higher weight.
         LIMIT = 100
         LIMIT_TO_WEIGHT = {
@@ -451,7 +467,6 @@ class Binance(Exchange):
             1000: 10,
             5000: 50,
         }
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
         content = await self._api_request_json(
             method="GET",
             url="/api/v3/depth",
@@ -468,6 +483,10 @@ class Binance(Exchange):
     async def connect_stream_depth(
         self, symbol: Symbol
     ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#diff-depth-stream
+        """
+
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
             async for data in ws:
                 yield Depth.Update(
@@ -477,7 +496,6 @@ class Binance(Exchange):
                     last_id=data["u"],
                 )
 
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         url = f"/ws/{_to_ws_symbol(symbol)}@depth"
         if self._high_precision:  # Low precision is every 1000ms.
             url += "@100ms"
@@ -490,15 +508,16 @@ class Binance(Exchange):
             yield inner(ws)
 
     async def list_orders(self, account: Account, symbol: Optional[str] = None) -> list[Order]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#current-open-orders-user_data
+        https://binance-docs.github.io/apidocs/spot/en/#query-margin-account-39-s-open-orders-user_data
+        """
         if account not in {"spot", "margin"}:
             if symbol is None:
                 symbol = account
             elif symbol != account:
                 raise ValueError(f"Invalid isolated margin symbol {symbol} for account {account}")
 
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#current-open-orders-user_data
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/margin-api.md#query-margin-accounts-open-order-user_data
-        # https://binance-docs.github.io/apidocs/spot/en/#query-margin-account-39-s-order-user_data
         url = "/api/v3/openOrders" if account == "spot" else "/sapi/v1/margin/openOrders"
         # For margin:
         # > When all symbols are returned, the number of requests counted against the rate limiter
@@ -589,7 +608,6 @@ class Binance(Exchange):
                 else:
                     raise NotImplementedError(data)
 
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
         user_data_stream = await self._get_user_data_stream(account)
         async with user_data_stream.subscribe("executionReport") as stream:
             yield inner(stream)
@@ -606,6 +624,10 @@ class Binance(Exchange):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[ClientId] = None,
     ) -> OrderResult:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#new-order-trade
+        https://binance-docs.github.io/apidocs/spot/en/#margin-account-new-order-trade
+        """
         data: dict[str, Any] = {
             "symbol": _to_http_symbol(symbol),
             "side": _to_side(side),
@@ -730,6 +752,10 @@ class Binance(Exchange):
         symbol: Symbol,
         client_id: ClientId,
     ) -> None:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#cancel-order-trade
+        https://binance-docs.github.io/apidocs/spot/en/#margin-account-cancel-order-trade
+        """
         url = "/api/v3/order" if account == "spot" else "/sapi/v1/margin/order"
         data = {
             "symbol": _to_http_symbol(symbol),
@@ -748,6 +774,9 @@ class Binance(Exchange):
     async def stream_historical_candles(
         self, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Candle]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data
+        """
         limit = 1000  # Max possible candles per request.
         binance_interval = Interval_.format(interval)
         binance_symbol = _to_http_symbol(symbol)
@@ -789,7 +818,6 @@ class Binance(Exchange):
         self, symbol: Symbol, interval: Interval
     ) -> AsyncIterator[AsyncIterable[Candle]]:
         """https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-streams"""
-
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
@@ -819,6 +847,9 @@ class Binance(Exchange):
     async def stream_historical_trades(
         self, symbol: Symbol, start: Timestamp, end: Timestamp
     ) -> AsyncIterable[Trade]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#compressed-aggregate-trades-list
+        """
         # Aggregated trades. This means trades executed at the same time, same price and as part of
         # the same order will be aggregated by summing their size.
         batch_start = start
@@ -852,7 +883,9 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_trades(self, symbol: Symbol) -> AsyncIterator[AsyncIterable[Trade]]:
-        """https://binance-docs.github.io/apidocs/spot/en/#trade-streams"""
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#trade-streams
+        """
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for data in ws:
@@ -874,6 +907,10 @@ class Binance(Exchange):
     async def transfer(
         self, asset: Asset, size: Decimal, from_account: str, to_account: str
     ) -> None:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#cross-margin-account-transfer-margin
+        https://binance-docs.github.io/apidocs/spot/en/#isolated-margin-account-transfer-margin
+        """
         if from_account in {"spot", "margin"} and to_account in {"spot", "margin"}:
             assert from_account != to_account
             await self._api_request_json(
@@ -904,6 +941,9 @@ class Binance(Exchange):
             )
 
     async def borrow(self, asset: Asset, size: Decimal, account) -> None:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#margin-account-borrow-margin
+        """
         assert account != "spot"
         data = {
             "asset": _to_asset(asset),
@@ -921,6 +961,9 @@ class Binance(Exchange):
         )
 
     async def repay(self, asset: Asset, size: Decimal, account: Account) -> None:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#margin-account-repay-margin
+        """
         assert account != "spot"
         data = {
             "asset": _to_asset(asset),
@@ -938,6 +981,9 @@ class Binance(Exchange):
         )
 
     async def get_max_borrowable(self, asset: Asset, account: Account) -> Decimal:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#query-max-borrow-user_data
+        """
         assert account != "spot"
         data = {"asset": _to_asset(asset)}
         if account != "margin":
@@ -952,6 +998,9 @@ class Binance(Exchange):
         return Decimal(content["amount"])
 
     async def get_max_transferable(self, asset: Asset, account: Account) -> Decimal:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#query-max-borrow-user_data
+        """
         assert account != "spot"
         data = {"asset": _to_asset(asset)}
         if account != "margin":
@@ -966,6 +1015,9 @@ class Binance(Exchange):
         return Decimal(content["amount"])
 
     async def convert_dust(self, assets: list[str]) -> None:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#dust-transfer-user_data
+        """
         await self._api_request_json(
             method="POST",
             url="/sapi/v1/asset/dust",
@@ -974,6 +1026,10 @@ class Binance(Exchange):
         )
 
     async def _list_symbols(self, isolated: bool = False) -> list[str]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#get-all-cross-margin-pairs-market_data
+        https://binance-docs.github.io/apidocs/spot/en/#get-all-isolated-margin-symbol-user_data
+        """
         content = await self._api_request_json(
             method="GET",
             url=f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
@@ -982,6 +1038,9 @@ class Binance(Exchange):
         return [_from_symbol(s["symbol"]) for s in content]
 
     async def get_deposit_address(self, asset: Asset) -> str:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#deposit-address-supporting-network-user_data
+        """
         content = await self._api_request_json(
             method="GET",
             url="/sapi/v1/capital/deposit/address",
@@ -991,6 +1050,9 @@ class Binance(Exchange):
         return content["address"]
 
     async def withdraw(self, asset: Asset, address: str, amount: Decimal) -> None:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#withdraw-user_data
+        """
         await self._api_request_json(
             method="POST",
             url="/sapi/v1/capital/withdraw/apply",
@@ -1003,6 +1065,9 @@ class Binance(Exchange):
         )
 
     async def list_deposit_history(self, end: Optional[int] = None) -> list[Any]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#deposit-history-supporting-network-user_data
+        """
         # Does not support FIAT.
         end = Timestamp_.now() if end is None else end
         tasks = []
@@ -1022,6 +1087,9 @@ class Binance(Exchange):
         return [record for content in results for record in content]
 
     async def list_withdraw_history(self, end: Optional[int] = None) -> list[Any]:
+        """
+        https://binance-docs.github.io/apidocs/spot/en/#withdraw-history-supporting-network-user_data
+        """
         # Does not support FIAT.
         end = Timestamp_.now() if end is None else end
         tasks = []
