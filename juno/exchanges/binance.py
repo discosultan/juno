@@ -1100,16 +1100,17 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
 
-    async def get_savings_product_position(self, asset: Asset) -> Any:
+    async def get_savings_product_position(self, asset: Optional[Asset] = None) -> Any:
         """
         https://binance-docs.github.io/apidocs/spot/en/#get-flexible-product-position-user_data
         """
+        data = {}
+        if asset is not None:
+            data["asset"] = _to_asset(asset)
         return await self._api_request_json(
             method="GET",
             url="/sapi/v1/lending/daily/token/position",
-            data={
-                "asset": _to_asset(asset),
-            },
+            data=data,
             security=_SEC_USER_DATA,
         )
 

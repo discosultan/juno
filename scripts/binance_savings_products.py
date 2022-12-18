@@ -1,7 +1,10 @@
 import argparse
 import asyncio
 import logging
+from typing import Any
 
+import juno.json as json
+from juno import serialization
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
@@ -15,13 +18,17 @@ async def main() -> None:
         products = await exchange.map_savings_products()
         logging.info("savings products")
         if args.asset:
-            logging.info(products[args.asset])
+            log_info_pretty(products[args.asset])
         else:
-            logging.info(products)
+            log_info_pretty(products)
 
-        if args.asset:
-            logging.info("your subscription")
-            logging.info(await exchange.get_savings_product_position(args.asset))
+        position = await exchange.get_savings_product_position(args.asset)
+        logging.info("your subscription")
+        log_info_pretty(position)
+
+
+def log_info_pretty(value: Any) -> None:
+    logging.info(json.dumps(serialization.raw.serialize(value), indent=4))
 
 
 asyncio.run(main())
