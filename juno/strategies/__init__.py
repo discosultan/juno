@@ -3,6 +3,7 @@ from .bbands import BBands
 from .bmsb import Bmsb
 from .chandelier_exit import ChandelierExit
 from .chandelier_exit_plus_zlsma import ChandelierExitPlusZlsma
+from .darvas_box import DarvasBox
 from .double_ma import DoubleMA, DoubleMAParams
 from .double_ma_2 import DoubleMA2
 from .double_ma_stoch import DoubleMAStoch
@@ -35,6 +36,7 @@ __all__ = [
     "ChandelierExit",
     "ChandelierExitPlusZlsma",
     "Changed",
+    "DarvasBox",
     "DoubleMA",
     "DoubleMAParams",
     "DoubleMA2",

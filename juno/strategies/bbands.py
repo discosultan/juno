@@ -61,7 +61,7 @@ class BBands(Signal):
             ("btc-usdt", 5 * Interval_.MIN, "regular"),
         ]
 
-    def update(self, candle: Candle, candle_meta: CandleMeta) -> Advice:
+    def update(self, candle: Candle, candle_meta: CandleMeta) -> None:
         _, interval, _ = candle_meta
 
         if interval == Interval_.MIN:
@@ -73,7 +73,7 @@ class BBands(Signal):
         else:
             raise ValueError("Unexpected candle interval")
 
-        return self._changed.update(self._advice)
+        self._advice = self._changed.update(self._advice)
 
     def _update_1m(self, candle: Candle) -> None:
         # Update current outside bb.

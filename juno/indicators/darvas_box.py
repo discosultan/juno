@@ -18,7 +18,7 @@ class DarvasBox:
 
     _t: int = 0
 
-    def __init__(self, boxp: int) -> None:
+    def __init__(self, boxp: int = 5) -> None:
         if boxp < 2:
             raise ValueError("Length cannot be less than 2")
 

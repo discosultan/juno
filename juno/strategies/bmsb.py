@@ -48,12 +48,12 @@ class Bmsb(Signal):
             self._benchmark_meta,
         ]
 
-    def update(self, candle: Candle, meta: CandleMeta) -> Advice:
+    def update(self, candle: Candle, meta: CandleMeta) -> None:
         if meta == self._benchmark_meta:
             self._update_bmsb(candle)
         else:
             self._update_main(candle, meta)
-        return self._changed.update(self._advice)
+        self._advice = self._changed.update(self._advice)
 
     def _update_bmsb(self, candle: Candle) -> None:
         self._20w_sma.update(candle.close)
