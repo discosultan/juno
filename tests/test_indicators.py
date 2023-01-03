@@ -82,6 +82,10 @@ def test_chandelier_exit(data: IndicatorSources) -> None:
     )
 
 
+def test_darvas_box(data: IndicatorSources) -> None:
+    _assert(indicators.DarvasBox(5), data["trading_view"]["darvas_box"], 2)
+
+
 def test_dema(data: IndicatorSources) -> None:
     _assert(indicators.Dema(5), data["tulip"]["dema"], 4)
 
@@ -162,7 +166,8 @@ def _assert(indicator, data: IndicatorData, precision: int) -> None:
     input_len, output_len = len(inputs[0]), len(expected_outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):
-        outputs = indicator.update(*(Decimal(input_[i]) for input_ in inputs))
+        input_ = [Decimal(input_[i]) for input_ in inputs]
+        outputs = indicator.update(*input_)
         if not isinstance(outputs, tuple):
             outputs = (outputs,)
         assert len(outputs) == len(expected_outputs)
@@ -175,6 +180,9 @@ def _assert(indicator, data: IndicatorData, precision: int) -> None:
                 if expected_output != "*":
                     assert pytest.approx(outputs[j], abs=10**-precision) == Decimal(
                         expected_output
+                    ), (
+                        f"Failed at index {i} offset {offset} with inputs {input_} and outputs "
+                        f"{outputs}"
                     )
         else:
             assert not indicator.mature

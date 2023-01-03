@@ -16,6 +16,7 @@ from .bbands import Bbands
 from .cci import Cci
 from .chaikin_oscillator import ChaikinOscillator
 from .chandelier_exit import ChandelierExit
+from .darvas_box import DarvasBox
 from .dema import Dema
 from .di import DI
 from .dm import DM
@@ -51,6 +52,7 @@ __all__ = [
     "Cci",
     "ChaikinOscillator",
     "ChandelierExit",
+    "DarvasBox",
     "Dema",
     "DI",
     "DM",
