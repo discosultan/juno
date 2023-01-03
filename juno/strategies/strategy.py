@@ -176,7 +176,7 @@ class Strategy(ABC):
         return []
 
     @abstractmethod
-    def update(self, candle: Candle, meta: CandleMeta):
+    def update(self, candle: Candle, meta: CandleMeta) -> None:
         pass
 
     @staticmethod
