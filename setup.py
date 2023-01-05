@@ -32,7 +32,6 @@ setup(
         "dev": [
             "black",
             "flake8",
-            "flake8-broken-line",
             "flake8-bugbear",
             "flake8-comprehensions",
             "flake8-isort",
