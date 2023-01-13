@@ -19,9 +19,6 @@ setup(
         "pyyaml",
         "simplejson",
         "tenacity",
-        "types-pyyaml",
-        "types-setuptools",
-        "types-simplejson",
         "typing-inspect",
     ],
     extras_require={
@@ -42,7 +39,9 @@ setup(
             "pytest-asyncio",
             "pytest-lazy-fixture",
             "pytest-mock",
-            "rope",
+            "types-pyyaml",
+            "types-setuptools",
+            "types-simplejson",
         ],
         "discord": [
             "discord.py",
