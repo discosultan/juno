@@ -5,12 +5,13 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
+from types import TracebackType
 from typing import Any, Callable, Iterable, Optional, TypeVar, get_args
 
 from typing_inspect import is_optional_type
 
 from .itertools import recursive_iter
-from .typing import ExcType, ExcValue, Traceback, get_input_type_hints
+from .typing import get_input_type_hints
 
 T = TypeVar("T")
 
@@ -33,7 +34,12 @@ class Container:
             await asyncio.gather(*(d.__aenter__() for d in deps if getattr(d, "__aenter__", None)))
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         for deps in reversed(list_dependencies_in_init_order(map_dependencies(self._singletons))):
             _log.info(f"exiting: {deps}")
             await asyncio.gather(

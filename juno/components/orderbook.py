@@ -6,6 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from types import TracebackType
 from typing import AsyncIterable, AsyncIterator, Optional
 
 from asyncstdlib import chain as chain_async
@@ -16,7 +17,6 @@ from juno.asyncio import Event, cancel, create_task_sigint_on_exception, resolve
 from juno.exchanges import Exchange
 from juno.math import round_half_up
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
-from juno.typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)
 
@@ -186,7 +186,12 @@ class Orderbook:
         _log.info("ready")
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         # await cancel(*self._sync_tasks.values())
         pass
 

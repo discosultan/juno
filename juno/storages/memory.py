@@ -4,9 +4,8 @@ import sqlite3
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import Lock
+from types import TracebackType
 from typing import Iterator, Optional
-
-from juno.typing import ExcType, ExcValue, Traceback
 
 from .sqlite import SQLite
 
@@ -21,7 +20,12 @@ class Memory(SQLite):
     async def __aenter__(self) -> Memory:
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         for ctx in self._conns.values():
             assert ctx.connection
             ctx.connection.close()

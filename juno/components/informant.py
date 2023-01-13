@@ -5,6 +5,7 @@ import fnmatch
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from types import TracebackType
 from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type
@@ -28,7 +29,7 @@ from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
-from juno.typing import ExcType, ExcValue, Traceback, get_name
+from juno.typing import get_name
 
 _log = logging.getLogger(__name__)
 
@@ -91,7 +92,12 @@ class Informant:
         _log.info("ready")
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await cancel(self._exchange_info_sync_task, self._tickers_sync_task)
 
     def get_asset_info(self, exchange: str, asset: Asset) -> AssetInfo:

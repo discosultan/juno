@@ -12,6 +12,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from decimal import Decimal
+from types import TracebackType
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional, TypedDict
 
 from typing_extensions import NotRequired
@@ -53,7 +54,6 @@ from juno.errors import ExchangeException, InsufficientFunds, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.math import precision_to_decimal
-from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
 
@@ -109,7 +109,12 @@ class Kraken(Exchange):
 
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await asyncio.gather(
             self._private_ws.__aexit__(exc_type, exc, tb),
             self._public_ws.__aexit__(exc_type, exc, tb),
@@ -619,7 +624,12 @@ class KrakenPublicFeed:
         await self.session.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await cancel(self.process_task)
         if self.ws:
             await self.ws.close()

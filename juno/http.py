@@ -5,6 +5,7 @@ import logging
 import warnings
 from contextlib import asynccontextmanager
 from itertools import cycle
+from types import TracebackType
 from typing import (
     Any,
     AsyncContextManager,
@@ -22,7 +23,6 @@ from multidict import CIMultiDictProxy
 from . import json
 from .asyncio import cancel, resolved_stream
 from .itertools import generate_random_words
-from .typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)
 
@@ -70,7 +70,12 @@ class ClientSession:
         await self._session.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
 
     def __del__(self, _warnings: Any = warnings) -> None:

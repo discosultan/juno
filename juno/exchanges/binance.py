@@ -10,6 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from types import TracebackType
 from typing import Any, AsyncIterable, AsyncIterator, Optional, TypedDict
 
 import aiohttp
@@ -63,7 +64,6 @@ from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_
 from juno.filters import Filters, MinNotional, PercentPrice, PercentPriceBySide, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import paginate
-from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
 
@@ -151,7 +151,12 @@ class Binance(Exchange):
         await self._clock.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await asyncio.gather(
             # self._isolated_margin_user_data_stream.__aexit__(exc_type, exc, tb),
             # self._cross_margin_user_data_stream.__aexit__(exc_type, exc, tb),
@@ -1370,7 +1375,12 @@ class Clock:
     async def __aenter__(self) -> Clock:
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await cancel(self._periodic_sync_task)
 
     async def wait(self) -> None:
@@ -1453,7 +1463,12 @@ class UserDataStream:
     async def __aenter__(self) -> UserDataStream:
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         # We could delete a listen key here but we don't. Listen key is scoped to account and we
         # don't want to delete listen keys for other juno instances tied to the same account.
         # It will get deleted automatically by Binance after 60 mins of inactivity.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
+from types import TracebackType
 from typing import Any, Optional, cast
 
 from discord import File, Intents, TextChannel
@@ -18,7 +19,6 @@ from juno.statistics.core import CoreStatistics
 from juno.traceback import exc_traceback
 from juno.traders import Trader
 from juno.trading import CloseReason, Position, TradingSummary
-from juno.typing import ExcType, ExcValue, Traceback
 
 from .plugin import Plugin
 
@@ -67,7 +67,12 @@ class Discord(Plugin):
         self._start_task = create_task_sigint_on_exception(self._bot.start(self._token))
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await cancel(self._start_task)
         await self._bot.close()
 

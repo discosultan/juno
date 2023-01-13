@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import deque
-from types import TracebackType
 from typing import (
     Any,
     Iterable,
@@ -13,13 +12,6 @@ from typing import (
     get_origin,
     get_type_hints,
 )
-
-ExcType = Optional[type[BaseException]]
-ExcValue = Optional[BaseException]
-Traceback = Optional[TracebackType]
-
-JSONValue = Union[str, int, float, bool, None, dict[str, Any], list[Any]]
-JSONType = Union[dict[str, JSONValue], list[JSONValue]]
 
 
 def get_input_type_hints(obj: Any) -> dict[str, Any]:

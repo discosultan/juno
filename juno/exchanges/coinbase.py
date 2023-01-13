@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from decimal import Decimal
 from time import time
+from types import TracebackType
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 import aiohttp
@@ -51,7 +52,6 @@ from juno.filters import Price, Size
 from juno.http import ClientResponse, ClientSession, ClientWebSocketResponse
 from juno.itertools import paginate_limit
 from juno.math import decimal_to_precision, round_half_up
-from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
 
@@ -97,7 +97,12 @@ class Coinbase(Exchange):
 
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
@@ -503,7 +508,12 @@ class CoinbaseFeed:
         await self.session.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await cancel(self.process_task)
         if self.ws:
             await self.ws.close()

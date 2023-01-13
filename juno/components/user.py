@@ -6,6 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from types import TracebackType
 from typing import AsyncIterable, AsyncIterator, Optional
 
 from tenacity import (
@@ -34,7 +35,6 @@ from juno import (
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
-from juno.typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)
 
@@ -61,7 +61,12 @@ class User:
         _log.info("ready")
         return self
 
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         await cancel(*self._wallet_sync_tasks.values())
 
     def generate_client_id(self, exchange: str) -> ClientId:
