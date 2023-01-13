@@ -2,11 +2,11 @@ set -e
 
 echo "Checking:"
 
-echo "$ isort --check-only ."
-isort --check-only .
-
 echo "$ black --check ."
 black --check .
+
+echo "$ isort --check-only ."
+isort --check-only .
 
 echo "$ flake8 ."
 flake8 .
