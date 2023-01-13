@@ -46,7 +46,7 @@ def test_get_fully_qualified_name(input_: type[Any], expected_output: str) -> No
     ],
 )
 def test_get_type_by_fully_qualified_name(input_: str, expected_output: type[Any]) -> None:
-    assert inspect.get_type_by_fully_qualified_name("collections::deque") is deque
+    assert inspect.get_type_by_fully_qualified_name(input_) is expected_output
 
 
 # Function local types not supported!
