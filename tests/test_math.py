@@ -1,8 +1,11 @@
 from decimal import Decimal
+from typing import TypeVar
 
 import pytest
 
 from juno import math
+
+TNum = TypeVar("TNum", int, Decimal)
 
 
 @pytest.mark.parametrize(
@@ -16,7 +19,7 @@ from juno import math
         (Decimal("1.01"), Decimal("0.1"), Decimal("1.1")),
     ],
 )
-def test_ceil_multiple(value, multiple, expected_output) -> None:
+def test_ceil_multiple(value: TNum, multiple: TNum, expected_output: TNum) -> None:
     output = math.ceil_multiple(value, multiple)
     assert output == expected_output
 
@@ -38,7 +41,7 @@ def test_ceil_multiple_offset() -> None:
         (Decimal("1.01"), Decimal("0.1"), Decimal("1.0")),
     ],
 )
-def test_floor_multiple(value, multiple, expected_output) -> None:
+def test_floor_multiple(value: TNum, multiple: TNum, expected_output: TNum) -> None:
     output = math.floor_multiple(value, multiple)
     assert output == expected_output
 
@@ -114,7 +117,9 @@ def test_split(
     ],
 )
 def test_spans_overlap(
-    span1: tuple[int, int], span2: tuple[int, int], expected_output: bool
+    span1: tuple[int, int],
+    span2: tuple[int, int],
+    expected_output: bool,
 ) -> None:
     output = math.spans_overlap(span1, span2)
     assert output == expected_output

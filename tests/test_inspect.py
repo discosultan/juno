@@ -19,7 +19,7 @@ class BasicNamedTuple(NamedTuple):
         (BasicNamedTuple(value=1), True),
     ],
 )
-def test_isnamedtuple(input_, expected_output) -> None:
+def test_isnamedtuple(input_: type[Any], expected_output: bool) -> None:
     assert inspect.isnamedtuple(input_) == expected_output
 
 

@@ -3,7 +3,7 @@
 from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal, NamedTuple, Optional, Tuple, Union
+from typing import Any, Literal, NamedTuple, Optional, Tuple, Union
 
 import pytest
 
@@ -38,7 +38,7 @@ def test_get_input_type_hints() -> None:
         # (Optional[int], 'typing.Optional[int]'),  # 'typing.Union[int, None]'
     ],
 )
-def test_get_name(input_, expected_output) -> None:
+def test_get_name(input_: type[Any], expected_output: str) -> None:
     assert typing.get_name(input_) == expected_output
 
 
@@ -68,5 +68,5 @@ def test_get_name(input_, expected_output) -> None:
         ("bar", Union[Literal["foo"], Literal["bar"]], True),
     ],
 )
-def test_types_match(input_, type_, expected_output) -> None:
+def test_types_match(input_: Any, type_: type[Any], expected_output: bool) -> None:
     assert typing.types_match(input_, type_) == expected_output

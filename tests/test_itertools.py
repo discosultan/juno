@@ -6,7 +6,10 @@ from juno import itertools
 @pytest.mark.parametrize(
     "input_,expected_output", [([(0, 1), (1, 2), (3, 4), (4, 5)], [(0, 2), (3, 5)])]
 )
-def test_merge_adjacent_spans(input_, expected_output) -> None:
+def test_merge_adjacent_spans(
+    input_: list[tuple[int, int]],
+    expected_output: list[tuple[int, int]],
+) -> None:
     output = list(itertools.merge_adjacent_spans(input_))
     assert output == expected_output
 
@@ -15,7 +18,12 @@ def test_merge_adjacent_spans(input_, expected_output) -> None:
     "start,end,spans,expected_output",
     [(0, 5, [(1, 2), (3, 4)], [(0, 1), (2, 3), (4, 5)]), (2, 5, [(1, 3), (4, 6)], [(3, 4)])],
 )
-def test_generate_missing_spans(start, end, spans, expected_output) -> None:
+def test_generate_missing_spans(
+    start: int,
+    end: int,
+    spans: list[tuple[int, int]],
+    expected_output: list[tuple[int, int]],
+) -> None:
     output = list(itertools.generate_missing_spans(start, end, spans))
     assert output == expected_output
 
