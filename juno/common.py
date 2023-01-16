@@ -30,7 +30,8 @@ class Advice(IntEnum):
         return Advice.LIQUIDATE
 
 
-class Balance(NamedTuple):
+@dataclass(frozen=True)
+class Balance:
     available: Decimal = Decimal("0.0")
     # TODO: Do we need it? Kraken doesn't provide that data, for example.
     hold: Decimal = Decimal("0.0")
