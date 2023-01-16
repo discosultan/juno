@@ -13,13 +13,6 @@ class Interval_(ModuleType):
     MONTH: Interval = 2_629_746_000
     YEAR: Interval = 31_556_952_000
 
-    MIN_SEC = 60
-    HOUR_SEC = 3600
-    DAY_SEC = 86_400
-    WEEK_SEC = 604_800
-    MONTH_SEC = 2_629_746
-    YEAR_SEC = 31_556_952
-
     @staticmethod
     def format(interval: Interval) -> str:
         result = ""
@@ -38,6 +31,10 @@ class Interval_(ModuleType):
         for group in re.findall(r"(\d+[a-zA-Z]+)", interval):
             result += _calc_interval_group(group)
         return result
+
+    @staticmethod
+    def to_seconds(interval: Interval) -> int:
+        return interval // 1000
 
 
 def _calc_interval_group(group: str) -> int:

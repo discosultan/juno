@@ -137,7 +137,9 @@ class Binance(Exchange):
         self._reqs_per_min_limiter = AsyncLimiter(1200, 60 * x)
         self._raw_reqs_limiter = AsyncLimiter(5000, 300 * x)
         self._orders_per_sec_limiter = AsyncLimiter(10, 1 * x)
-        self._orders_per_day_limiter = AsyncLimiter(100_000, Interval_.DAY_SEC * x)
+        self._orders_per_day_limiter = AsyncLimiter(
+            100_000, Interval_.to_seconds(Interval_.DAY) * x
+        )
         self._once_per_sec_limiters: dict[str, AsyncLimiter] = defaultdict(
             lambda: AsyncLimiter(1, 1 * x)
         )
@@ -505,7 +507,7 @@ class Binance(Exchange):
             url += "@100ms"
         async with self._connect_refreshing_stream(
             url=url,
-            interval=12 * Interval_.HOUR_SEC,
+            interval=12 * Interval_.to_seconds(Interval_.HOUR),
             name="depth",
             raise_on_disconnect=True,
         ) as ws:
@@ -906,7 +908,7 @@ class Binance(Exchange):
 
         async with self._connect_refreshing_stream(
             url=f"/ws/{_to_ws_symbol(symbol)}@trade",
-            interval=12 * Interval_.HOUR_SEC,
+            interval=12 * Interval_.to_seconds(Interval_.HOUR),
             name="trades",
             raise_on_disconnect=True,
         ) as ws:
@@ -1401,7 +1403,7 @@ class Clock:
         while True:
             await self._sync_clock()
             sleep_task: asyncio.Task[None] = asyncio.create_task(
-                asyncio.sleep(Interval_.HOUR_SEC * 6)
+                asyncio.sleep(Interval_.to_seconds(Interval_.HOUR) * 6)
             )
             reset_periodic_sync_task = asyncio.create_task(self._reset_periodic_sync.wait())
             try:
@@ -1542,7 +1544,7 @@ class UserDataStream:
 
     async def _periodic_listen_key_refresh(self) -> None:
         while True:
-            await asyncio.sleep(30 * Interval_.MIN_SEC)
+            await asyncio.sleep(30 * Interval_.to_seconds(Interval_.MIN))
             if self._listen_key:
                 try:
                     await self._update_listen_key(self._listen_key)
@@ -1561,7 +1563,7 @@ class UserDataStream:
             try:
                 async with self._binance._connect_refreshing_stream(
                     url=f"/ws/{self._listen_key}",
-                    interval=12 * Interval_.HOUR_SEC,
+                    interval=12 * Interval_.to_seconds(Interval_.HOUR),
                     name="user",
                     raise_on_disconnect=True,
                 ) as stream:
