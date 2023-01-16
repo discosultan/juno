@@ -48,6 +48,9 @@ class Savings(Custodian):
         if product is None:
             _log.info(f"{asset} savings product not available; skipping")
             return
+        if product.status == "END":
+            _log.info(f"{asset} savings product has ended; skipping")
+            return
 
         async with self._user.sync_wallet(exchange, "spot") as wallet:
             savings_asset = _savings_asset(asset)
@@ -74,6 +77,9 @@ class Savings(Custodian):
         )
         if product is None:
             _log.info(f"{asset} savings product not available; skipping")
+            return
+        if product.status == "END":
+            _log.info(f"{asset} savings product has ended; skipping")
             return
 
         savings_amount = amount
@@ -121,8 +127,8 @@ class Savings(Custodian):
         exchange: str,
         asset: Asset,
     ) -> Optional[SavingsProduct]:
-        # A product can be in status "PURCHASING" or "PREHEATING". "PURCHASING" is when the product
-        # is available. "PREHEATING" means the product is being processed. This happens usually at
+        # A product can be in status "PURCHASING", "PREHEATING" or "END". "PURCHASING" is when the
+        # product is available. "PREHEATING" means the product is being processed. This happens usually at
         # 23:50 - 00:10 UTC.
         # https://dev.binance.vision/t/failure-to-fast-redeem-a-flexible-savings-product-right-after-midnight-00-00-utc/5785
         while True:
@@ -132,13 +138,15 @@ class Savings(Custodian):
             if product is None:
                 return None
 
-            if product.status == "PREHEATING":
+            if product.status in "PREHEATING":
                 _log.info(
                     f"{asset} savings product is preheating; waiting a minute before retrying"
                 )
                 await asyncio.sleep(60.0)
             elif product.status == "PURCHASING":
                 return product
+            elif product.status == "END":
+                raise Exception(f"{asset} savings product has ended")
             else:
                 raise Exception(f"Unknown {asset} savings product status {product.status}")
 
