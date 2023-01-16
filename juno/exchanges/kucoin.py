@@ -19,7 +19,6 @@ from juno import (
     AssetInfo,
     Balance,
     CancelledReason,
-    ClientId,
     Depth,
     ExchangeException,
     ExchangeInfo,
@@ -310,7 +309,7 @@ class KuCoin(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         if account != "spot":
             raise NotImplementedError()
@@ -351,7 +350,7 @@ class KuCoin(Exchange):
         self,
         account: Account,
         symbol: Symbol,
-        client_id: ClientId,
+        client_id: str,
     ) -> None:
         if account != "spot":
             raise NotImplementedError()

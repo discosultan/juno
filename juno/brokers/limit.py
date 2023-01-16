@@ -7,7 +7,6 @@ from typing import AsyncIterable, Literal, NamedTuple, Optional
 from juno import (
     Account,
     BadOrder,
-    ClientId,
     Fill,
     Filters,
     InsufficientFunds,
@@ -34,7 +33,7 @@ _WS_EVENT_WAIT_TIMEOUT = 60
 
 
 class _ActiveOrder(NamedTuple):
-    client_id: ClientId
+    client_id: str
     price: Decimal
     size: Decimal
     quote: Decimal
@@ -610,7 +609,7 @@ class Limit(Broker):
         ctx.requested_order = None
 
     async def _try_cancel_order(
-        self, exchange: str, account: Account, symbol: Symbol, client_id: ClientId
+        self, exchange: str, account: Account, symbol: Symbol, client_id: str
     ) -> bool:
         try:
             await self._user.cancel_order(

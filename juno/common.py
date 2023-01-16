@@ -12,7 +12,6 @@ from juno.math import precision_to_decimal, round_down, round_half_up, round_up
 from juno.primitives import Asset, Interval, Interval_, Symbol, Timestamp, Timestamp_
 
 Account = Union[Literal["spot", "margin", "isolated"], Symbol]
-ClientId = int | str
 
 
 class Advice(IntEnum):
@@ -272,7 +271,7 @@ class OrderType(IntEnum):
 
 @dataclass(frozen=True)
 class Order:
-    client_id: ClientId
+    client_id: str
     symbol: Symbol
     price: Decimal
     size: Decimal
@@ -291,15 +290,15 @@ class CancelledReason(IntEnum):
 
 class OrderUpdate(ModuleType):
     class New(NamedTuple):
-        client_id: ClientId
+        client_id: str
 
     # Depending on an exchange, it may return either Match or Cumulative updates.
     class Match(NamedTuple):
-        client_id: ClientId
+        client_id: str
         fill: Fill
 
     class Cumulative(NamedTuple):
-        client_id: ClientId
+        client_id: str
         price: Decimal
         cumulative_size: Decimal
         cumulative_quote: Decimal
@@ -308,12 +307,12 @@ class OrderUpdate(ModuleType):
 
     class Cancelled(NamedTuple):
         time: Timestamp
-        client_id: ClientId
+        client_id: str
         reason: CancelledReason
 
     class Done(NamedTuple):
         time: Timestamp
-        client_id: ClientId
+        client_id: str
 
     Any = Union[New, Match, Cumulative, Cancelled, Done]
 

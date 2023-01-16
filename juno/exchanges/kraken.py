@@ -25,7 +25,6 @@ from juno import (
     BorrowInfo,
     CancelledReason,
     Candle,
-    ClientId,
     Depth,
     ExchangeInfo,
     Fees,
@@ -121,10 +120,10 @@ class Kraken(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def generate_client_id(self) -> int | str:
+    def generate_client_id(self) -> str:
         # Kraken supports only 32 bits for client id.
         # The subtraction is to get a signed instead of an unsigned value.
-        return random.getrandbits(32) - 2**31
+        return str(random.getrandbits(32) - 2**31)
 
     def list_candle_intervals(self) -> list[int]:
         return [
@@ -309,7 +308,7 @@ class Kraken(Exchange):
                     continue
                 updates = o[0]
                 for update in updates.values():
-                    client_id = update["userref"]
+                    client_id = str(update["userref"])
                     status = update.get("status")
                     if status == "open":
                         yield OrderUpdate.New(
@@ -351,7 +350,7 @@ class Kraken(Exchange):
         res = await self._request_private("/0/private/OpenOrders")
         return [
             Order(
-                client_id=o["userref"],
+                client_id=str(o["userref"]),
                 symbol=order_symbol,
                 price=Decimal(o["descr"]["price"]),
                 size=Decimal(o["vol"]),
@@ -370,7 +369,7 @@ class Kraken(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
         assert account in {"spot", "margin"}
@@ -413,7 +412,7 @@ class Kraken(Exchange):
 
     async def edit_order(
         self,
-        existing_id: ClientId,
+        existing_id: str,
         account: Account,
         symbol: Symbol,
         side: Side,
@@ -422,7 +421,7 @@ class Kraken(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/editOrder"""
         assert account == "spot"
@@ -462,7 +461,7 @@ class Kraken(Exchange):
         self,
         account: Account,
         symbol: Symbol,
-        client_id: ClientId,
+        client_id: str,
     ) -> None:
         """https://docs.kraken.com/rest/#operation/cancelOrder"""
         assert account == "spot"

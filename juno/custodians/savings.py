@@ -128,8 +128,8 @@ class Savings(Custodian):
         asset: Asset,
     ) -> Optional[SavingsProduct]:
         # A product can be in status "PURCHASING", "PREHEATING" or "END". "PURCHASING" is when the
-        # product is available. "PREHEATING" means the product is being processed. This happens usually at
-        # 23:50 - 00:10 UTC.
+        # product is available. "PREHEATING" means the product is being processed. This happens
+        # usually at 23:50 - 00:10 UTC.
         # https://dev.binance.vision/t/failure-to-fast-redeem-a-flexible-savings-product-right-after-midnight-00-00-utc/5785
         while True:
             products = await self._user.map_savings_products(exchange=exchange, asset=asset)

@@ -32,7 +32,6 @@ from juno import (
     BorrowInfo,
     CancelledReason,
     Candle,
-    ClientId,
     Depth,
     ExchangeException,
     ExchangeInfo,
@@ -627,7 +626,7 @@ class Binance(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         """
         https://binance-docs.github.io/apidocs/spot/en/#new-order-trade
@@ -669,7 +668,7 @@ class Binance(Exchange):
 
     async def edit_order(
         self,
-        existing_id: ClientId,
+        existing_id: str,
         account: Account,
         symbol: Symbol,
         side: Side,
@@ -678,7 +677,7 @@ class Binance(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         """
         https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md#cancel-an-existing-order-and-send-a-new-order-trade
@@ -755,7 +754,7 @@ class Binance(Exchange):
         self,
         account: Account,
         symbol: Symbol,
-        client_id: ClientId,
+        client_id: str,
     ) -> None:
         """
         https://binance-docs.github.io/apidocs/spot/en/#cancel-order-trade

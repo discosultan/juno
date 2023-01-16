@@ -22,7 +22,6 @@ from juno import (
     Account,
     Asset,
     Balance,
-    ClientId,
     ExchangeException,
     OrderResult,
     OrderType,
@@ -69,7 +68,7 @@ class User:
     ) -> None:
         await cancel(*self._wallet_sync_tasks.values())
 
-    def generate_client_id(self, exchange: str) -> ClientId:
+    def generate_client_id(self, exchange: str) -> str:
         return self._exchanges[exchange].generate_client_id()
 
     def can_place_market_order(self, exchange: str) -> bool:
@@ -198,7 +197,7 @@ class User:
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         return await self._exchanges[exchange].place_order(
             account=account,
@@ -226,7 +225,7 @@ class User:
     )
     async def edit_order(
         self,
-        existing_id: ClientId,
+        existing_id: str,
         exchange: str,
         account: Account,
         symbol: Symbol,
@@ -236,7 +235,7 @@ class User:
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         exchange_instance = self._exchanges[exchange]
         if not exchange_instance.can_edit_order:
@@ -265,7 +264,7 @@ class User:
         exchange: str,
         account: Account,
         symbol: Symbol,
-        client_id: ClientId,
+        client_id: str,
     ) -> None:
         await self._exchanges[exchange].cancel_order(
             account=account,

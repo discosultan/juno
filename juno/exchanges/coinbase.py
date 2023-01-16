@@ -23,7 +23,6 @@ from juno import (
     Balance,
     CancelledReason,
     Candle,
-    ClientId,
     Depth,
     ExchangeException,
     ExchangeInfo,
@@ -321,7 +320,7 @@ class Coinbase(Exchange):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
         if account != "spot":
@@ -363,7 +362,7 @@ class Coinbase(Exchange):
         self,
         account: Account,
         symbol: Symbol,
-        client_id: ClientId,
+        client_id: str,
     ) -> None:
         if account != "spot":
             raise NotImplementedError()

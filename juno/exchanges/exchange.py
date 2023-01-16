@@ -11,7 +11,6 @@ from juno import (
     Asset,
     Balance,
     Candle,
-    ClientId,
     Depth,
     ExchangeInfo,
     Interval,
@@ -52,7 +51,7 @@ class Exchange(AsyncContextManager, ABC):
     can_edit_order_atomic: bool = False
     # TODO: Add can_receive_market_order_result_sync
 
-    def generate_client_id(self) -> int | str:
+    def generate_client_id(self) -> str:
         return str(uuid4())
 
     def list_candle_intervals(self) -> list[int]:
@@ -118,13 +117,13 @@ class Exchange(AsyncContextManager, ABC):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         raise NotImplementedError()
 
     async def edit_order(
         self,
-        existing_id: ClientId,
+        existing_id: str,
         account: Account,
         symbol: Symbol,
         side: Side,
@@ -133,7 +132,7 @@ class Exchange(AsyncContextManager, ABC):
         quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[ClientId] = None,
+        client_id: Optional[str] = None,
     ) -> OrderResult:
         raise NotImplementedError()
 
@@ -141,7 +140,7 @@ class Exchange(AsyncContextManager, ABC):
         self,
         account: Account,
         symbol: Symbol,
-        client_id: ClientId,
+        client_id: str,
     ) -> None:
         raise NotImplementedError()
 
