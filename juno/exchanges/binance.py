@@ -511,7 +511,11 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def list_orders(self, account: Account, symbol: Optional[str] = None) -> list[Order]:
+    async def list_open_orders(
+        self,
+        account: Account,
+        symbol: Optional[str] = None,
+    ) -> list[Order]:
         """
         https://binance-docs.github.io/apidocs/spot/en/#current-open-orders-user_data
         https://binance-docs.github.io/apidocs/spot/en/#query-margin-account-39-s-open-orders-user_data

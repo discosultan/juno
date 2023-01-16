@@ -342,7 +342,11 @@ class Kraken(Exchange):
         async with self._private_ws.subscribe({"name": "openOrders"}) as ws:
             yield inner(ws)
 
-    async def list_orders(self, account: Account, symbol: Optional[str] = None) -> list[Order]:
+    async def list_open_orders(
+        self,
+        account: Account,
+        symbol: Optional[str] = None,
+    ) -> list[Order]:
         """https://docs.kraken.com/rest/#operation/getOpenOrders"""
 
         assert account == "spot"

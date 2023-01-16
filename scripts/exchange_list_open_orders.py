@@ -13,7 +13,7 @@ args = parser.parse_args()
 
 async def main() -> None:
     async with Exchange.from_env(args.exchange) as exchange:
-        orders = await exchange.list_orders(account=args.account, symbol=args.symbol)
+        orders = await exchange.list_open_orders(account=args.account, symbol=args.symbol)
         logging.info(orders)
 
 
