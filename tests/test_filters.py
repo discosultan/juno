@@ -20,7 +20,13 @@ from juno import filters
         (Decimal("2.0"), Decimal("1.0"), Decimal("3.0"), Decimal("0.0"), Decimal("2.0")),
     ],
 )
-def test_price_round_down(price, min_, max_, step, expected_output) -> None:
+def test_price_round_down(
+    price: Decimal,
+    min_: Decimal,
+    max_: Decimal,
+    step: Decimal,
+    expected_output: Decimal,
+) -> None:
     filter_ = filters.Price(min=min_, max=max_, step=step)
     output = filter_.round_down(price)
     assert output == expected_output
@@ -47,7 +53,13 @@ def test_price_round_down(price, min_, max_, step, expected_output) -> None:
         (Decimal("2.0"), Decimal("1.0"), Decimal("3.0"), Decimal("0.0"), Decimal("2.0")),
     ],
 )
-def test_size_round_down(size, min_, max_, step, expected_output) -> None:
+def test_size_round_down(
+    size: Decimal,
+    min_: Decimal,
+    max_: Decimal,
+    step: Decimal,
+    expected_output: Decimal,
+) -> None:
     filter_ = filters.Size(min=min_, max=max_, step=step)
     output = filter_.round_down(size)
     assert output == expected_output

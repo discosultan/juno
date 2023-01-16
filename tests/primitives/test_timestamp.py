@@ -28,7 +28,7 @@ def test_format():
         ["2019-01-01T00:00:00+00:00", 1546300800000],
     ],
 )
-def test_parse(input_: str, expected_output: int) -> None:
+def test_parse(input_: str, expected_output: Timestamp) -> None:
     assert Timestamp_.parse(input_) == expected_output
 
 
@@ -58,7 +58,7 @@ def test_ceil(timestamp: Timestamp, interval: Interval, expected_output: int) ->
         [1577923200000, Interval_.MONTH, 1577836800000],
     ],
 )
-def test_floor(timestamp: Timestamp, interval: Interval, expected_output: int) -> None:
+def test_floor(timestamp: Timestamp, interval: Interval, expected_output: Timestamp) -> None:
     assert Timestamp_.floor(timestamp, interval) == expected_output
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from juno.primitives.interval import Interval_
+from juno.primitives.interval import Interval, Interval_
 
 
 @pytest.mark.parametrize(
@@ -12,7 +12,7 @@ from juno.primitives.interval import Interval_
         [0, "0ms"],
     ],
 )
-def test_format(input_, expected_output) -> None:
+def test_format(input_: Interval, expected_output: str) -> None:
     assert Interval_.format(input_) == expected_output
 
 
@@ -25,6 +25,6 @@ def test_format(input_, expected_output) -> None:
         ["1m1s", Interval_.MIN + Interval_.SEC],
     ],
 )
-def test_parse(input_, expected_output) -> None:
+def test_parse(input_: str, expected_output: Interval) -> None:
     output = Interval_.parse(input_)
     assert output == expected_output
