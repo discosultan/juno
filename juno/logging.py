@@ -16,7 +16,9 @@ disabled_log.disabled = True
 def create_handlers(
     log_format: str = "default",
     log_outputs: list[str] = ["stdout"],
-    log_directory: str = "logs",  # Only used when `log_outputs` includes 'file'.
+    # The following are used when `log_outputs` includes 'file'.
+    log_directory: str = "logs",
+    log_backup_count: int = 0,
 ) -> list[logging.Handler]:
     # We make a copy in order not to mutate the input.
     log_outputs = log_outputs[:]
@@ -28,7 +30,12 @@ def create_handlers(
         log_outputs.remove("stdout")
     if "file" in log_outputs:
         handlers.append(
-            TimedRotatingFileHandler(home_path(log_directory) / "log", when="midnight", utc=True)
+            TimedRotatingFileHandler(
+                home_path(log_directory) / "log",
+                when="midnight",
+                utc=True,
+                backupCount=log_backup_count,
+            )
         )
         log_outputs.remove("file")
     if len(log_outputs) > 0:
