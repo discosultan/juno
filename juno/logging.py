@@ -18,7 +18,7 @@ def create_handlers(
     log_outputs: list[str] = ["stdout"],
     # The following are used when `log_outputs` includes 'file'.
     log_directory: str = "logs",
-    log_backup_count: int = 0,
+    log_backup_count: int = 30,
 ) -> list[logging.Handler]:
     # We make a copy in order not to mutate the input.
     log_outputs = log_outputs[:]
