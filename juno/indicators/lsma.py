@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Sequence
 
 
-# least Square Moving Average
+# Least Square Moving Average
 class Lsma:
     value: Decimal = Decimal("0.0")
 
