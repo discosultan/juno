@@ -7,7 +7,7 @@ from .smma import Smma
 from .wma import Wma
 
 _MA = Ema | Sma | Smma | Wma
-_MA_Type = Literal["ema", "rma", "sma", "wma"]
+_MAType = Literal["ema", "rma", "sma", "wma"]
 
 
 class Atr2:
@@ -20,7 +20,7 @@ class Atr2:
     _sum: Decimal = Decimal("0.0")
     _prev_close: Optional[Decimal] = None
 
-    def __init__(self, period: int, ma: _MA_Type = "rma") -> None:
+    def __init__(self, period: int, ma: _MAType = "rma") -> None:
         if period < 1:
             raise ValueError(f"Invalid period ({period})")
 
@@ -53,7 +53,7 @@ def _calc_truerange(high: Decimal, low: Decimal, prev_close: Optional[Decimal]) 
     return max(high - low, abs(high - prev_close), abs(low - prev_close))
 
 
-def _get_ma(period: int, ma: _MA_Type) -> _MA:
+def _get_ma(period: int, ma: _MAType) -> _MA:
     if ma == "ema":
         return Ema(period)
     elif ma == "rma":
