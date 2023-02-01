@@ -1,5 +1,5 @@
 # Exchange filters.
-# https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#filters
+# https://binance-docs.github.io/apidocs/spot/en/#filters
 
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
