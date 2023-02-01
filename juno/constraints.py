@@ -5,7 +5,6 @@ from typing import Any, Callable
 
 
 class Constraint(ABC):
-
     validate: Callable[..., bool] = abstractmethod(lambda: True)
 
     @abstractmethod
