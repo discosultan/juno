@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Optional
 
 import pytest
 
@@ -85,6 +86,33 @@ from juno.common import Candle, Fill
 def test_heikin_ashi(previous: Candle, current: Candle, expected_output: Candle) -> None:
     output = Candle.heikin_ashi(previous, current)
     _assert_candle(output, expected_output, tolerance=10**-2)
+
+
+def test_gen_regular() -> None:
+    input = [
+        Candle(
+            time=Timestamp_.parse("2020-01-01"),
+            open=Decimal("2.0"),
+            high=Decimal("4.0"),
+            low=Decimal("1.0"),
+            close=Decimal("3.0"),
+            volume=Decimal("10.0"),
+        ),
+        Candle(
+            time=Timestamp_.parse("2020-01-02"),
+            open=Decimal("4.0"),
+            high=Decimal("8.0"),
+            low=Decimal("2.0"),
+            close=Decimal("6.0"),
+            volume=Decimal("20.0"),
+        ),
+    ]
+
+    gen_regular = Candle.gen_regular()
+    for candle in input:
+        next(gen_regular)
+        output_candle = gen_regular.send(candle)
+        _assert_candle(output_candle, candle)
 
 
 def test_gen_heikin_ashi() -> None:
@@ -240,7 +268,7 @@ def test_fill_from_cumulative() -> None:
     )
 
 
-def _assert_candle(obtained: Candle, expected: Candle, tolerance: float) -> None:
+def _assert_candle(obtained: Candle, expected: Candle, tolerance: Optional[float] = None) -> None:
     assert obtained.time == expected.time
     assert obtained.open == pytest.approx(expected.open, abs=tolerance)
     assert obtained.high == pytest.approx(expected.high, abs=tolerance)
