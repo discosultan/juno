@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from juno import Interval_
 from juno.components import Events
 from juno.path import save_text_file
 from juno.trading import Position, TradingSummary
@@ -97,6 +96,8 @@ def get_script(summary: TradingSummary) -> str:
 
 
 def adjust_time(time: int) -> int:
-    # TODO: This interval hardcoded for a specific strategy. This is to plot the markers on the
-    # closing candles and not on the opening ones.
-    return time - Interval_.MIN
+    # TODO: The time is for a position open or close which corresponds to a candle open. Typically
+    # on TradingView, buy / sell labels are shown on the previous candle for the candle close. We
+    # should subtract the candle interval here if we wanted to show the label on the candle which'
+    # close triggered the position action.
+    return time

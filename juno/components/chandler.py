@@ -238,8 +238,17 @@ class Chandler(AsyncContextManager):
         end: Timestamp = Timestamp_.MAX_TIME,
         type_: CandleType = "regular",
     ) -> AsyncIterable[Candle]:
-        """Tries to stream candles for the specified range from local storage. If candles don't
-        exist, streams them from an exchange and stores to local storage."""
+        """
+        Tries to stream candles for the specified range from local storage. If candles don't exist,
+        streams them from an exchange and stores to local storage.
+        """
+        if type_ == "regular":
+            gen_candle = Candle.gen_regular()
+        elif type_ == "heikin-ashi":
+            gen_candle = Candle.gen_heikin_ashi(interval)
+        else:
+            raise ValueError(f"Invalid candle type: {type_}")
+
         start = Timestamp_.floor(start, interval)
         end = Timestamp_.floor(end, interval)
 
@@ -303,13 +312,8 @@ class Chandler(AsyncContextManager):
                             f"missed {num_missed} {candle_msg}; last closed candle "
                             f"{last_candle}; current candle {candle}"
                         )
-                    if type_ == "regular":
-                        yield candle
-                    elif type_ == "heikin-ashi":
-                        if last_candle is not None and last_candle.time == candle.time - interval:
-                            yield Candle.heikin_ashi(previous=last_candle, current=candle)
-                    else:
-                        raise ValueError(f"Invalid candle type: {type_}")
+                    next(gen_candle)
+                    yield gen_candle.send(candle)
                     last_candle = candle
             finally:
                 await aclose(stream)

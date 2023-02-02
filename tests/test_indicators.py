@@ -76,9 +76,23 @@ def test_chaikin_oscillator(data: IndicatorSources) -> None:
     _assert(indicators.ChaikinOscillator(3, 10), data["stock_market"]["chaikin_oscillator"], 8)
 
 
-def test_chandelier_exit(data: IndicatorSources) -> None:
+def test_chandelier_exit_1(data: IndicatorSources) -> None:
     _assert(
-        indicators.ChandelierExit(2, 2, 2, 3, True), data["trading_view"]["chandelier_exit"], 2
+        indicators.ChandelierExit(2, 2, 2, 3, True), data["trading_view"]["chandelier_exit_1"], 2
+    )
+
+
+def test_chandelier_exit_2(data: IndicatorSources) -> None:
+    _assert(
+        indicators.ChandelierExit(2, 2, 2, 3, False), data["trading_view"]["chandelier_exit_2"], 2
+    )
+
+
+def test_chandelier_exit_3(data: IndicatorSources) -> None:
+    _assert(
+        indicators.ChandelierExit(2, 2, 2, 3, True),
+        data["trading_view"]["chandelier_exit_3"],
+        2,
     )
 
 

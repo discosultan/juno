@@ -16,18 +16,20 @@ class ChandelierExit(Signal):
         short_period: int = 22,
         atr_period: int = 22,
         atr_multiplier: int = 3,
+        use_close: bool = True,
     ) -> None:
         self._chandelier = indicators.ChandelierExit(
             long_period=long_period,
             short_period=short_period,
             atr_period=atr_period,
             atr_multiplier=atr_multiplier,
+            use_close=use_close,
         )
         self._changed = Changed(enabled=True)
 
     @property
     def advice(self) -> Advice:
-        return self._advice if self.mature else Advice.NONE
+        return self._advice
 
     @property
     def maturity(self) -> int:
@@ -38,10 +40,12 @@ class ChandelierExit(Signal):
         return self._chandelier.mature
 
     def update(self, candle: Candle, _: CandleMeta) -> None:
-        if candle.close > self._chandelier.short:
-            self._advice = self._changed.update(Advice.LONG)
-        elif candle.close < self._chandelier.long:
-            self._advice = self._changed.update(Advice.SHORT)
-        else:
-            self._advice = Advice.NONE
         self._chandelier.update(high=candle.high, low=candle.low, close=candle.close)
+
+        if self.mature:
+            if candle.close > self._chandelier.short:
+                self._advice = self._changed.update(Advice.LONG)
+            elif candle.close < self._chandelier.long:
+                self._advice = self._changed.update(Advice.SHORT)
+            else:
+                self._advice = Advice.NONE

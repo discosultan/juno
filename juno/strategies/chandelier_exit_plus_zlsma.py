@@ -18,6 +18,7 @@ class ChandelierExitPlusZlsma(Signal):
         chandelier_exit_short_period: int = 22,
         chandelier_exit_atr_period: int = 22,
         chandelier_exit_atr_multiplier: int = 3,
+        chandelier_exit_use_close: bool = True,
         zlsma_period: int = 32,
     ) -> None:
         self._chandelier_exit = ChandelierExit(
@@ -25,13 +26,14 @@ class ChandelierExitPlusZlsma(Signal):
             short_period=chandelier_exit_short_period,
             atr_period=chandelier_exit_atr_period,
             atr_multiplier=chandelier_exit_atr_multiplier,
+            use_close=chandelier_exit_use_close,
         )
         self._zlsma = indicators.Zlsma(period=zlsma_period)
         self._changed = Changed(enabled=True)
 
     @property
     def advice(self) -> Advice:
-        return self._advice if self.mature else Advice.NONE
+        return self._advice
 
     @property
     def maturity(self) -> int:
@@ -46,13 +48,14 @@ class ChandelierExitPlusZlsma(Signal):
         advice = self._chandelier_exit.advice
         zlsma = self._zlsma.update(candle.close)
 
-        if advice is Advice.LONG and candle.close >= zlsma:
-            self._advice = self._changed.update(Advice.LONG)
-        elif advice is Advice.SHORT and candle.close <= zlsma:
-            self._advice = self._changed.update(Advice.SHORT)
-        elif self._changed.prevailing_advice is Advice.LONG and candle.close < zlsma:
-            self._advice = self._changed.update(Advice.LIQUIDATE)
-        elif self._changed.prevailing_advice is Advice.SHORT and candle.close > zlsma:
-            self._advice = self._changed.update(Advice.LIQUIDATE)
-        else:
-            self._advice = Advice.NONE
+        if self.mature:
+            if advice is Advice.LONG and candle.close >= zlsma:
+                self._advice = self._changed.update(Advice.LONG)
+            elif advice is Advice.SHORT and candle.close <= zlsma:
+                self._advice = self._changed.update(Advice.SHORT)
+            elif self._changed.prevailing_advice is Advice.LONG and candle.close < zlsma:
+                self._advice = self._changed.update(Advice.LIQUIDATE)
+            elif self._changed.prevailing_advice is Advice.SHORT and candle.close > zlsma:
+                self._advice = self._changed.update(Advice.LIQUIDATE)
+            else:
+                self._advice = Advice.NONE

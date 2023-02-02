@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
-from typing import Literal, NamedTuple, Optional, Union
+from typing import Generator, Literal, NamedTuple, Optional, Union
 
 from juno.filters import Filters
 from juno.math import precision_to_decimal, round_down, round_half_up, round_up
@@ -105,14 +105,61 @@ class Candle(NamedTuple):
 
     @staticmethod
     def heikin_ashi(previous: Candle, current: Candle) -> Candle:
+        """
+        Calculates a Heikin-Ashi candle based on the formula found in
+        https://www.investopedia.com/terms/h/heikinashi.asp.
+        """
+        open = previous.midpoint
+        close = current.average
         return Candle(
             time=current.time,
-            open=previous.midpoint,
-            high=max(current.high, current.open, current.close),
-            low=min(current.low, current.open, current.close),
-            close=current.average,
+            open=open,
+            high=max(current.high, open, close),
+            low=min(current.low, open, close),
+            close=close,
             volume=current.volume,
         )
+        # NB! Note that there are more ways to calculate Heikin-Ashi candles. For example,
+        # https://school.stockcharts.com/doku.php?id=chart_analysis:heikin_ashi shows the following
+        # method:
+        #
+        # return Candle(
+        #     time=current.time,
+        #     open=previous.midpoint,
+        #     high=max(current.high, current.open, current.close),
+        #     low=min(current.low, current.open, current.close),
+        #     close=current.average,
+        #     volume=current.volume,
+        # )
+
+    @staticmethod
+    def gen_regular() -> Generator[Candle, Candle, None]:
+        """
+        A pass-through generator the yields the sent candles. Useful when selecting candle
+        generator based on candle type.
+        """
+        while True:
+            candle = yield  # type: ignore
+            yield candle
+
+    @staticmethod
+    def gen_heikin_ashi(interval: int) -> Generator[Candle, Candle, None]:
+        """
+        A generator that yields Heikin-Ashi candles from sent regular candles.
+
+        Based on the algorithm used in TradingView.
+        """
+        last: Optional[Candle] = None
+        while True:
+            current = yield  # type: ignore
+            if last is None:
+                previous = current
+            elif current.time - last.time > interval:
+                previous = current
+            else:
+                previous = last
+            last = Candle.heikin_ashi(previous=previous, current=current)
+            yield last
 
 
 CandleType = Literal["regular", "heikin-ashi"]

@@ -27,7 +27,7 @@ class ChandelierExit:
         short_period: int = 22,
         atr_period: int = 22,
         atr_multiplier: int = 3,
-        use_close: bool = False,
+        use_close: bool = True,
     ) -> None:
         if long_period < 1:
             raise ValueError(f"Invalid long period ({long_period})")
