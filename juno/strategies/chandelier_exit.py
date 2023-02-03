@@ -44,8 +44,9 @@ class ChandelierExit(Signal):
 
         if self.mature:
             if candle.close > self._chandelier.short:
-                self._advice = self._changed.update(Advice.LONG)
+                advice = Advice.LONG
             elif candle.close < self._chandelier.long:
-                self._advice = self._changed.update(Advice.SHORT)
+                advice = Advice.SHORT
             else:
-                self._advice = Advice.NONE
+                advice = Advice.NONE
+            self._advice = self._changed.update(advice)

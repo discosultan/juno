@@ -129,6 +129,10 @@ def test_changed_enabled() -> None:
     assert target.prevailing_advice is Advice.SHORT
     assert target.prevailing_advice_age == 1
 
+    assert target.update(Advice.LIQUIDATE) is Advice.LIQUIDATE
+    assert target.prevailing_advice is Advice.LIQUIDATE
+    assert target.prevailing_advice_age == 1
+
 
 def test_mid_trend_persistence_combination() -> None:
     target1 = strategies.MidTrend(MidTrendPolicy.IGNORE)

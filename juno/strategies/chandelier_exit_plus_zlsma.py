@@ -50,12 +50,16 @@ class ChandelierExitPlusZlsma(Signal):
 
         if self.mature:
             if advice is Advice.LONG and candle.close >= zlsma:
-                self._advice = self._changed.update(Advice.LONG)
+                advice = Advice.LONG
             elif advice is Advice.SHORT and candle.close <= zlsma:
-                self._advice = self._changed.update(Advice.SHORT)
-            elif self._changed.prevailing_advice is Advice.LONG and candle.close < zlsma:
-                self._advice = self._changed.update(Advice.LIQUIDATE)
-            elif self._changed.prevailing_advice is Advice.SHORT and candle.close > zlsma:
-                self._advice = self._changed.update(Advice.LIQUIDATE)
+                advice = Advice.SHORT
+            elif (
+                self._changed.prevailing_advice is Advice.LONG
+                and candle.close < zlsma
+                or self._changed.prevailing_advice is Advice.SHORT
+                and candle.close > zlsma
+            ):
+                advice = Advice.LIQUIDATE
             else:
-                self._advice = Advice.NONE
+                advice = Advice.NONE
+            self._advice = self._changed.update(advice)
