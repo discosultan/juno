@@ -22,7 +22,7 @@ def load_json_file(path: str) -> Any:
 
 def save_json_file(obj: Any, path: str, indent: int | None = None) -> None:
     with open(path, mode="w", encoding="utf-8") as f:
-        return json.dump(obj, f, indent=indent)
+        json.dump(obj, f, indent=indent)
 
 
 def load_yaml_file(path: str) -> Any:
@@ -30,9 +30,9 @@ def load_yaml_file(path: str) -> Any:
         return yaml.load(f)
 
 
-def save_yaml_file(obj: Any, path: str, indent: int | None = None) -> Any:
+def save_yaml_file(obj: Any, path: str, indent: int | None = None) -> None:
     with open(path, mode="w", encoding="utf-8") as f:
-        return yaml.dump(obj, f, indent=indent)
+        yaml.dump(obj, f, indent=indent)
 
 
 def load_text_file(path: str) -> str:
@@ -40,6 +40,6 @@ def load_text_file(path: str) -> str:
         return f.read()
 
 
-def save_text_file(obj: str, path: str) -> Any:
+def save_text_file(obj: str, path: str) -> None:
     with open(path, mode="w", encoding="utf-8") as f:
-        return f.write(obj)
+        f.write(obj)

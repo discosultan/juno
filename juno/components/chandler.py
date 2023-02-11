@@ -676,7 +676,7 @@ class Chandler(AsyncContextManager):
         end = Timestamp_.floor(self._get_time_ms(), interval)
         final_end = end  # We need this to not go into the future. We will mutate `end`.
         while True:
-            mid = start + Timestamp_.floor(((end - start) // 2), interval)
+            mid = Timestamp_.floor(start + ((end - start) // 2), interval)
             from_ = mid
             to = min(from_ + 2 * interval, final_end)
             candles = await self.list_candles(exchange, symbol, interval, from_, to)
