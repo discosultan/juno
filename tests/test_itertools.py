@@ -28,7 +28,7 @@ def test_generate_missing_spans(
     assert output == expected_output
 
 
-def test_page() -> None:
+def test_paginate() -> None:
     pages = list(itertools.paginate(start=0, end=5, step=2))
     assert len(pages) == 3
     assert pages[0] == (0, 2)
@@ -36,7 +36,7 @@ def test_page() -> None:
     assert pages[2] == (4, 5)
 
 
-def test_page_limit() -> None:
+def test_paginate_limit() -> None:
     pages = list(itertools.paginate_limit(start=0, end=5, interval=1, limit=2))
     assert len(pages) == 3
     assert pages[0] == (0, 2)
