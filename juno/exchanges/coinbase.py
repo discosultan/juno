@@ -136,8 +136,8 @@ class Coinbase(Exchange):
             price_step = Decimal(product["quote_increment"])
             size_step = Decimal(product["base_increment"])
             filters[product["id"].lower()] = Filters(
-                base_precision=-size_step.normalize().as_tuple()[2],
-                quote_precision=-price_step.normalize().as_tuple()[2],
+                base_precision=_get_precision_from_step(size_step),
+                quote_precision=_get_precision_from_step(price_step),
                 price=Price(
                     min=Decimal(product["min_market_funds"]),
                     step=price_step,
@@ -664,3 +664,10 @@ def _auth_signature(
     message = (timestamp + method + url + body).encode("ascii")
     signature_hash = hmac.new(secret_key, message, hashlib.sha256).digest()
     return base64.b64encode(signature_hash).decode("ascii")
+
+
+def _get_precision_from_step(value: Decimal) -> int:
+    exponent = value.normalize().as_tuple()[2]
+    if not isinstance(exponent, int):
+        raise NotImplementedError()
+    return -exponent

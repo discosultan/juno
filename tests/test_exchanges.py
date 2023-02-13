@@ -103,8 +103,8 @@ async def test_get_exchange_info(request, exchange: Exchange) -> None:
     first_fees = next(iter(info.fees.values()))
     assert 0 <= first_fees.taker <= Decimal("0.1")
     assert 0 <= first_fees.maker <= Decimal("0.1")
-    assert -4 <= first_fees.taker.as_tuple().exponent <= -1
-    assert -4 <= first_fees.maker.as_tuple().exponent <= -1
+    assert_exponent(first_fees.taker, -4, -1)
+    assert_exponent(first_fees.maker, -4, -1)
     if "__all__" not in info.fees:
         assert info.fees["eth-btc"]
 
@@ -390,3 +390,9 @@ async def try_init_exchange(type_, config):
             yield exchange
     except TypeError:
         yield None
+
+
+def assert_exponent(value: Decimal, min_: int, max_inclusive: int) -> None:
+    exponent = value.as_tuple().exponent
+    assert isinstance(exponent, int)
+    assert min_ <= exponent <= max_inclusive
