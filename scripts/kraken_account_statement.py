@@ -263,7 +263,6 @@ def format_overview(headers: list[str], values: list[str]) -> list[str]:
     row_format = "    ".join(
         "{:<" + str(max(len(header), len(value))) + "}" for header, value in zip(headers, values)
     )
-    row_format = "{:<10}    {:<19}    {}"
     return [
         "",
         "Overview",

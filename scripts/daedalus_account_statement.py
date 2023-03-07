@@ -77,6 +77,7 @@ class Balance:
     btc_rate: Decimal
 
 
+# TODO: The Daedalus transactions export excludes staking rewards!
 async def main() -> None:
     # Read input data.
     with open(args.file, mode="r", encoding="utf-8") as file:
@@ -267,7 +268,6 @@ def format_overview(headers: list[str], values: list[str]) -> list[str]:
     row_format = "    ".join(
         "{:<" + str(max(len(header), len(value))) + "}" for header, value in zip(headers, values)
     )
-    row_format = "{:<10}    {:<19}    {}"
     return [
         "",
         "Overview",
