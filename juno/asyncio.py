@@ -81,10 +81,7 @@ async def gather_dict(tasks: dict[T, Awaitable[U]]) -> dict[T, U]:
     async def mark(key: T, coro: Awaitable[U]) -> tuple[T, U]:
         return key, await coro
 
-    return {
-        key: result
-        for key, result in await asyncio.gather(*(mark(key, coro) for key, coro in tasks.items()))
-    }
+    return dict(await asyncio.gather(*(mark(key, coro) for key, coro in tasks.items())))
 
 
 async def cancel(*tasks: Optional[asyncio.Task]) -> None:

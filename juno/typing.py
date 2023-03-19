@@ -72,7 +72,7 @@ def types_match(obj: Any, type_: type[Any]) -> bool:
 
 
 def map_input_args(obj: Any, args: Iterable[Any]) -> dict[str, Any]:
-    return {k: v for k, v in zip(get_input_type_hints(obj).keys(), args)}
+    return dict(zip(get_input_type_hints(obj).keys(), args))
 
 
 def resolve_generic_types(container: Any) -> list[type]:

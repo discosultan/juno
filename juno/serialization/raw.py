@@ -103,7 +103,7 @@ def deserialize(value: Any, type_: Any) -> Any:
         return value
 
     annotations = get_type_hints(resolved_type)
-    type_args_map = {p: a for p, a in zip(get_parameters(resolved_type), get_args(type_))}
+    type_args_map = dict(zip(get_parameters(resolved_type), get_args(type_)))
     kwargs = {}
     for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
         if name not in value:
