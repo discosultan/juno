@@ -310,9 +310,11 @@ class KuCoin(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         if account != "spot":
             raise NotImplementedError()
+        assert leverage is None
 
         await self._place_order_limiter.acquire()
 

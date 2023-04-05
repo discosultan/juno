@@ -167,12 +167,14 @@ class GateIO(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         assert account == "spot"
         assert type_ in {OrderType.LIMIT, OrderType.LIMIT_MAKER}
         assert quote is None
         assert size is not None
         assert price is not None
+        assert leverage is None
 
         ot, tif = _to_order_type_and_time_in_force(type_, time_in_force)
 

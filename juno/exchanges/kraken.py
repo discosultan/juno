@@ -80,7 +80,8 @@ class Kraken(Exchange):
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
-    can_margin_trade: bool = False  # TODO: Actually can; need impl
+    can_margin_borrow: bool = False
+    can_margin_order_leverage: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
     can_edit_order: bool = True
@@ -374,9 +375,10 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
-        assert account in {"spot", "margin"}
+        assert account in {"spot"}
         assert quote is None
 
         flags = []
@@ -398,9 +400,8 @@ class Kraken(Exchange):
             data["timeinforce"] = _to_time_in_force(time_in_force)
         if len(flags) > 0:
             data["oflags"] = ",".join(flags)
-        if account == "margin":
-            # TODO: Figure a better way to express this.
-            data["margin"] = "2:1"
+        if leverage is not None:
+            data["leverage"] = leverage
 
         try:
             await self._request_private(

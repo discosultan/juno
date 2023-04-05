@@ -42,7 +42,8 @@ class Exchange(AsyncContextManager, ABC):
     can_stream_candles: bool = False
     # Accepts empty symbols filter to retrieve all tickers.
     can_list_all_tickers: bool = False
-    can_margin_trade: bool = False
+    can_margin_borrow: bool = False
+    can_margin_order_leverage: bool = False
     can_place_market_order: bool = False
     # Whether market order accepts quote param.
     can_place_market_order_quote: bool = False
@@ -118,6 +119,7 @@ class Exchange(AsyncContextManager, ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         raise NotImplementedError()
 

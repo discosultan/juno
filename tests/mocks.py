@@ -53,7 +53,8 @@ def mock_exchange(
     can_stream_historical_candles: bool = True,
     can_stream_candles: bool = True,
     can_list_all_tickers: bool = True,
-    can_margin_trade: bool = True,
+    can_margin_borrow: bool = True,
+    can_margin_order_leverage: bool = True,
     can_place_market_order: bool = True,
     can_place_market_order_quote: bool = True,
     can_edit_order: bool = True,
@@ -68,7 +69,8 @@ def mock_exchange(
     exchange.can_stream_historical_candles = can_stream_historical_candles
     exchange.can_stream_candles = can_stream_candles
     exchange.can_list_all_tickers = can_list_all_tickers
-    exchange.can_margin_trade = can_margin_trade
+    exchange.can_margin_borrow = can_margin_borrow
+    exchange.can_margin_order_leverage = can_margin_order_leverage
     exchange.can_place_market_order = can_place_market_order
     exchange.can_place_market_order_quote = can_place_market_order_quote
     exchange.can_edit_order = can_edit_order

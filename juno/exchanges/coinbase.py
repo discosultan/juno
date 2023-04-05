@@ -68,7 +68,7 @@ class Coinbase(Exchange):
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
-    can_margin_trade: bool = False  # TODO: Actually can; need impl
+    can_margin_borrow: bool = False  # TODO: Actually can; need impl
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
     can_edit_order: bool = False
@@ -321,8 +321,11 @@ class Coinbase(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
+        assert leverage is None
+
         if account != "spot":
             raise NotImplementedError()
         if type_ not in {OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER}:
