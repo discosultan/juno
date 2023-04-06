@@ -21,6 +21,7 @@ from juno.brokers import Broker
 from juno.common import CandleMeta
 from juno.components import Chandler, Events, Informant, User
 from juno.custodians import Custodian, Stub
+from juno.exchanges import Exchange
 from juno.inspect import Constructor
 from juno.positioner import Positioner, SimulatedPositioner
 from juno.stop_loss import Noop as NoopStopLoss
@@ -113,17 +114,19 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         custodians: list[Custodian] = [Stub()],
         events: Events = Events(),
         get_time_ms: Callable[[], int] = Timestamp_.now,
+        exchanges: Optional[list[Exchange]] = None,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._broker = broker
-        if user is not None and broker is not None:
+        if user is not None and broker is not None and exchanges is not None:
             self._positioner = Positioner(
                 informant=informant,
                 chandler=chandler,
                 broker=broker,
                 user=user,
                 custodians=custodians,
+                exchanges=exchanges,
             )
         self._simulated_positioner = SimulatedPositioner(informant=informant)
         self._custodians = {type(c).__name__.lower(): c for c in custodians}

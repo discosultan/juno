@@ -26,6 +26,7 @@ from juno.inspect import GenericConstructor
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
 from tests import fakes
+from tests.mocks import mock_exchange
 
 TIMEOUT = 1.0
 
@@ -33,7 +34,9 @@ TIMEOUT = 1.0
 async def test_simple() -> None:
     symbols = ["eth-btc", "ltc-btc", "xmr-btc"]
     chandler = fakes.Chandler(
-        future_candles={("dummy", s, 1): [Candle(time=0, close=Decimal("1.0"))] for s in symbols},
+        future_candles={
+            ("magicmock", s, 1): [Candle(time=0, close=Decimal("1.0"))] for s in symbols
+        },
     )
     informant = fakes.Informant(
         tickers={
@@ -57,7 +60,7 @@ async def test_simple() -> None:
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=4,
@@ -83,12 +86,12 @@ async def test_simple() -> None:
 
     for i in range(1, 4):
         await asyncio.gather(
-            *(chandler.future_candle_queues[("dummy", s, 1)].join() for s in symbols)
+            *(chandler.future_candle_queues[("magicmock", s, 1)].join() for s in symbols)
         )
         # Sleep to give control back to position manager.
         await asyncio.sleep(0)
         for s in symbols:
-            chandler.future_candle_queues[("dummy", s, 1)].put_nowait(
+            chandler.future_candle_queues[("magicmock", s, 1)].put_nowait(
                 Candle(time=i, close=Decimal("1.0"))
             )
 
@@ -146,7 +149,7 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=4,
@@ -172,11 +175,11 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         trader_task = asyncio.create_task(trader.run(trader_state))
 
         for s in symbols:
-            chandler.future_candle_queues[("dummy", s, 1)].put_nowait(
+            chandler.future_candle_queues[("magicmock", s, 1)].put_nowait(
                 Candle(time=i, close=Decimal("1.0"))
             )
         await asyncio.gather(
-            *(chandler.future_candle_queues[("dummy", s, 1)].join() for s in symbols)
+            *(chandler.future_candle_queues[("magicmock", s, 1)].join() for s in symbols)
         )
         # Sleep to give control back to position manager.
         await asyncio.sleep(0)
@@ -229,9 +232,11 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
 async def test_historical() -> None:
     chandler = fakes.Chandler(
         candles={
-            ("dummy", "eth-btc", 1): [Candle(time=i, close=Decimal("1.0")) for i in range(10)],
+            ("magicmock", "eth-btc", 1): [Candle(time=i, close=Decimal("1.0")) for i in range(10)],
             # Missing first half of candles. Should tick empty advice for missing.
-            ("dummy", "ltc-btc", 1): [Candle(time=i, close=Decimal("1.0")) for i in range(5, 10)],
+            ("magicmock", "ltc-btc", 1): [
+                Candle(time=i, close=Decimal("1.0")) for i in range(5, 10)
+            ],
         },
     )
     informant = fakes.Informant(
@@ -250,7 +255,7 @@ async def test_historical() -> None:
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=10,
@@ -285,7 +290,7 @@ async def test_historical() -> None:
 async def test_trailing_stop_loss() -> None:
     chandler = fakes.Chandler(
         candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("3.0")),
                 Candle(time=1, close=Decimal("1.0")),  # Triggers trailing stop loss.
                 Candle(time=2, close=Decimal("1.0")),
@@ -306,7 +311,7 @@ async def test_trailing_stop_loss() -> None:
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=6,
@@ -361,11 +366,11 @@ async def test_close_on_exit(
     symbols = ["eth-btc", "ltc-btc"]
     chandler = fakes.Chandler(
         future_candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("10.0")),
                 Candle(time=1, close=Decimal("20.0")),
             ],
-            ("dummy", "ltc-btc", 1): [
+            ("magicmock", "ltc-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),
                 Candle(time=1, close=Decimal("2.0")),
             ],
@@ -387,7 +392,7 @@ async def test_close_on_exit(
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=3,
@@ -406,17 +411,19 @@ async def test_close_on_exit(
 
     trader_task = asyncio.create_task(trader.run(state))
 
-    await asyncio.gather(*(chandler.future_candle_queues[("dummy", s, 1)].join() for s in symbols))
+    await asyncio.gather(
+        *(chandler.future_candle_queues[("magicmock", s, 1)].join() for s in symbols)
+    )
     # Sleep to give control back to position manager.
     await asyncio.sleep(0)
 
     await cancel(trader_task)
     await storage.set("shard", "key", state)
     state = await storage.get("shard", "key", traders.MultiState)
-    chandler.future_candle_queues[("dummy", "eth-btc", 1)].put_nowait(
+    chandler.future_candle_queues[("magicmock", "eth-btc", 1)].put_nowait(
         Candle(time=2, close=Decimal("30.0"))
     )
-    chandler.future_candle_queues[("dummy", "ltc-btc", 1)].put_nowait(
+    chandler.future_candle_queues[("magicmock", "ltc-btc", 1)].put_nowait(
         Candle(time=2, close=Decimal("3.0"))
     )
     summary = await trader.run(state)
@@ -454,7 +461,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker: MockerFixtu
     )
 
     chandler = fakes.Chandler(
-        future_candles={("dummy", "eth-btc", 1): [Candle(time=0, close=Decimal("1.0"))]},
+        future_candles={("magicmock", "eth-btc", 1): [Candle(time=0, close=Decimal("1.0"))]},
     )
     informant = fakes.Informant(
         tickers={
@@ -466,11 +473,18 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker: MockerFixtu
         }
     )
     time = fakes.Time(time=0)
+    exchange = mock_exchange(mocker)
+    exchange.name = "magicmock"
     trader = traders.Multi(
-        chandler=chandler, informant=informant, user=user, broker=broker, get_time_ms=time.get_time
+        chandler=chandler,
+        informant=informant,
+        user=user,
+        broker=broker,
+        get_time_ms=time.get_time,
+        exchanges=[exchange],
     )
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=2,
@@ -488,12 +502,12 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker: MockerFixtu
     state = await trader.initialize(config)
 
     trader_task = asyncio.create_task(trader.run(state))
-    await chandler.future_candle_queues[("dummy", "eth-btc", 1)].join()
+    await chandler.future_candle_queues[("magicmock", "eth-btc", 1)].join()
     # Sleep to give control back to position manager.
     await asyncio.sleep(0)
     await cancel(trader_task)
 
-    chandler.future_candle_queues[("dummy", "eth-btc", 1)].put_nowait(
+    chandler.future_candle_queues[("magicmock", "eth-btc", 1)].put_nowait(
         Candle(time=1, close=Decimal("2.0"))
     )
     time.time = 2
@@ -513,11 +527,11 @@ async def test_open_new_positions() -> None:
         }
     )
     chandler = fakes.Chandler(
-        candles={("dummy", "eth-btc", 1): [Candle(time=0, close=Decimal("1.0"))]}
+        candles={("magicmock", "eth-btc", 1): [Candle(time=0, close=Decimal("1.0"))]}
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=1,
@@ -550,7 +564,7 @@ async def test_take_profit() -> None:
     )
     chandler = fakes.Chandler(
         candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),
                 Candle(time=1, close=Decimal("2.0")),
             ],
@@ -559,7 +573,7 @@ async def test_take_profit() -> None:
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=2,
@@ -599,14 +613,14 @@ async def test_repick_symbols() -> None:
     )
     chandler = fakes.Chandler(
         future_candles={
-            ("dummy", "eth-btc", 1): [Candle(time=0, close=Decimal("2.0"))],
-            ("dummy", "ltc-btc", 1): [Candle(time=0, close=Decimal("1.0"))],
+            ("magicmock", "eth-btc", 1): [Candle(time=0, close=Decimal("2.0"))],
+            ("magicmock", "ltc-btc", 1): [Candle(time=0, close=Decimal("1.0"))],
         }
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=2,
@@ -649,13 +663,13 @@ async def test_repick_symbols() -> None:
     task = asyncio.create_task(trader.run(state))
 
     await asyncio.gather(
-        chandler.future_candle_queues[("dummy", "eth-btc", 1)].join(),
-        chandler.future_candle_queues[("dummy", "ltc-btc", 1)].join(),
+        chandler.future_candle_queues[("magicmock", "eth-btc", 1)].join(),
+        chandler.future_candle_queues[("magicmock", "ltc-btc", 1)].join(),
     )
-    chandler.future_candle_queues[("dummy", "eth-btc", 1)].put_nowait(
+    chandler.future_candle_queues[("magicmock", "eth-btc", 1)].put_nowait(
         Candle(time=1, close=Decimal("1.0"))
     )
-    chandler.future_candle_queues[("dummy", "xmr-btc", 1)].put_nowait(
+    chandler.future_candle_queues[("magicmock", "xmr-btc", 1)].put_nowait(
         Candle(time=1, close=Decimal("1.0"))
     )
 
@@ -681,7 +695,7 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker: Mock
     }
     chandler = fakes.Chandler(
         candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),
                 Candle(time=1, close=Decimal("1.0")),
             ],
@@ -690,7 +704,7 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker: Mock
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=1,
         end=2,
@@ -722,11 +736,11 @@ async def test_repick_symbols_with_adjusted_start() -> None:
     )
     chandler = fakes.Chandler(
         future_candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),
                 Candle(time=1, close=Decimal("1.0")),
             ],
-            ("dummy", "ltc-btc", 1): [
+            ("magicmock", "ltc-btc", 1): [
                 Candle(time=1, close=Decimal("1.0")),
                 Candle(time=2, close=Decimal("1.0")),
             ],
@@ -735,7 +749,7 @@ async def test_repick_symbols_with_adjusted_start() -> None:
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=1,
         end=3,
@@ -789,15 +803,15 @@ async def test_repick_symbols_does_not_repick_when_disabled() -> None:
     )
     chandler = fakes.Chandler(
         future_candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),
                 Candle(time=1, close=Decimal("1.0")),
             ],
-            ("dummy", "ltc-btc", 1): [
+            ("magicmock", "ltc-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),
                 Candle(time=1, close=Decimal("1.0")),
             ],
-            ("dummy", "xmr-btc", 1): [
+            ("magicmock", "xmr-btc", 1): [
                 Candle(time=1, close=Decimal("1.0")),
             ],
         }
@@ -805,7 +819,7 @@ async def test_repick_symbols_does_not_repick_when_disabled() -> None:
     trader = traders.Multi(chandler=chandler, informant=informant)
 
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=2,
@@ -854,7 +868,7 @@ async def test_repick_symbols_does_not_repick_when_disabled() -> None:
 async def test_rebalance_quotes() -> None:
     chandler = fakes.Chandler(
         candles={
-            ("dummy", s, 1): [Candle(time=i, close=Decimal(f"{i + 1}.0")) for i in range(3)]
+            ("magicmock", s, 1): [Candle(time=i, close=Decimal(f"{i + 1}.0")) for i in range(3)]
             for s in ["eth-btc", "ltc-btc", "xmr-btc"]
         },
     )
@@ -879,7 +893,7 @@ async def test_rebalance_quotes() -> None:
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=3,
@@ -920,11 +934,11 @@ async def test_rebalance_quotes() -> None:
 async def test_allowed_age_drift() -> None:
     chandler = fakes.Chandler(
         candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),  # LONG.
                 Candle(time=1, close=Decimal("1.0")),  # LIQUIDATE.
             ],
-            ("dummy", "ltc-btc", 1): [
+            ("magicmock", "ltc-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),  # LONG (skipped).
                 Candle(time=1, close=Decimal("1.0")),  # LONG.
             ],
@@ -946,7 +960,7 @@ async def test_allowed_age_drift() -> None:
     )
     trader = traders.Multi(chandler=chandler, informant=informant)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=2,
@@ -989,7 +1003,7 @@ async def test_allowed_age_drift() -> None:
 async def test_open_positions_on_command() -> None:
     chandler = fakes.Chandler(
         future_candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),  # NONE.
             ],
         },
@@ -1006,7 +1020,7 @@ async def test_open_positions_on_command() -> None:
     time = fakes.Time(time=1)
     trader = traders.Multi(chandler=chandler, informant=informant, get_time_ms=time.get_time)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=2,
@@ -1022,12 +1036,12 @@ async def test_open_positions_on_command() -> None:
     task = asyncio.create_task(trader.run(state))
 
     await asyncio.gather(
-        chandler.future_candle_queues[("dummy", "eth-btc", 1)].join(),
+        chandler.future_candle_queues[("magicmock", "eth-btc", 1)].join(),
     )
 
     await trader.open_positions(state, ["eth-btc"], False)
 
-    chandler.future_candle_queues[("dummy", "eth-btc", 1)].put_nowait(
+    chandler.future_candle_queues[("magicmock", "eth-btc", 1)].put_nowait(
         Candle(time=1, close=Decimal("1.0"))  # LIQUIDATE.
     )
 
@@ -1044,11 +1058,11 @@ async def test_open_positions_on_command() -> None:
 async def test_close_positions_on_command() -> None:
     chandler = fakes.Chandler(
         future_candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),  # LONG.
                 Candle(time=1, close=Decimal("1.0")),  # NONE.
             ],
-            ("dummy", "ltc-btc", 1): [
+            ("magicmock", "ltc-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),  # LONG.
                 Candle(time=1, close=Decimal("1.0")),  # NONE.
             ],
@@ -1071,7 +1085,7 @@ async def test_close_positions_on_command() -> None:
     time = fakes.Time(time=2)
     trader = traders.Multi(chandler=chandler, informant=informant, get_time_ms=time.get_time)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=3,
@@ -1087,8 +1101,8 @@ async def test_close_positions_on_command() -> None:
     task = asyncio.create_task(trader.run(state))
 
     await asyncio.gather(
-        chandler.future_candle_queues[("dummy", "eth-btc", 1)].join(),
-        chandler.future_candle_queues[("dummy", "ltc-btc", 1)].join(),
+        chandler.future_candle_queues[("magicmock", "eth-btc", 1)].join(),
+        chandler.future_candle_queues[("magicmock", "ltc-btc", 1)].join(),
     )
 
     await trader.close_positions(state, ["eth-btc", "ltc-btc"], CloseReason.CANCELLED)
@@ -1099,7 +1113,7 @@ async def test_close_positions_on_command() -> None:
 async def test_no_positions_when_long_and_short_disabled() -> None:
     chandler = fakes.Chandler(
         candles={
-            ("dummy", "eth-btc", 1): [
+            ("magicmock", "eth-btc", 1): [
                 Candle(time=0, close=Decimal("1.0")),  # LONG.
                 Candle(time=1, close=Decimal("1.0")),  # SHORT.
             ],
@@ -1117,7 +1131,7 @@ async def test_no_positions_when_long_and_short_disabled() -> None:
     time = fakes.Time(time=2)
     trader = traders.Multi(chandler=chandler, informant=informant, get_time_ms=time.get_time)
     config = traders.MultiConfig(
-        exchange="dummy",
+        exchange="magicmock",
         interval=1,
         start=0,
         end=2,

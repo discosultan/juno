@@ -38,6 +38,7 @@ class Market(Broker):
         quote: Optional[Decimal] = None,
         test: bool = True,
         ensure_size: bool = False,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         Broker.validate_funds(size, quote)
 
@@ -58,7 +59,12 @@ class Market(Broker):
                 )
             else:
                 res = await self._fill(
-                    exchange=exchange, symbol=symbol, side=Side.BUY, size=size, account=account
+                    exchange=exchange,
+                    symbol=symbol,
+                    side=Side.BUY,
+                    size=size,
+                    account=account,
+                    leverage=leverage,
                 )
         elif quote is not None:
             if test:
@@ -69,7 +75,12 @@ class Market(Broker):
                 )
             elif self._user.can_place_market_order_quote(exchange):
                 res = await self._fill(
-                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY, quote=quote
+                    exchange=exchange,
+                    account=account,
+                    symbol=symbol,
+                    side=Side.BUY,
+                    quote=quote,
+                    leverage=leverage,
                 )
             else:
                 res = await self._fill(
@@ -92,6 +103,7 @@ class Market(Broker):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         assert size is not None  # TODO: support by quote
         Broker.validate_funds(size, quote)
@@ -110,7 +122,12 @@ class Market(Broker):
             )
         else:
             res = await self._fill(
-                exchange=exchange, account=account, symbol=symbol, side=Side.SELL, size=size
+                exchange=exchange,
+                account=account,
+                symbol=symbol,
+                side=Side.SELL,
+                size=size,
+                leverage=leverage,
             )
 
         return res
@@ -158,6 +175,7 @@ class Market(Broker):
         side: Side,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         # TODO: If we tracked Binance fills with websocket, we could also get filled quote sizes.
         # Now we need to calculate ourselves.
@@ -172,6 +190,7 @@ class Market(Broker):
             size=size,
             quote=quote,
             account=account,
+            leverage=leverage,
         )
         assert res.status is OrderStatus.FILLED
         return res

@@ -29,11 +29,14 @@ from juno import (
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
 from juno.custodians import Custodian
+from juno.exchanges import Exchange, Kraken
 from juno.inspect import extract_public
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.trading import CloseReason, Position, TradingMode
 
 _log = logging.getLogger(__name__)
+
+MARGIN_MULTIPLIER = 2
 
 
 class _UnexpectedExchangeResult(Exception):
@@ -48,12 +51,14 @@ class Positioner:
         broker: Broker,
         user: User,
         custodians: list[Custodian],
+        exchanges: list[Exchange],
     ) -> None:
         self._informant = informant
         self._chandler = chandler
         self._broker = broker
         self._user = user
         self._custodians = {type(c).__name__.lower(): c for c in custodians}
+        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
     async def open_positions(
         self,
@@ -67,12 +72,18 @@ class Positioner:
 
         _log.info(f"opening position(s): {entries}")
         custodian_instance = self._custodians[custodian]
+        exchange_instance = self._exchanges[exchange]
 
         # Acquire funds from custodian.
         acquires: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
-        for symbol, quote, _ in entries:
+        for symbol, quote, short in entries:
             quote_asset = Symbol_.quote_asset(symbol)
             acquires[(exchange, quote_asset)] += quote
+            if short and not (
+                exchange_instance.can_margin_borrow or exchange_instance.can_margin_order_leverage
+            ):
+                raise RuntimeError(f"Exchange {exchange} does not support shorting")
+
         await asyncio.gather(
             *(
                 custodian_instance.acquire(exchange, asset, quote)
@@ -82,7 +93,9 @@ class Positioner:
 
         result = await asyncio.gather(
             *(
-                self._open_short_position(exchange, symbol, quote, mode)
+                self._open_short_position_using_borrow(exchange, symbol, quote, mode)
+                if short and exchange_instance.can_margin_borrow
+                else self._open_short_position_using_leveraged_order(exchange, symbol, quote, mode)
                 if short
                 else self._open_long_position(exchange, symbol, quote, mode)
                 for symbol, quote, short in entries
@@ -90,9 +103,14 @@ class Positioner:
         )
 
         # Release funds to custodian.
-        # ONLY RELEASE FOR OPEN LONG POSITIONS.
+        # ONLY RELEASE FOR OPEN LONG POSITIONS OR SHORT POSITIONS IF EXCHANGE SUPPORTS MARGIN
+        # THROUGH ORDERS.
         releases: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
-        for pos in (p for p in result if isinstance(p, Position.OpenLong)):
+        for pos in (
+            p
+            for p in result
+            if exchange_instance.can_margin_order_leverage or isinstance(p, Position.OpenLong)
+        ):
             base_asset = Symbol_.base_asset(pos.symbol)
             releases[(pos.exchange, base_asset)] += pos.base_gain
         await asyncio.gather(
@@ -114,14 +132,21 @@ class Positioner:
         if len(entries) == 0:
             return []
 
+        exchange = entries[0][0].exchange
         log_entries = [(p.symbol, r) for p, r in entries]
         _log.info(f"closing position(s): {log_entries}")
         custodian_instance = self._custodians[custodian]
+        exchange_instance = self._exchanges[exchange]
 
         # Acquire funds from custodian.
-        # ONLY ACQUIRE FOR OPEN LONG POSITIONS.
+        # ONLY ACQUIRE FOR OPEN LONG POSITIONS OR SHORT POSITIONS IF EXCHANGE SUPPORTS MARGIN
+        # THROUGH ORDERS.
         acquires: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
-        for open_long in (p for p, _ in entries if isinstance(p, Position.OpenLong)):
+        for open_long in (
+            p
+            for p, _ in entries
+            if exchange_instance.can_margin_order_leverage or isinstance(p, Position.OpenLong)
+        ):
             base_asset = Symbol_.base_asset(open_long.symbol)
             acquires[(open_long.exchange, base_asset)] += open_long.base_gain
         await asyncio.gather(
@@ -133,7 +158,9 @@ class Positioner:
 
         result = await asyncio.gather(
             *(
-                self._close_short_position(position, mode, reason)
+                self._close_short_position_using_borrow(position, mode, reason)
+                if isinstance(position, Position.OpenShort) and exchange_instance.can_margin_borrow
+                else self._close_short_position_using_leveraged_order(position, mode, reason)
                 if isinstance(position, Position.OpenShort)
                 else self._close_long_position(position, mode, reason)
                 for position, reason in entries
@@ -202,7 +229,7 @@ class Positioner:
         _log.debug(extract_public(closed_position))
         return closed_position
 
-    async def _open_short_position(
+    async def _open_short_position_using_borrow(
         self, exchange: str, symbol: Symbol, collateral: Decimal, mode: TradingMode
     ) -> Position.Open:
         assert mode in {TradingMode.PAPER, TradingMode.LIVE}
@@ -212,7 +239,6 @@ class Positioner:
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
         # lowers multiplier for now for reduced risk.
-        margin_multiplier = 2
         # margin_multiplier = self.informant.get_margin_multiplier(exchange)
 
         price = (await self._chandler.get_last_candle(exchange, symbol, Interval_.MIN)).close
@@ -222,7 +248,7 @@ class Positioner:
                 exchange=exchange, asset=base_asset, account=symbol
             )
             borrowed = _calculate_borrowed(
-                filters, margin_multiplier, borrow_info.limit, collateral, price
+                filters, MARGIN_MULTIPLIER, borrow_info.limit, collateral, price
             )
         else:
             _log.info(f"transferring {collateral} {quote_asset} from spot to {symbol} account")
@@ -255,7 +281,7 @@ class Positioner:
                 )
 
             borrowed = _calculate_borrowed(
-                filters, margin_multiplier, borrowable, collateral, price
+                filters, MARGIN_MULTIPLIER, borrowable, collateral, price
             )
             _log.info(f"borrowing {borrowed} {base_asset} from {exchange}")
             await self._user.borrow(
@@ -305,7 +331,7 @@ class Positioner:
             )
         return borrowable
 
-    async def _close_short_position(
+    async def _close_short_position_using_borrow(
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Closed:
         assert mode in {TradingMode.PAPER, TradingMode.LIVE}
@@ -459,6 +485,117 @@ class Positioner:
             )
         return balance
 
+    async def _open_short_position_using_leveraged_order(
+        self, exchange: str, symbol: Symbol, collateral: Decimal, mode: TradingMode
+    ) -> Position.Open:
+        _log.info(
+            f"opening short position using leveraged order {symbol} {mode.name} with {collateral} "
+            "collateral"
+        )
+
+        base_asset = Symbol_.base_asset(symbol)
+        price = (await self._chandler.get_last_candle(exchange, symbol, Interval_.MIN)).close
+        borrow_info = self._informant.get_borrow_info(
+            exchange=exchange, asset=base_asset, account=symbol
+        )
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
+        borrowed = _calculate_borrowed(
+            filters, MARGIN_MULTIPLIER, borrow_info.limit, collateral, price
+        )
+        res = await self._broker.sell(
+            exchange=exchange,
+            account="spot",
+            symbol=symbol,
+            size=borrowed,
+            test=mode is TradingMode.PAPER,
+            leverage=f"{MARGIN_MULTIPLIER}:1",
+        )
+        open_position = Position.OpenShort(
+            exchange=exchange,
+            symbol=symbol,
+            collateral=collateral,
+            borrowed=borrowed,
+            time=res.time,
+            fills=res.fills,
+        )
+        _log.info(
+            f"opened short position using leveraged order {open_position.symbol} {mode.name}"
+        )
+        _log.debug(extract_public(open_position))
+        return open_position
+
+    async def _close_short_position_using_leveraged_order(
+        self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
+    ) -> Position.Closed:
+        _log.info(f"closing short position using leveraged order {position.symbol} {mode.name}")
+
+        base_asset, quote_asset = Symbol_.assets(position.symbol)
+        asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
+        borrow_info = self._informant.get_borrow_info(
+            exchange=position.exchange, asset=base_asset, account=position.symbol
+        )
+
+        if mode is TradingMode.LIVE:
+            exchange_instance = self._exchanges[position.exchange]
+            if not isinstance(exchange_instance, Kraken):
+                raise NotImplementedError()
+            margin_positions = await exchange_instance.list_open_margin_positions()
+            total_margin = sum(
+                p["margin"] for p in margin_positions if p["symbol"] == position.symbol
+            )
+            res = await self._broker.buy(
+                exchange=position.exchange,
+                symbol=position.symbol,
+                quote=total_margin,
+                account="spot",
+                test=False,
+                ensure_size=True,
+                leverage=f"{MARGIN_MULTIPLIER}:1",
+            )
+        else:
+            interest = _calculate_interest(
+                borrowed=position.borrowed,
+                interest_interval=borrow_info.interest_interval,
+                interest_rate=borrow_info.interest_rate,
+                start=position.time,
+                end=Timestamp_.now(),
+                precision=asset_info.precision,
+            )
+
+            # Add an extra interest tick in case it is about to get ticked.
+            interest_per_tick = borrow_info.interest_rate * position.borrowed
+            repay = position.borrowed + interest
+            size = repay + interest_per_tick
+            res = await self._broker.buy(
+                exchange=position.exchange,
+                symbol=position.symbol,
+                size=size,
+                account="spot",
+                test=True,
+                ensure_size=True,
+            )
+
+        closed_position = position.close(
+            interest=interest,
+            time=res.time,
+            fills=res.fills,
+            reason=reason,
+        )
+
+        if mode is TradingMode.LIVE:
+            # Assert no open margin positions left.
+            exchange_instance = self._exchanges[position.exchange]
+            if not isinstance(exchange_instance, Kraken):
+                raise NotImplementedError()
+            margin_positions = await exchange_instance.list_open_margin_positions()
+            assert len([p for p in margin_positions if p["symbol"] == position.symbol]) == 0
+
+        _log.info(
+            f"closed short position using leveraged order {closed_position.symbol} {mode.name}"
+        )
+        _log.debug(extract_public(closed_position))
+        return closed_position
+
 
 class SimulatedPositioner:
     def __init__(self, informant: Informant) -> None:
@@ -562,10 +699,9 @@ class SimulatedPositioner:
             raise BadOrder("Borrow limit zero")
         # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
         # lowers multiplier for now for reduced risk.
-        margin_multiplier = 2
         # margin_multiplier = self.informant.get_margin_multiplier(exchange)
 
-        borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
+        borrowed = _calculate_borrowed(filters, MARGIN_MULTIPLIER, limit, collateral, price)
         quote = round_down(price * borrowed, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 

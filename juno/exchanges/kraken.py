@@ -528,6 +528,16 @@ class Kraken(Exchange):
         async with self._public_ws.subscribe({"name": "trade"}, {symbol}) as ws:
             yield inner(ws)
 
+    async def list_open_margin_positions(self) -> Any:
+        res = await self._request_private(url="/0/private/OpenPositions", data={})
+        return [
+            {
+                "margin": Decimal(x["margin"]),
+                "symbol": _from_http_symbol(x["pair"]),
+            }
+            for x in res["result"].values()
+        ]
+
     async def _get_websockets_token(self) -> str:
         res = await self._request_private("/0/private/GetWebSocketsToken")
         return res["result"]["token"]

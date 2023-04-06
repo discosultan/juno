@@ -44,6 +44,7 @@ class Market2(Broker):
         quote: Optional[Decimal] = None,
         test: bool = True,
         ensure_size: bool = False,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         assert not test
         Broker.validate_funds(size, quote)
@@ -61,7 +62,9 @@ class Market2(Broker):
             )
             if ensure_size:
                 size = filters.with_fee(size, fees.taker)
-            return await self._fill(exchange, account, symbol, Side.BUY, size=size)
+            return await self._fill(
+                exchange, account, symbol, Side.BUY, size=size, leverage=leverage
+            )
         elif quote is not None:
             _log.info(
                 f"buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order "
@@ -75,7 +78,9 @@ class Market2(Broker):
                 return await self._fill(
                     exchange, account, symbol, Side.BUY, size=Fill.total_size(fills)
                 )
-            return await self._fill(exchange, account, symbol, Side.BUY, quote=quote)
+            return await self._fill(
+                exchange, account, symbol, Side.BUY, quote=quote, leverage=leverage
+            )
         else:
             raise NotImplementedError()
 
@@ -87,6 +92,7 @@ class Market2(Broker):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         assert not test
         assert size is not None  # TODO: support by quote
@@ -96,7 +102,7 @@ class Market2(Broker):
             raise NotImplementedError()
 
         _log.info(f"selling {size} {symbol} with market order ({account} account)")
-        return await self._fill(exchange, account, symbol, Side.SELL, size=size)
+        return await self._fill(exchange, account, symbol, Side.SELL, size=size, leverage=leverage)
 
     async def _fill(
         self,
@@ -106,6 +112,7 @@ class Market2(Broker):
         side: Side,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         if size is not None:
             _, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -126,6 +133,7 @@ class Market2(Broker):
                 size=size,
                 quote=quote,
                 client_id=client_id,
+                leverage=leverage,
             )
 
             fills = []  # Fills from aggregated trades.

@@ -59,6 +59,7 @@ async def main() -> None:
         broker=broker,
         user=user,
         custodians=[Savings(user), Spot(user), Stub()],
+        exchanges=[exchange],
     )
 
     async with exchange, informant, chandler, user, orderbook:

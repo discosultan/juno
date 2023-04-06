@@ -198,6 +198,7 @@ class User:
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         return await self._exchanges[exchange].place_order(
             account=account,
@@ -209,6 +210,7 @@ class User:
             price=price,
             time_in_force=time_in_force,
             client_id=client_id,
+            leverage=leverage,
         )
 
     def can_edit_order(self, exchange: str) -> bool:

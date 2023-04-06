@@ -18,6 +18,7 @@ class Broker(ABC):
         quote: Optional[Decimal] = None,
         test: bool = True,
         ensure_size: bool = False,  # Only if buying by size.
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         pass
 
@@ -30,6 +31,7 @@ class Broker(ABC):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
+        leverage: Optional[str] = None,
     ) -> OrderResult:
         pass
 
