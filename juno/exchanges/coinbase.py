@@ -71,6 +71,7 @@ class Coinbase(Exchange):
     can_margin_borrow: bool = False  # TODO: Actually can; need impl
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
+    can_get_market_order_result_direct: bool = False
     can_edit_order: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
@@ -322,6 +323,7 @@ class Coinbase(Exchange):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
         leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
         assert leverage is None

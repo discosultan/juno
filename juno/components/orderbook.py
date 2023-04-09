@@ -135,41 +135,72 @@ class Orderbook:
             size: Optional[Decimal] = None,
             quote: Optional[Decimal] = None,
         ) -> list[Fill]:
-            if quote is not None:
-                raise NotImplementedError()
-            if size is None:
+            if size is not None and quote is not None:
+                raise ValueError()
+            if size is None and quote is None:
                 raise ValueError()
 
             result = []
             base_asset, quote_asset = Symbol_.assets(self.symbol)
-            for bprice, bsize in self.list_bids():
-                if bsize >= size:
-                    rsize = filters.size.round_down(size)
-                    if size != 0:
-                        fee = round_half_up(bprice * rsize * fee_rate, filters.quote_precision)
+            if size is not None:
+                for bprice, bsize in self.list_bids():
+                    if bsize >= size:
+                        rsize = filters.size.round_down(size)
+                        if size != 0:
+                            fee = round_half_up(bprice * rsize * fee_rate, filters.quote_precision)
+                            result.append(
+                                Fill.with_computed_quote(
+                                    price=bprice,
+                                    size=rsize,
+                                    fee=fee,
+                                    fee_asset=quote_asset,
+                                    precision=filters.quote_precision,
+                                )
+                            )
+                        break
+                    else:
+                        assert bsize != 0
+                        fee = round_half_up(bprice * bsize * fee_rate, filters.quote_precision)
                         result.append(
                             Fill.with_computed_quote(
                                 price=bprice,
-                                size=rsize,
+                                size=bsize,
                                 fee=fee,
                                 fee_asset=quote_asset,
                                 precision=filters.quote_precision,
                             )
                         )
-                    break
-                else:
-                    assert bsize != 0
-                    fee = round_half_up(bprice * bsize * fee_rate, filters.quote_precision)
-                    result.append(
-                        Fill.with_computed_quote(
-                            price=bprice,
-                            size=bsize,
-                            fee=fee,
-                            fee_asset=quote_asset,
-                            precision=filters.quote_precision,
+                        size -= bsize
+            elif quote is not None:
+                for bprice, bsize in self.list_bids():
+                    rquote = bprice * bsize
+                    if rquote >= quote:
+                        size = filters.size.round_down(quote / bprice)
+                        if size != 0:
+                            fee = round_half_up(size * fee_rate, filters.base_precision)
+                            result.append(
+                                Fill.with_computed_quote(
+                                    price=bprice,
+                                    size=size,
+                                    fee=fee,
+                                    fee_asset=base_asset,
+                                    precision=filters.quote_precision,
+                                )
+                            )
+                        break
+                    else:
+                        assert bsize != 0
+                        fee = round_half_up(bsize * fee_rate, filters.base_precision)
+                        result.append(
+                            Fill.with_computed_quote(
+                                price=bprice,
+                                size=bsize,
+                                fee=fee,
+                                fee_asset=base_asset,
+                                precision=filters.quote_precision,
+                            )
                         )
-                    )
-                    size -= bsize
+                        quote -= rquote
             return result
 
     def __init__(self, exchanges: list[Exchange]) -> None:

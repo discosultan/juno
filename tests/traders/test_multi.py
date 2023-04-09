@@ -26,7 +26,7 @@ from juno.inspect import GenericConstructor
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
 from tests import fakes
-from tests.mocks import mock_exchange
+from tests.mocks import mock_exchange, mock_orderbook
 
 TIMEOUT = 1.0
 
@@ -478,6 +478,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker: MockerFixtu
     trader = traders.Multi(
         chandler=chandler,
         informant=informant,
+        orderbook=mock_orderbook(mocker),
         user=user,
         broker=broker,
         get_time_ms=time.get_time,

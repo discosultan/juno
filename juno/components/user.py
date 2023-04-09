@@ -81,6 +81,11 @@ class User:
             return all(e.can_place_market_order_quote for e in self._exchanges.values())
         return self._exchanges[exchange].can_place_market_order_quote
 
+    def can_get_market_order_result_direct(self, exchange: str) -> bool:
+        if exchange == "__all__":
+            return all(e.can_get_market_order_result_direct for e in self._exchanges.values())
+        return self._exchanges[exchange].can_get_market_order_result_direct
+
     @asynccontextmanager
     async def sync_wallet(
         self, exchange: str, account: Account
@@ -199,6 +204,7 @@ class User:
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
         leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         return await self._exchanges[exchange].place_order(
             account=account,
@@ -211,6 +217,7 @@ class User:
             time_in_force=time_in_force,
             client_id=client_id,
             leverage=leverage,
+            reduce_only=reduce_only,
         )
 
     def can_edit_order(self, exchange: str) -> bool:

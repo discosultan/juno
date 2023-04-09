@@ -45,6 +45,7 @@ _WS_URL = "wss://api.gateio.ws/ws/v4/"
 
 class GateIO(Exchange):
     # Capabilities.
+    can_get_market_order_result_direct: bool = False
     can_edit_order: bool = False
 
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
@@ -168,6 +169,7 @@ class GateIO(Exchange):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
         leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         assert account == "spot"
         assert type_ in {OrderType.LIMIT, OrderType.LIMIT_MAKER}

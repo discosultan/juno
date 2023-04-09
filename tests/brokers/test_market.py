@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterator
@@ -6,7 +7,7 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from juno import BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
+from juno import BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus, OrderUpdate
 from juno.brokers import Market
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
@@ -72,6 +73,60 @@ async def test_buy(mocker: MockerFixture) -> None:
             test=False,
         )
     assert res == order_result
+    assert exchange.place_order.call_count == 1
+    assert exchange.place_order.mock_calls[0].kwargs["size"] == Decimal("0.2")
+
+
+async def test_buy_with_result_over_websocket(mocker: MockerFixture) -> None:
+    snapshot = Depth.Snapshot(asks=[(Decimal("1.0"), Decimal("1.0"))], bids=[])
+    exchange = mock_exchange(
+        mocker,
+        depth=snapshot,
+        exchange_info=exchange_info,
+        client_id=order_client_id,
+        can_stream_depth_snapshot=False,
+        can_get_market_order_result_direct=False,
+    )
+    async with init_broker(exchange) as broker:
+        task = asyncio.create_task(
+            broker.buy(
+                exchange=exchange.name,
+                account="spot",
+                symbol="eth-btc",
+                size=Decimal("0.25"),
+                test=False,
+            )
+        )
+        exchange.stream_orders_queue.put_nowait(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        exchange.stream_orders_queue.put_nowait(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal("1.0"),
+                    size=Decimal("0.2"),
+                    quote=Decimal("0.2"),
+                    fee=Decimal("0.02"),
+                    fee_asset="eth",
+                ),
+            )
+        )
+        exchange.stream_orders_queue.put_nowait(
+            OrderUpdate.Done(time=1, client_id=order_client_id)
+        )
+        res = await task
+    assert res == OrderResult(
+        time=1,
+        status=OrderStatus.FILLED,
+        fills=[
+            Fill.with_computed_quote(
+                price=Decimal("1.0"), size=Decimal("0.2"), fee=Decimal("0.02"), fee_asset="eth"
+            )
+        ],
+    )
     assert exchange.place_order.call_count == 1
     assert exchange.place_order.mock_calls[0].kwargs["size"] == Decimal("0.2")
 

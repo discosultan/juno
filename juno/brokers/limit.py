@@ -122,6 +122,7 @@ class Limit(Broker):
         test: bool = True,
         ensure_size: bool = False,
         leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         assert not test
         Broker.validate_funds(size, quote)
@@ -155,6 +156,7 @@ class Limit(Broker):
             size=size,
             quote=quote,
             leverage=leverage,
+            reduce_only=reduce_only,
         )
 
         # Validate fee and quote expectation.
@@ -183,9 +185,9 @@ class Limit(Broker):
         quote: Optional[Decimal] = None,
         test: bool = True,
         leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         assert not test
-        assert size is not None  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
         base_asset, quote_asset = Symbol_.assets(symbol)
@@ -195,7 +197,15 @@ class Limit(Broker):
             f"{self._use_edit_order_if_possible}"
         )
         res = await self._fill(
-            exchange, account, symbol, Side.SELL, False, size=size, leverage=leverage
+            exchange,
+            account,
+            symbol,
+            Side.SELL,
+            False,
+            size=size,
+            quote=quote,
+            leverage=leverage,
+            reduce_only=reduce_only,
         )
 
         # Validate fee and quote expectation.
@@ -221,9 +231,10 @@ class Limit(Broker):
         symbol: Symbol,
         side: Side,
         ensure_size: bool,
-        size: Optional[Decimal] = None,
-        quote: Optional[Decimal] = None,
-        leverage: Optional[str] = None,
+        size: Optional[Decimal],
+        quote: Optional[Decimal],
+        leverage: Optional[str],
+        reduce_only: Optional[bool],
     ) -> OrderResult:
         if size is not None:
             ctx = _Context(available=size, use_quote=False)
@@ -254,6 +265,7 @@ class Limit(Broker):
                     side=side,
                     ensure_size=ensure_size,
                     leverage=leverage,
+                    reduce_only=reduce_only,
                     ctx=ctx,
                 )
             )
@@ -394,6 +406,7 @@ class Limit(Broker):
         side: Side,
         ensure_size: bool,
         leverage: Optional[str],
+        reduce_only: Optional[bool],
         ctx: _Context,
     ) -> None:
         _log.info(
@@ -447,6 +460,7 @@ class Limit(Broker):
                         price,
                         ensure_size,
                         leverage,
+                        reduce_only,
                         ctx,
                     )
 
@@ -459,6 +473,7 @@ class Limit(Broker):
         price: Decimal,
         ensure_size: bool,
         leverage: Optional[str],
+        reduce_only: Optional[bool],
         ctx: _Context,
     ) -> None:
         assert not ctx.requested_order
@@ -485,6 +500,7 @@ class Limit(Broker):
                 size=size,
                 client_id=client_id,
                 leverage=leverage,
+                reduce_only=reduce_only,
             )
         except OrderWouldBeTaker:
             # Order would immediately match and take. Retry.

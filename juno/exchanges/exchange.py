@@ -47,6 +47,7 @@ class Exchange(AsyncContextManager, ABC):
     can_place_market_order: bool = False
     # Whether market order accepts quote param.
     can_place_market_order_quote: bool = False
+    can_get_market_order_result_direct: bool = False
     # If order can be edited directly or has to be cancelled and recreated.
     can_edit_order: bool = False
     can_edit_order_atomic: bool = False
@@ -120,6 +121,7 @@ class Exchange(AsyncContextManager, ABC):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
         leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         raise NotImplementedError()
 

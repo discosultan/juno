@@ -19,7 +19,7 @@ from juno import (
 from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.common import CandleMeta
-from juno.components import Chandler, Events, Informant, User
+from juno.components import Chandler, Events, Informant, Orderbook, User
 from juno.custodians import Custodian, Stub
 from juno.exchanges import Exchange
 from juno.inspect import Constructor
@@ -115,14 +115,21 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         events: Events = Events(),
         get_time_ms: Callable[[], int] = Timestamp_.now,
         exchanges: Optional[list[Exchange]] = None,
+        orderbook: Optional[Orderbook] = None,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._broker = broker
-        if user is not None and broker is not None and exchanges is not None:
+        if (
+            user is not None
+            and broker is not None
+            and exchanges is not None
+            and orderbook is not None
+        ):
             self._positioner = Positioner(
                 informant=informant,
                 chandler=chandler,
+                orderbook=orderbook,
                 broker=broker,
                 user=user,
                 custodians=custodians,

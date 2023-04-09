@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from juno.brokers import Limit
 from juno.common import Balance
-from juno.components import Chandler, Informant, Orderbook, User
+from juno.components import Chandler, Informant, Orderbook, Trades, User
 from juno.custodians import Savings, Spot, Stub
 from juno.exchanges import Exchange
 from juno.positioner import Positioner
@@ -44,7 +44,8 @@ async def main() -> None:
     exchange = Exchange.from_env(args.exchange)
     storage = SQLite()
     informant = Informant(storage=storage, exchanges=[exchange])
-    chandler = Chandler(storage=storage, exchanges=[exchange])
+    trades = Trades(storage=storage, exchanges=[exchange])
+    chandler = Chandler(storage=storage, exchanges=[exchange], trades=trades)
     user = User(exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange])
     broker = Limit(
@@ -56,6 +57,7 @@ async def main() -> None:
     positioner = Positioner(
         informant=informant,
         chandler=chandler,
+        orderbook=orderbook,
         broker=broker,
         user=user,
         custodians=[Savings(user), Spot(user), Stub()],

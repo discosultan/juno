@@ -84,6 +84,7 @@ class Kraken(Exchange):
     can_margin_order_leverage: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
+    can_get_market_order_result_direct: bool = False
     can_edit_order: bool = True
     can_edit_order_atomic: bool = True
 
@@ -182,7 +183,7 @@ class Kraken(Exchange):
             fees=fees,
             filters=filters,
             borrow_info={
-                "margin": {
+                "__all__": {
                     asset: BorrowInfo(
                         interest_interval=4 * Interval_.HOUR,
                         interest_rate=fee / 100,  # Percentage to rate.
@@ -376,6 +377,7 @@ class Kraken(Exchange):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
         leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
         assert account in {"spot"}
@@ -402,6 +404,8 @@ class Kraken(Exchange):
             data["oflags"] = ",".join(flags)
         if leverage is not None:
             data["leverage"] = leverage
+        if reduce_only is not None:
+            data["reduce_only"] = reduce_only
 
         try:
             await self._request_private(
@@ -529,11 +533,14 @@ class Kraken(Exchange):
             yield inner(ws)
 
     async def list_open_margin_positions(self) -> Any:
+        """https://docs.kraken.com/rest/#tag/User-Data/operation/getOpenPositions"""
         res = await self._request_private(url="/0/private/OpenPositions", data={})
         return [
             {
+                "type": x["type"],
                 "margin": Decimal(x["margin"]),
                 "symbol": _from_http_symbol(x["pair"]),
+                "size": Decimal(x["vol"]),
             }
             for x in res["result"].values()
         ]

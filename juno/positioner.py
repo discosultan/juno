@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from decimal import Decimal
+from typing import Any, Iterable
 
 from tenacity import (
     RetryError,
@@ -26,8 +27,8 @@ from juno import (
     Timestamp,
     Timestamp_,
 )
-from juno.brokers import Broker
-from juno.components import Chandler, Informant, User
+from juno.brokers import Broker, Market
+from juno.components import Chandler, Informant, Orderbook, User
 from juno.custodians import Custodian
 from juno.exchanges import Exchange, Kraken
 from juno.inspect import extract_public
@@ -48,6 +49,7 @@ class Positioner:
         self,
         informant: Informant,
         chandler: Chandler,
+        orderbook: Orderbook,
         broker: Broker,
         user: User,
         custodians: list[Custodian],
@@ -55,6 +57,7 @@ class Positioner:
     ) -> None:
         self._informant = informant
         self._chandler = chandler
+        self._orderbook = orderbook
         self._broker = broker
         self._user = user
         self._custodians = {type(c).__name__.lower(): c for c in custodians}
@@ -529,7 +532,7 @@ class Positioner:
     ) -> Position.Closed:
         _log.info(f"closing short position using leveraged order {position.symbol} {mode.name}")
 
-        base_asset, quote_asset = Symbol_.assets(position.symbol)
+        base_asset = Symbol_.base_asset(position.symbol)
         asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
         borrow_info = self._informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
@@ -540,17 +543,32 @@ class Positioner:
             if not isinstance(exchange_instance, Kraken):
                 raise NotImplementedError()
             margin_positions = await exchange_instance.list_open_margin_positions()
-            total_margin = sum(
-                p["margin"] for p in margin_positions if p["symbol"] == position.symbol
+            total_size = sum(
+                p["size"] for p in _filter_short_positions(margin_positions, position.symbol)
             )
-            res = await self._broker.buy(
+            broker = Market(
+                informant=self._informant,
+                orderbook=self._orderbook,
+                user=self._user,
+            )
+            res = await broker.buy(
                 exchange=position.exchange,
-                symbol=position.symbol,
-                quote=total_margin,
                 account="spot",
-                test=False,
-                ensure_size=True,
+                symbol=position.symbol,
+                size=total_size,
                 leverage=f"{MARGIN_MULTIPLIER}:1",
+                reduce_only=True,
+                test=False,
+            )
+            # Kraken does not include accumulated interest in the position info. We have to either
+            # calculate it ourself or take it from the fees when closing a position.
+            interest = _calculate_interest(
+                borrowed=position.borrowed,
+                interest_interval=borrow_info.interest_interval,
+                interest_rate=borrow_info.interest_rate,
+                start=position.time,
+                end=Timestamp_.now(),
+                precision=asset_info.precision,
             )
         else:
             interest = _calculate_interest(
@@ -588,13 +606,17 @@ class Positioner:
             if not isinstance(exchange_instance, Kraken):
                 raise NotImplementedError()
             margin_positions = await exchange_instance.list_open_margin_positions()
-            assert len([p for p in margin_positions if p["symbol"] == position.symbol]) == 0
+            assert len(list(_filter_short_positions(margin_positions, position.symbol))) == 0
 
         _log.info(
             f"closed short position using leveraged order {closed_position.symbol} {mode.name}"
         )
         _log.debug(extract_public(closed_position))
         return closed_position
+
+
+def _filter_short_positions(positions: Iterable[Any], symbol: str) -> Iterable[Any]:
+    return (p for p in positions if p["symbol"] == symbol and p["type"] == "sell")
 
 
 class SimulatedPositioner:

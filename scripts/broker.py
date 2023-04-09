@@ -106,6 +106,7 @@ async def transact_symbol(
                 account=args.account,
                 symbol=symbol,
                 size=size,
+                quote=quote,
                 test=args.test,
                 leverage=args.leverage,
             )
