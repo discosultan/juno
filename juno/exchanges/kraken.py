@@ -13,7 +13,15 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from decimal import Decimal
 from types import TracebackType
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional, TypedDict
+from typing import (
+    Any,
+    AsyncContextManager,
+    AsyncIterable,
+    AsyncIterator,
+    Literal,
+    Optional,
+    TypedDict,
+)
 
 from typing_extensions import NotRequired
 
@@ -69,6 +77,20 @@ _ERR_RATE_LIMIT_EXCEEDED = "EOrder:Rate limit exceeded"
 _ERR_POST_ONLY_ORDER = "EOrder:Post only order"
 _ERR_INSUFFICIENT_FUNDS = "EOrder:Insufficient funds"
 
+_REST_API_RATE_LIMITS = {
+    "starter": (15, 45),
+    "intermediate": (20, 40),
+    "pro": (20, 20),
+}
+_MATCHING_ENGINE_RATE_LIMITS = {
+    "starter": (60, 60),
+    "intermediate": (125, 54),
+    "pro": (180, 48),
+}
+# TODO: Also take penalties into account when placing orders. Currently assuming worst penalty.
+# TODO: https://docs.kraken.com/rest/#section/Rate-Limits/Matching-Engine-Rate-Limits
+
+
 _log = logging.getLogger(__name__)
 
 
@@ -88,26 +110,35 @@ class Kraken(Exchange):
     can_edit_order: bool = True
     can_edit_order_atomic: bool = True
 
-    def __init__(self, api_key: str, secret_key: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        secret_key: str,
+        tier: Literal["starter", "intermediate", "pro"] = "starter",
+    ) -> None:
         self._api_key = api_key
         self._decoded_secret_key = base64.b64decode(secret_key)
 
-    async def __aenter__(self) -> Kraken:
         # Rate limiters.
         # TODO: This is Starter rate. The rate differs for Intermediate and Pro users.
-        self._reqs_limiter = AsyncLimiter(15, 45)
-        self._order_placing_limiter = AsyncLimiter(1, 2)  # Originally 1, 1
+        rest_api_max_rate, rest_api_time_period = _REST_API_RATE_LIMITS[tier]
+        self._reqs_limiter = AsyncLimiter(rest_api_max_rate, rest_api_time_period)
+        matching_engine_max_rate, matching_engine_time_period = _MATCHING_ENGINE_RATE_LIMITS[tier]
+        self._order_placing_limiter = AsyncLimiter(
+            matching_engine_max_rate,
+            matching_engine_time_period,
+        )
 
         self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
-        await self._session.__aenter__()
-
         self._public_ws = KrakenPublicFeed(_PUBLIC_WS_URL)
         self._private_ws = KrakenPrivateFeed(_PRIVATE_WS_URL, self)
+
+    async def __aenter__(self) -> Kraken:
+        await self._session.__aenter__()
         await asyncio.gather(
             self._public_ws.__aenter__(),
             self._private_ws.__aenter__(),
         )
-
         return self
 
     async def __aexit__(
@@ -459,6 +490,7 @@ class Kraken(Exchange):
                 url="/0/private/EditOrder",
                 data=data,
                 limiter=self._order_placing_limiter,
+                cost=6,
             )
         except KrakenException as exc:
             if len(exc.errors) == 1:
@@ -482,6 +514,7 @@ class Kraken(Exchange):
                     "txid": client_id,
                 },
                 limiter=self._order_placing_limiter,
+                cost=8,
             )
         except KrakenException as exc:
             if len(exc.errors) == 1 and (msg := exc.errors[0]) == _ERR_UNKNOWN_ORDER:
