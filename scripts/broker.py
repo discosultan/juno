@@ -28,6 +28,7 @@ parser.add_argument(
     action="store_true",
     default=False,
 )
+parser.add_argument("--leverage", default=None)
 args = parser.parse_args()
 
 
@@ -91,6 +92,7 @@ async def transact_symbol(
                 size=size,
                 test=args.test,
                 ensure_size=args.ensure_size,
+                leverage=args.leverage,
             )
         else:
             market_fills = book.find_order_bids(
@@ -104,7 +106,9 @@ async def transact_symbol(
                 account=args.account,
                 symbol=symbol,
                 size=size,
+                quote=quote,
                 test=args.test,
+                leverage=args.leverage,
             )
 
     logging.info(res)

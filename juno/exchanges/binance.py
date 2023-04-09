@@ -108,9 +108,11 @@ class Binance(Exchange):
     can_stream_historical_earliest_candle: bool = True
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True
-    can_margin_trade: bool = True
+    can_margin_borrow: bool = True
+    can_margin_order_leverage: bool = False
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
+    can_get_market_order_result_direct: bool = True
     can_edit_order: bool = True
     can_edit_order_atomic: bool = False
 
@@ -633,11 +635,15 @@ class Binance(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         """
         https://binance-docs.github.io/apidocs/spot/en/#new-order-trade
         https://binance-docs.github.io/apidocs/spot/en/#margin-account-new-order-trade
         """
+        assert leverage is None
+
         data: dict[str, Any] = {
             "symbol": _to_http_symbol(symbol),
             "side": _to_side(side),

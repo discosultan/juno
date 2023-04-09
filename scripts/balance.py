@@ -20,7 +20,7 @@ async def main() -> None:
     async with exchange, user:
         accounts = args.accounts
         if accounts is None:
-            accounts = ["spot", "margin", "isolated"] if exchange.can_margin_trade else ["spot"]
+            accounts = ["spot", "margin", "isolated"] if exchange.can_margin_borrow else ["spot"]
         logging.info(f"fetching balances for accounts: {accounts}")
 
         await log_accounts(user, accounts)

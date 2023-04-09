@@ -62,6 +62,7 @@ class KuCoin(Exchange):
     # can_margin_trade: bool = False
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
+    can_get_market_order_result_direct: bool = False
     can_edit_order: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
@@ -310,9 +311,12 @@ class KuCoin(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         if account != "spot":
             raise NotImplementedError()
+        assert leverage is None
 
         await self._place_order_limiter.acquire()
 

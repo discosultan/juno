@@ -80,9 +80,11 @@ class Kraken(Exchange):
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
-    can_margin_trade: bool = False  # TODO: Actually can; need impl
+    can_margin_borrow: bool = False
+    can_margin_order_leverage: bool = True
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
+    can_get_market_order_result_direct: bool = False
     can_edit_order: bool = True
     can_edit_order_atomic: bool = True
 
@@ -181,7 +183,7 @@ class Kraken(Exchange):
             fees=fees,
             filters=filters,
             borrow_info={
-                "margin": {
+                "__all__": {
                     asset: BorrowInfo(
                         interest_interval=4 * Interval_.HOUR,
                         interest_rate=fee / 100,  # Percentage to rate.
@@ -374,9 +376,11 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        leverage: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
-        assert account in {"spot", "margin"}
+        assert account in {"spot"}
         assert quote is None
 
         flags = []
@@ -398,9 +402,10 @@ class Kraken(Exchange):
             data["timeinforce"] = _to_time_in_force(time_in_force)
         if len(flags) > 0:
             data["oflags"] = ",".join(flags)
-        if account == "margin":
-            # TODO: Figure a better way to express this.
-            data["margin"] = "2:1"
+        if leverage is not None:
+            data["leverage"] = leverage
+        if reduce_only is not None:
+            data["reduce_only"] = reduce_only
 
         try:
             await self._request_private(
@@ -526,6 +531,19 @@ class Kraken(Exchange):
 
         async with self._public_ws.subscribe({"name": "trade"}, {symbol}) as ws:
             yield inner(ws)
+
+    async def list_open_margin_positions(self) -> Any:
+        """https://docs.kraken.com/rest/#tag/User-Data/operation/getOpenPositions"""
+        res = await self._request_private(url="/0/private/OpenPositions", data={})
+        return [
+            {
+                "type": x["type"],
+                "margin": Decimal(x["margin"]),
+                "symbol": _from_http_symbol(x["pair"]),
+                "size": Decimal(x["vol"]),
+            }
+            for x in res["result"].values()
+        ]
 
     async def _get_websockets_token(self) -> str:
         res = await self._request_private("/0/private/GetWebSocketsToken")

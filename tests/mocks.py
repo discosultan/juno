@@ -11,6 +11,7 @@ from juno.asyncio import stream_queue
 from juno.common import Depth, ExchangeInfo, OrderResult, OrderStatus, OrderUpdate, Ticker, Trade
 from juno.components.chandler import Chandler
 from juno.components.informant import Informant
+from juno.components.orderbook import Orderbook
 from juno.components.trades import Trades
 from juno.exchanges import Exchange
 
@@ -53,9 +54,11 @@ def mock_exchange(
     can_stream_historical_candles: bool = True,
     can_stream_candles: bool = True,
     can_list_all_tickers: bool = True,
-    can_margin_trade: bool = True,
+    can_margin_borrow: bool = True,
+    can_margin_order_leverage: bool = True,
     can_place_market_order: bool = True,
     can_place_market_order_quote: bool = True,
+    can_get_market_order_result_direct: bool = True,
     can_edit_order: bool = True,
     can_edit_order_atomic: bool = True,
 ) -> MagicMock:
@@ -68,9 +71,11 @@ def mock_exchange(
     exchange.can_stream_historical_candles = can_stream_historical_candles
     exchange.can_stream_candles = can_stream_candles
     exchange.can_list_all_tickers = can_list_all_tickers
-    exchange.can_margin_trade = can_margin_trade
+    exchange.can_margin_borrow = can_margin_borrow
+    exchange.can_margin_order_leverage = can_margin_order_leverage
     exchange.can_place_market_order = can_place_market_order
     exchange.can_place_market_order_quote = can_place_market_order_quote
+    exchange.can_get_market_order_result_direct = can_get_market_order_result_direct
     exchange.can_edit_order = can_edit_order
     exchange.can_edit_order_atomic = can_edit_order_atomic
 
@@ -119,6 +124,12 @@ def mock_informant(
     informant.list_symbols.return_value = symbols
 
     return informant
+
+
+def mock_orderbook(
+    mocker: MockerFixture,
+) -> MagicMock:
+    return mocker.MagicMock(Orderbook, autospec=True)
 
 
 def mock_trades(mocker: MockerFixture, trades: list[Trade] = []) -> MagicMock:
