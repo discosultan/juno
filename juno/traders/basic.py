@@ -213,7 +213,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         assert filters.spot
         if config.short:
-            assert filters.isolated_margin
+            assert filters.cross_margin or filters.isolated_margin
 
         start = await self.request_candle_start(
             config.start, config.exchange, [config.symbol], config.interval
