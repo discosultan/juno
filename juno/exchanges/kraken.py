@@ -72,8 +72,12 @@ _API_URL = "https://api.kraken.com"
 _PUBLIC_WS_URL = "wss://ws.kraken.com"
 _PRIVATE_WS_URL = "wss://ws-auth.kraken.com"
 
+_ERR_INTERNAL_ERROR = "EGeneral:Internal error"
+
+_ERR_API_RATE_LIMIT_EXCEEDED = "EAPI:Rate limit exceeded"
+
 _ERR_UNKNOWN_ORDER = "EOrder:Unknown order"
-_ERR_RATE_LIMIT_EXCEEDED = "EOrder:Rate limit exceeded"
+_ERR_ORDER_RATE_LIMIT_EXCEEDED = "EOrder:Rate limit exceeded"
 _ERR_POST_ONLY_ORDER = "EOrder:Post only order"
 _ERR_INSUFFICIENT_FUNDS = "EOrder:Insufficient funds"
 
@@ -640,8 +644,14 @@ class Kraken(Exchange):
             result = await res.json()
             errors = result["error"]
             if len(errors) > 0:
-                if len(errors) == 1 and errors[0] == _ERR_RATE_LIMIT_EXCEEDED:
-                    raise ExchangeException(errors[0])
+                if len(errors) == 1:
+                    error = errors[0]
+                    if error in {
+                        _ERR_ORDER_RATE_LIMIT_EXCEEDED,
+                        _ERR_API_RATE_LIMIT_EXCEEDED,
+                        _ERR_INTERNAL_ERROR,
+                    }:
+                        raise ExchangeException(errors[0])
                 raise KrakenException(f"Received error(s) from Kraken: {errors}", errors)
             return result
 
@@ -1096,8 +1106,8 @@ _margin_fee_schedule = {
 def _handle_order_error(msg: str) -> None:
     if msg == _ERR_UNKNOWN_ORDER:
         raise OrderMissing(msg)
-    elif msg == _ERR_POST_ONLY_ORDER:
+    if msg == _ERR_POST_ONLY_ORDER:
         raise OrderWouldBeTaker(msg)
-    elif msg == _ERR_INSUFFICIENT_FUNDS:
+    if msg == _ERR_INSUFFICIENT_FUNDS:
         raise InsufficientFunds(msg)
     # TODO: Handle EOrder:Not enough leaves qty
