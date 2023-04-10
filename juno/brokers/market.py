@@ -49,7 +49,7 @@ class Market(Broker):
         quote: Optional[Decimal] = None,
         test: bool = True,
         ensure_size: bool = False,
-        leverage: Optional[str] = None,
+        leverage: Optional[int] = None,
         reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         Broker.validate_funds(size, quote)
@@ -90,7 +90,7 @@ class Market(Broker):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
-        leverage: Optional[str] = None,
+        leverage: Optional[int] = None,
         reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         assert size is not None  # TODO: support by quote
@@ -131,7 +131,7 @@ class Market(Broker):
         quote: Optional[Decimal],
         test: bool,
         ensure_size: bool,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
     ) -> OrderResult:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -196,7 +196,7 @@ class Market(Broker):
         size: Optional[Decimal],
         quote: Optional[Decimal],
         test: bool,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
     ) -> OrderResult:
         assert size is not None  # TODO: support by quote
@@ -264,7 +264,7 @@ class Market(Broker):
         account: Account,
         symbol: Symbol,
         side: Side,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
@@ -299,7 +299,7 @@ class Market(Broker):
         quote: Optional[Decimal],
         test: bool,
         ensure_size: bool,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
     ) -> OrderResult:
         assert not test
@@ -362,7 +362,7 @@ class Market(Broker):
         size: Optional[Decimal],
         quote: Optional[Decimal],
         test: bool,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
     ) -> OrderResult:
         assert not test
@@ -385,7 +385,7 @@ class Market(Broker):
         account: Account,
         symbol: Symbol,
         side: Side,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,

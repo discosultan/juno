@@ -511,7 +511,7 @@ class Positioner:
             symbol=symbol,
             size=borrowed,
             test=mode is TradingMode.PAPER,
-            leverage=f"{MARGIN_MULTIPLIER}:1",
+            leverage=MARGIN_MULTIPLIER,
         )
         open_position = Position.OpenShort(
             exchange=exchange,
@@ -556,7 +556,7 @@ class Positioner:
                 account="spot",
                 symbol=position.symbol,
                 size=total_size,
-                leverage=f"{MARGIN_MULTIPLIER}:1",
+                leverage=MARGIN_MULTIPLIER,
                 reduce_only=True,
                 test=False,
             )

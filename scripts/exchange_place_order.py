@@ -20,7 +20,7 @@ parser.add_argument(
     type=lambda t: OrderType[t.upper()],
     default=OrderType.LIMIT,
 )
-parser.add_argument("--leverage", default=None)
+parser.add_argument("--leverage", type=int, default=None)
 parser.add_argument(
     "--reduce-only",
     action="store_true",

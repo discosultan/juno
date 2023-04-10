@@ -121,7 +121,7 @@ class Limit(Broker):
         quote: Optional[Decimal] = None,
         test: bool = True,
         ensure_size: bool = False,
-        leverage: Optional[str] = None,
+        leverage: Optional[int] = None,
         reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         assert not test
@@ -184,7 +184,7 @@ class Limit(Broker):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
-        leverage: Optional[str] = None,
+        leverage: Optional[int] = None,
         reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         assert not test
@@ -233,7 +233,7 @@ class Limit(Broker):
         ensure_size: bool,
         size: Optional[Decimal],
         quote: Optional[Decimal],
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
     ) -> OrderResult:
         if size is not None:
@@ -405,7 +405,7 @@ class Limit(Broker):
         symbol: Symbol,
         side: Side,
         ensure_size: bool,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
         ctx: _Context,
     ) -> None:
@@ -472,7 +472,7 @@ class Limit(Broker):
         side: Side,
         price: Decimal,
         ensure_size: bool,
-        leverage: Optional[str],
+        leverage: Optional[int],
         reduce_only: Optional[bool],
         ctx: _Context,
     ) -> None:

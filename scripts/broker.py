@@ -28,7 +28,7 @@ parser.add_argument(
     action="store_true",
     default=False,
 )
-parser.add_argument("--leverage", default=None)
+parser.add_argument("--leverage", type=int, default=None)
 args = parser.parse_args()
 
 

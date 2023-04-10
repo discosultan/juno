@@ -411,7 +411,7 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        leverage: Optional[str] = None,
+        leverage: Optional[int] = None,
         reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
@@ -438,7 +438,7 @@ class Kraken(Exchange):
         if len(flags) > 0:
             data["oflags"] = ",".join(flags)
         if leverage is not None:
-            data["leverage"] = leverage
+            data["leverage"] = f"{leverage}:1"
         if reduce_only is not None:
             data["reduce_only"] = reduce_only
 

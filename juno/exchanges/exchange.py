@@ -120,7 +120,7 @@ class Exchange(AsyncContextManager, ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        leverage: Optional[str] = None,
+        leverage: Optional[int] = None,
         reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         raise NotImplementedError()
