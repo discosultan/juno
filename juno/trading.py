@@ -160,11 +160,13 @@ class Position(ModuleType):
 
         @property
         def gain(self) -> Decimal:
+            quote_asset = Symbol_.quote_asset(self.symbol)
             return (
                 Fill.total_quote(self.open_fills)
-                - Fill.total_fee(self.open_fills, Symbol_.quote_asset(self.symbol))
+                - Fill.total_fee(self.open_fills, quote_asset)
                 + self.collateral
                 - Fill.total_quote(self.close_fills)
+                - Fill.total_fee(self.close_fills, quote_asset)
             )
 
         @property
