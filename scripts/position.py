@@ -5,7 +5,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno.brokers import Limit
+from juno.brokers import Broker, Limit, Market
 from juno.common import Balance
 from juno.components import Chandler, Informant, Orderbook, Trades, User
 from juno.custodians import Savings, Spot, Stub
@@ -31,6 +31,7 @@ parser.add_argument("--custodian", default="spot", help="either savings, spot or
 parser.add_argument(
     "--sleep", type=float, default=0.0, help="seconds to sleep before closing positions"
 )
+parser.add_argument("--broker", default="limit", help="either limit or market")
 parser.add_argument(
     "--use-edit-order-if-possible",
     action="store_true",
@@ -48,12 +49,18 @@ async def main() -> None:
     chandler = Chandler(storage=storage, exchanges=[exchange], trades=trades)
     user = User(exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange])
-    broker = Limit(
-        informant=informant,
-        orderbook=orderbook,
-        user=user,
-        use_edit_order_if_possible=args.use_edit_order_if_possible,
-    )
+    broker: Broker
+    if args.broker == "limit":
+        broker = Limit(
+            informant=informant,
+            orderbook=orderbook,
+            user=user,
+            use_edit_order_if_possible=args.use_edit_order_if_possible,
+        )
+    elif args.broker == "market":
+        broker = Market(informant=informant, orderbook=orderbook, user=user)
+    else:
+        raise ValueError(f"Unknown broker {args.broker}")
     positioner = Positioner(
         informant=informant,
         chandler=chandler,
