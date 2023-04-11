@@ -81,6 +81,8 @@ _ERR_ORDER_RATE_LIMIT_EXCEEDED = "EOrder:Rate limit exceeded"
 _ERR_POST_ONLY_ORDER = "EOrder:Post only order"
 _ERR_INSUFFICIENT_FUNDS = "EOrder:Insufficient funds"
 
+_CANCEL_REASON_POST_ONLY_ORDER = "Post only order"
+
 _REST_API_RATE_LIMITS = {
     "starter": (15, 45),
     "intermediate": (20, 40),
@@ -1012,6 +1014,8 @@ def _from_ws_symbol(value: str) -> Symbol:
 
 
 def _from_cancelled_reason(value: str) -> CancelledReason:
+    if value == _CANCEL_REASON_POST_ONLY_ORDER:
+        return CancelledReason.ORDER_WOULD_BE_TAKER
     return CancelledReason.UNKNOWN
 
 
