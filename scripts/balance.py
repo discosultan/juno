@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+import os
 
 from juno import Account, Asset, Balance
 from juno.components import User
@@ -8,7 +9,7 @@ from juno.exchanges import Exchange
 
 parser = argparse.ArgumentParser()
 parser.add_argument("accounts", nargs="?", type=lambda a: a.split(","), default=None)
-parser.add_argument("-e", "--exchange", default="binance")
+parser.add_argument("-e", "--exchange", default=os.environ.get("JUNO__EXCHANGE", "binance"))
 parser.add_argument("--stream", action="store_true", default=False)
 parser.add_argument("--empty", action="store_true", default=False)
 args = parser.parse_args()

@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+import os
 from decimal import Decimal
 
 from juno import Asset, Balance, Fill, Side, Symbol, Symbol_, brokers
@@ -13,7 +14,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("side", nargs="?", type=lambda s: Side[s.upper()])
 parser.add_argument("symbols", nargs="?", type=lambda s: s.split(","))
 parser.add_argument("-b", "--broker", default="limit")
-parser.add_argument("-e", "--exchange", default="binance")
+parser.add_argument("-e", "--exchange", default=os.environ.get("JUNO__EXCHANGE", "binance"))
 parser.add_argument("-a", "--account", default="spot")
 parser.add_argument("-s", "--size", type=Decimal, default=None)
 parser.add_argument("-q", "--quote", type=Decimal, default=None)

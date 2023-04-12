@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 from decimal import Decimal
 
 from juno.brokers import Broker, Limit, Market
@@ -17,7 +18,7 @@ from juno.trading import CloseReason, TradingMode
 
 parser = argparse.ArgumentParser()
 parser.add_argument("symbols", type=lambda s: s.split(","))
-parser.add_argument("-e", "--exchange", default="binance")
+parser.add_argument("-e", "--exchange", default=os.environ.get("JUNO__EXCHANGE", "binance"))
 parser.add_argument("-q", "--quote", type=Decimal, default=None)
 parser.add_argument(
     "-s",
