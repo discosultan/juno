@@ -111,7 +111,7 @@ class Kraken(Exchange):
     can_margin_borrow: bool = False
     can_margin_order_leverage: bool = True
     can_place_market_order: bool = True
-    can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
+    can_place_market_order_quote: bool = True  # TODO: Can but only for non-leveraged orders
     can_get_market_order_result_direct: bool = False
     can_edit_order: bool = True
     can_edit_order_atomic: bool = True
@@ -417,14 +417,21 @@ class Kraken(Exchange):
         reduce_only: Optional[bool] = None,
     ) -> OrderResult:
         """https://docs.kraken.com/rest/#operation/addOrder"""
-        assert account in {"spot"}
-        assert quote is None
+        if account != "spot":
+            raise NotImplementedError()
+        if quote is not None and size is not None:
+            raise ValueError("Size and quote cannot both be specified at the same time")
+        if quote is not None and type_ is not OrderType.MARKET:
+            raise ValueError("Quote asset can only be set for market orders")
+        if quote is not None and leverage is not None:
+            raise ValueError("Quote asset can be set only for non-leveraged orders")
 
-        # We prefer fee in base currency when buying and quote currency when selling. This matches
-        # Binance's behavior.
-        flags = ["fcib" if side is Side.BUY else "fciq"]
+        flags = []
         if type_ is OrderType.LIMIT_MAKER:
             flags.append("post")
+        if quote is not None and type_ is OrderType.MARKET:
+            # Says that volume is specified in quote asset.
+            flags.append("viqc")
 
         data: dict[str, Any] = {
             "ordertype": _to_order_type(type_),
@@ -437,6 +444,8 @@ class Kraken(Exchange):
             data["price"] = str(price)
         if size is not None:
             data["volume"] = str(size)
+        if quote is not None and type_ is OrderType.MARKET:
+            data["volume"] = str(quote)
         if time_in_force is not None:
             data["timeinforce"] = _to_time_in_force(time_in_force)
         if len(flags) > 0:
