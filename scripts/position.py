@@ -32,7 +32,12 @@ parser.add_argument("--custodian", default="spot", help="either savings, spot or
 parser.add_argument(
     "--sleep", type=float, default=0.0, help="seconds to sleep before closing positions"
 )
-parser.add_argument("--broker", default="limit", help="either limit or market")
+parser.add_argument(
+    "-b",
+    "--broker",
+    default=os.environ.get("JUNO__BROKER", "limit"),
+    help="either limit or market",
+)
 parser.add_argument(
     "--use-edit-order-if-possible",
     action="store_true",

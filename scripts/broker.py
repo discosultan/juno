@@ -13,7 +13,12 @@ from juno.storages import SQLite
 parser = argparse.ArgumentParser()
 parser.add_argument("side", nargs="?", type=lambda s: Side[s.upper()])
 parser.add_argument("symbols", nargs="?", type=lambda s: s.split(","))
-parser.add_argument("-b", "--broker", default="limit")
+parser.add_argument(
+    "-b",
+    "--broker",
+    default=os.environ.get("JUNO__BROKER", "limit"),
+    help="either limit or market",
+)
 parser.add_argument("-e", "--exchange", default=os.environ.get("JUNO__EXCHANGE", "binance"))
 parser.add_argument("-a", "--account", default="spot")
 parser.add_argument("-s", "--size", type=Decimal, default=None)
