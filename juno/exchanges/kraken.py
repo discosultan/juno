@@ -420,7 +420,9 @@ class Kraken(Exchange):
         assert account in {"spot"}
         assert quote is None
 
-        flags = []
+        # We prefer fee in base currency when buying and quote currency when selling. This matches
+        # Binance's behavior.
+        flags = ["fcib" if side is Side.BUY else "fciq"]
         if type_ is OrderType.LIMIT_MAKER:
             flags.append("post")
 
