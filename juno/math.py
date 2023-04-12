@@ -1,6 +1,6 @@
 import math
 import statistics
-from decimal import ROUND_DOWN, ROUND_HALF_UP, ROUND_UP, Decimal, Overflow
+from decimal import ROUND_DOWN, ROUND_HALF_DOWN, ROUND_HALF_UP, ROUND_UP, Decimal, Overflow
 from typing import Iterable, TypeVar
 
 TNum = TypeVar("TNum", int, Decimal)
@@ -26,6 +26,10 @@ def floor_multiple_offset(value: TNum, multiple: TNum, offset: TNum) -> TNum:
 
 def round_half_up(value: Decimal, precision: int) -> Decimal:
     return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_HALF_UP)
+
+
+def round_half_down(value: Decimal, precision: int) -> Decimal:
+    return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_HALF_DOWN)
 
 
 def round_up(value: Decimal, precision: int) -> Decimal:

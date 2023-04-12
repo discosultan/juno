@@ -63,6 +63,17 @@ def test_round_half_up(value: Decimal, expected_output: Decimal) -> None:
     assert math.round_half_up(value, 2) == expected_output
 
 
+@pytest.mark.parametrize(
+    "value,expected_output",
+    [
+        (Decimal("0.126"), Decimal("0.13")),
+        (Decimal("0.125"), Decimal("0.12")),
+    ],
+)
+def test_round_half_down(value: Decimal, expected_output: Decimal) -> None:
+    assert math.round_half_down(value, 2) == expected_output
+
+
 def test_round_up() -> None:
     assert math.round_up(Decimal("0.123"), 2) == Decimal("0.13")
 
