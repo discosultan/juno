@@ -194,6 +194,25 @@ class Fees:
 
 
 @dataclass(frozen=True)
+class AssetInfo:
+    precision: int = 8
+
+    @property
+    def precision_decimal(self) -> Decimal:
+        return precision_to_decimal(self.precision)
+
+    def __post_init__(self) -> None:
+        if self.precision < 0:
+            raise ValueError("Precision cannot be negative")
+
+    def round_half_up(self, value: Decimal) -> Decimal:
+        return round_half_up(value, self.precision)
+
+    def round_up(self, value: Decimal) -> Decimal:
+        return round_up(value, self.precision)
+
+
+@dataclass(frozen=True)
 class Fill:
     price: Decimal
     size: Decimal
@@ -261,6 +280,42 @@ class Fill:
     @staticmethod
     def total_fee(fills: list[Fill], asset: Asset) -> Decimal:
         return sum((f.fee for f in fills if f.fee_asset == asset), Decimal("0.0"))
+
+    @staticmethod
+    def total_quote_fee(
+        fills: list[Fill],
+        quote_asset: Asset,
+        quote_asset_info: AssetInfo,
+    ) -> Decimal:
+        return sum(
+            (
+                round_half_up(f.fee, quote_asset_info.precision)
+                for f in fills
+                if f.fee_asset == quote_asset
+            ),
+            Decimal("0.0"),
+        )
+
+    @staticmethod
+    def total_base_fee_for_quote_asset2(
+        fills: list[Fill],
+        quote_asset: Asset,
+    ) -> Decimal:
+        result = Decimal("0.0")
+        for fill in (f for f in fills if f.fee_asset == quote_asset):
+            result += fill.fee / fill.price
+        return result
+
+    @staticmethod
+    def total_base_fee_for_quote_asset(
+        fills: list[Fill],
+        quote_asset: Asset,
+        base_asset_info: AssetInfo,
+    ) -> Decimal:
+        result = Decimal("0.0")
+        for fill in (f for f in fills if f.fee_asset == quote_asset):
+            result += round_half_up(fill.fee / fill.price, base_asset_info.precision)
+        return result
 
     @staticmethod
     def all_fees(fills: list[Fill]) -> dict[str, Decimal]:
@@ -413,25 +468,6 @@ class ExchangeInfo:
     borrow_info: dict[Account, dict[Asset, BorrowInfo]] = field(
         default_factory=lambda: {"__all__": {"__all__": BorrowInfo()}}
     )
-
-
-@dataclass(frozen=True)
-class AssetInfo:
-    precision: int = 8
-
-    @property
-    def precision_decimal(self) -> Decimal:
-        return precision_to_decimal(self.precision)
-
-    def __post_init__(self) -> None:
-        if self.precision < 0:
-            raise ValueError("Precision cannot be negative")
-
-    def round_half_up(self, value: Decimal) -> Decimal:
-        return round_half_up(value, self.precision)
-
-    def round_up(self, value: Decimal) -> Decimal:
-        return round_up(value, self.precision)
 
 
 @dataclass(frozen=True)

@@ -117,5 +117,7 @@ async def main() -> None:
             for closed_position in closed_positions:
                 quotes[Symbol_.quote_asset(closed_position.symbol)] += closed_position.profit
 
+            logging.info(quotes)
+
 
 asyncio.run(main())

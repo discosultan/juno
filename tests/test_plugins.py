@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from juno import Candle, Fill, Interval_
+from juno import AssetInfo, Candle, Fill, Interval_
 from juno.components import Chandler, Events, Informant
 from juno.path import full_path
 from juno.trading import CloseReason, Position, TradingSummary
@@ -54,7 +54,7 @@ async def send_test_events(events: Events):
     )
 
     candle = Candle(time=0, close=Decimal("1.0"), volume=Decimal("10.0"))
-    open_pos = Position.OpenLong(
+    open_pos = Position.OpenLong.build(
         exchange="exchange",
         symbol="eth-btc",
         time=candle.time,
@@ -67,6 +67,7 @@ async def send_test_events(events: Events):
                 fee_asset="btc",
             )
         ],
+        base_asset_info=AssetInfo(),
     )
     await events.emit("agent", "positions_opened", [open_pos], trading_summary)
     candle = Candle(time=Interval_.DAY, close=Decimal("2.0"), volume=Decimal("10.0"))
@@ -82,6 +83,8 @@ async def send_test_events(events: Events):
             )
         ],
         reason=CloseReason.STRATEGY,
+        base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
     trading_summary = TradingSummary(
         start=0,

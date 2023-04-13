@@ -8,7 +8,7 @@ from typing import Any, NamedTuple, Optional, Union
 import pytest
 from asyncstdlib import list as list_async
 
-from juno import Candle, ExchangeInfo, Fees, Fill, Filters, Ticker, Trade, storages
+from juno import AssetInfo, Candle, ExchangeInfo, Fees, Fill, Filters, Ticker, Trade, storages
 from juno.trading import CloseReason, Position, TradingSummary
 from juno.typing import types_match
 
@@ -102,7 +102,7 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
         ),
         ({"foo": Fees(maker=Decimal("0.01"), taker=Decimal("0.02"))}, dict[str, Fees]),
         (
-            Position.Long(
+            Position.Long.build(
                 exchange="exchange",
                 symbol="eth-btc",
                 open_time=1,
@@ -110,6 +110,8 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
                 close_time=2,
                 close_fills=[Fill.with_computed_quote(price=Decimal("1.0"), size=Decimal("2.0"))],
                 close_reason=CloseReason.STRATEGY,
+                base_asset_info=AssetInfo(),
+                quote_asset_info=AssetInfo(),
             ),
             Position.Long,
         ),

@@ -106,14 +106,9 @@ class Positioner:
         )
 
         # Release funds to custodian.
-        # ONLY RELEASE FOR OPEN LONG POSITIONS OR SHORT POSITIONS IF EXCHANGE SUPPORTS MARGIN
-        # THROUGH ORDERS.
+        # ONLY RELEASE FOR OPEN LONG POSITIONS.
         releases: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
-        for pos in (
-            p
-            for p in result
-            if exchange_instance.can_margin_order_leverage or isinstance(p, Position.OpenLong)
-        ):
+        for pos in (p for p in result if isinstance(p, Position.OpenLong)):
             base_asset = Symbol_.base_asset(pos.symbol)
             releases[(pos.exchange, base_asset)] += pos.base_gain
         await asyncio.gather(
@@ -142,14 +137,9 @@ class Positioner:
         exchange_instance = self._exchanges[exchange]
 
         # Acquire funds from custodian.
-        # ONLY ACQUIRE FOR OPEN LONG POSITIONS OR SHORT POSITIONS IF EXCHANGE SUPPORTS MARGIN
-        # THROUGH ORDERS.
+        # ONLY ACQUIRE FOR OPEN LONG POSITIONS.
         acquires: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0.0"))
-        for open_long in (
-            p
-            for p, _ in entries
-            if exchange_instance.can_margin_order_leverage or isinstance(p, Position.OpenLong)
-        ):
+        for open_long in (p for p, _ in entries if isinstance(p, Position.OpenLong)):
             base_asset = Symbol_.base_asset(open_long.symbol)
             acquires[(open_long.exchange, base_asset)] += open_long.base_gain
         await asyncio.gather(
@@ -198,11 +188,13 @@ class Positioner:
             account="spot",
             test=mode is TradingMode.PAPER,
         )
-        open_position = Position.OpenLong(
+        base_asset_info = self._informant.get_asset_info(exchange, Symbol_.base_asset(symbol))
+        open_position = Position.OpenLong.build(
             exchange=exchange,
             symbol=symbol,
             time=res.time,
             fills=res.fills,
+            base_asset_info=base_asset_info,
         )
 
         _log.info(f"opened long position {open_position.symbol} {mode.name}")
@@ -215,6 +207,10 @@ class Positioner:
         assert mode in {TradingMode.PAPER, TradingMode.LIVE}
         _log.info(f"closing long position {position.symbol} {mode.name}")
 
+        base_asset, quote_asset = Symbol_.assets(position.symbol)
+        base_asset_info = self._informant.get_asset_info(position.exchange, base_asset)
+        quote_asset_info = self._informant.get_asset_info(position.exchange, quote_asset)
+
         res = await self._broker.sell(
             exchange=position.exchange,
             symbol=position.symbol,
@@ -226,6 +222,8 @@ class Positioner:
             time=res.time,
             fills=res.fills,
             reason=reason,
+            base_asset_info=base_asset_info,
+            quote_asset_info=quote_asset_info,
         )
 
         _log.info(f"closed long position {closed_position.symbol} {mode.name}")
@@ -302,7 +300,7 @@ class Positioner:
             test=mode is TradingMode.PAPER,
         )
 
-        open_position = Position.OpenShort(
+        open_position = Position.OpenShort.build(
             exchange=exchange,
             symbol=symbol,
             collateral=collateral,
@@ -341,7 +339,12 @@ class Positioner:
         _log.info(f"closing short position {position.symbol} {mode.name}")
 
         base_asset, quote_asset = Symbol_.assets(position.symbol)
-        asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
+        base_asset_info = self._informant.get_asset_info(
+            exchange=position.exchange, asset=base_asset
+        )
+        quote_asset_info = self._informant.get_asset_info(
+            exchange=position.exchange, asset=quote_asset
+        )
         borrow_info = self._informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
         )
@@ -354,7 +357,7 @@ class Positioner:
                 interest_rate=borrow_info.interest_rate,
                 start=position.time,
                 end=Timestamp_.now(),
-                precision=asset_info.precision,
+                precision=base_asset_info.precision,
             )
         else:
             interest = (
@@ -383,6 +386,7 @@ class Positioner:
             time=res.time,
             fills=res.fills,
             reason=reason,
+            quote_asset_info=quote_asset_info,
         )
         if mode is TradingMode.LIVE:
             _log.info(
@@ -513,7 +517,7 @@ class Positioner:
             test=mode is TradingMode.PAPER,
             leverage=MARGIN_MULTIPLIER,
         )
-        open_position = Position.OpenShort(
+        open_position = Position.OpenShort.build(
             exchange=exchange,
             symbol=symbol,
             collateral=collateral,
@@ -532,8 +536,13 @@ class Positioner:
     ) -> Position.Closed:
         _log.info(f"closing short position using leveraged order {position.symbol} {mode.name}")
 
-        base_asset = Symbol_.base_asset(position.symbol)
-        asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
+        base_asset, quote_asset = Symbol_.assets(position.symbol)
+        base_asset_info = self._informant.get_asset_info(
+            exchange=position.exchange, asset=base_asset
+        )
+        quote_asset_info = self._informant.get_asset_info(
+            exchange=position.exchange, asset=quote_asset
+        )
         borrow_info = self._informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
         )
@@ -568,7 +577,7 @@ class Positioner:
                 interest_rate=borrow_info.interest_rate,
                 start=position.time,
                 end=Timestamp_.now(),
-                precision=asset_info.precision,
+                precision=base_asset_info.precision,
             )
         else:
             interest = _calculate_interest(
@@ -577,7 +586,7 @@ class Positioner:
                 interest_rate=borrow_info.interest_rate,
                 start=position.time,
                 end=Timestamp_.now(),
-                precision=asset_info.precision,
+                precision=base_asset_info.precision,
             )
 
             # Add an extra interest tick in case it is about to get ticked.
@@ -598,6 +607,7 @@ class Positioner:
             time=res.time,
             fills=res.fills,
             reason=reason,
+            quote_asset_info=quote_asset_info,
         )
 
         if mode is TradingMode.LIVE:
@@ -656,7 +666,7 @@ class SimulatedPositioner:
         price: Decimal,
         quote: Decimal,
     ) -> Position.OpenLong:
-        base_asset, _ = Symbol_.assets(symbol)
+        base_asset = Symbol_.base_asset(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         size = filters.size.round_down(quote / price)
@@ -664,12 +674,14 @@ class SimulatedPositioner:
             raise BadOrder("Insufficient funds")
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
+        base_asset_info = self._informant.get_asset_info(exchange, base_asset)
 
-        open_position = Position.OpenLong(
+        open_position = Position.OpenLong.build(
             exchange=exchange,
             symbol=symbol,
             time=time,
             fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
+            base_asset_info=base_asset_info,
         )
         _log.info(f"opened simulated long position {symbol} at {Timestamp_.format(time)}")
         return open_position
@@ -681,8 +693,10 @@ class SimulatedPositioner:
         price: Decimal,
         reason: CloseReason,
     ) -> Position.Long:
-        _, quote_asset = Symbol_.assets(position.symbol)
+        base_asset, quote_asset = Symbol_.assets(position.symbol)
         fees, filters = self._informant.get_fees_filters(position.exchange, position.symbol)
+        base_asset_info = self._informant.get_asset_info(position.exchange, base_asset)
+        quote_asset_info = self._informant.get_asset_info(position.exchange, quote_asset)
 
         fills: list[Fill] = []
         size = filters.size.round_down(position.base_gain)
@@ -697,6 +711,8 @@ class SimulatedPositioner:
             time=time,
             fills=fills,
             reason=reason,
+            base_asset_info=base_asset_info,
+            quote_asset_info=quote_asset_info,
         )
         _log.info(
             f"closed simulated long position {closed_position.symbol} at "
@@ -727,7 +743,7 @@ class SimulatedPositioner:
         quote = round_down(price * borrowed, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-        open_position = Position.OpenShort(
+        open_position = Position.OpenShort.build(
             exchange=exchange,
             symbol=symbol,
             collateral=collateral,
@@ -745,9 +761,14 @@ class SimulatedPositioner:
         price: Decimal,
         reason: CloseReason,
     ) -> Position.Short:
-        base_asset, _ = Symbol_.assets(position.symbol)
+        base_asset, quote_asset = Symbol_.assets(position.symbol)
         fees, filters = self._informant.get_fees_filters(position.exchange, position.symbol)
-        asset_info = self._informant.get_asset_info(exchange=position.exchange, asset=base_asset)
+        base_asset_info = self._informant.get_asset_info(
+            exchange=position.exchange, asset=base_asset
+        )
+        quote_asset_info = self._informant.get_asset_info(
+            exchange=position.exchange, asset=quote_asset
+        )
         borrow_info = self._informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
         )
@@ -758,7 +779,7 @@ class SimulatedPositioner:
             interest_rate=borrow_info.interest_rate,
             start=position.time,
             end=time,
-            precision=asset_info.precision,
+            precision=base_asset_info.precision,
         )
         size = position.borrowed + interest
         fee = round_half_up(size * fees.taker, filters.base_precision)
@@ -770,6 +791,7 @@ class SimulatedPositioner:
             interest=interest,
             fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
             reason=reason,
+            quote_asset_info=quote_asset_info,
         )
         _log.info(
             f"closed simulated short position {closed_position.symbol} at "

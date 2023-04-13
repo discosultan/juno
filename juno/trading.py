@@ -8,10 +8,10 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Optional, Sequence, Union
 
-from juno import Fill, Interval, Symbol, Symbol_, Timestamp, Timestamp_
+from juno import AssetInfo, Fill, Interval, Symbol, Symbol_, Timestamp, Timestamp_
 from juno.asyncio import gather_dict
 from juno.components import Chandler
-from juno.math import annualized
+from juno.math import annualized, round_half_down
 
 _log = logging.getLogger(__name__)
 
@@ -29,6 +29,12 @@ class TradingMode(IntEnum):
     LIVE = 2
 
 
+@dataclass(frozen=True)
+class OpenPositionStats:
+    cost: Decimal
+    base_gain: Decimal
+
+
 class Position(ModuleType):
     # TODO: Add support for external token fees (i.e BNB)
     @dataclass(frozen=True)
@@ -41,6 +47,16 @@ class Position(ModuleType):
         close_fills: list[Fill]
         close_reason: CloseReason
 
+        cost: Decimal
+        base_gain: Decimal
+        base_cost: Decimal
+        gain: Decimal
+        profit: Decimal
+        roi: Decimal
+        annualized_roi: Decimal
+        dust: Decimal
+        duration: Interval
+
         def __post_init__(self) -> None:
             if self.open_time < 0:
                 raise ValueError("Open time cannot be negative")
@@ -51,49 +67,54 @@ class Position(ModuleType):
             # Note that a position can have zero close fills if the position cannot be closed
             # anymore due to exchange filter requirements. Assume funds lost in this case.
 
-        @property
-        def cost(self) -> Decimal:
-            return Fill.total_quote(self.open_fills)
-
-        @property
-        def base_gain(self) -> Decimal:
-            return Fill.total_size(self.open_fills) - Fill.total_fee(
-                self.open_fills, Symbol_.base_asset(self.symbol)
+        @staticmethod
+        def build(
+            exchange: str,
+            symbol: Symbol,
+            open_time: Timestamp,
+            open_fills: list[Fill],
+            close_time: Timestamp,
+            close_fills: list[Fill],
+            close_reason: CloseReason,
+            base_asset_info: AssetInfo,
+            quote_asset_info: AssetInfo,
+        ) -> Position.Long:
+            base_asset, quote_asset = Symbol_.assets(symbol)
+            cost = Fill.total_quote(open_fills)
+            gain = round_half_down(
+                Fill.total_quote(close_fills)
+                - Fill.total_quote_fee(close_fills, Symbol_.quote_asset(symbol), quote_asset_info),
+                quote_asset_info.precision,
             )
-
-        @property
-        def base_cost(self) -> Decimal:
-            return Fill.total_size(self.close_fills)
-
-        @property
-        def gain(self) -> Decimal:
-            return Fill.total_quote(self.close_fills) - Fill.total_fee(
-                self.close_fills, Symbol_.quote_asset(self.symbol)
+            profit = gain - cost
+            roi = profit / cost
+            duration = close_time - open_time
+            base_gain = round_half_down(
+                Fill.total_size(open_fills)
+                - Fill.total_fee(open_fills, base_asset)
+                - Fill.total_base_fee_for_quote_asset(open_fills, quote_asset, base_asset_info),
+                base_asset_info.precision,
             )
+            base_cost = Fill.total_size(close_fills)
 
-        @property
-        def profit(self) -> Decimal:
-            return self.gain - self.cost
-
-        @property
-        def roi(self) -> Decimal:
-            return self.profit / self.cost
-
-        @property
-        def annualized_roi(self) -> Decimal:
-            return annualized(self.duration, self.roi)
-
-        @property
-        def dust(self) -> Decimal:
-            return (
-                Fill.total_size(self.open_fills)
-                - Fill.total_fee(self.open_fills, Symbol_.base_asset(self.symbol))
-                - Fill.total_size(self.close_fills)
+            return Position.Long(
+                exchange=exchange,
+                symbol=symbol,
+                open_time=open_time,
+                open_fills=open_fills,
+                close_time=close_time,
+                close_fills=close_fills,
+                close_reason=close_reason,
+                cost=cost,
+                gain=gain,
+                base_gain=base_gain,
+                base_cost=base_cost,
+                profit=profit,
+                roi=roi,
+                annualized_roi=annualized(duration, roi),
+                dust=base_gain - base_cost,
+                duration=duration,
             )
-
-        @property
-        def duration(self) -> Interval:
-            return self.close_time - self.open_time
 
     @dataclass(frozen=True)
     class OpenLong:
@@ -102,8 +123,44 @@ class Position(ModuleType):
         time: Timestamp
         fills: list[Fill]
 
-        def close(self, time: Timestamp, fills: list[Fill], reason: CloseReason) -> Position.Long:
-            return Position.Long(
+        cost: Decimal
+        base_gain: Decimal
+
+        def __post_init__(self) -> None:
+            if self.time < 0:
+                raise ValueError("Time cannot be negative")
+
+        @staticmethod
+        def build(
+            exchange: str,
+            symbol: Symbol,
+            time: Timestamp,
+            fills: list[Fill],
+            base_asset_info: AssetInfo,
+        ) -> Position.OpenLong:
+            base_asset, quote_asset = Symbol_.assets(symbol)
+            return Position.OpenLong(
+                exchange=exchange,
+                symbol=symbol,
+                time=time,
+                fills=fills,
+                cost=Fill.total_quote(fills),
+                base_gain=(
+                    Fill.total_size(fills)
+                    - Fill.total_fee(fills, base_asset)
+                    - Fill.total_base_fee_for_quote_asset(fills, quote_asset, base_asset_info)
+                ),
+            )
+
+        def close(
+            self,
+            time: Timestamp,
+            fills: list[Fill],
+            reason: CloseReason,
+            base_asset_info: AssetInfo,
+            quote_asset_info: AssetInfo,
+        ) -> Position.Long:
+            return Position.Long.build(
                 exchange=self.exchange,
                 symbol=self.symbol,
                 open_time=self.time,
@@ -111,16 +168,8 @@ class Position(ModuleType):
                 close_time=time,
                 close_fills=fills,
                 close_reason=reason,
-            )
-
-        @property
-        def cost(self) -> Decimal:
-            return Fill.total_quote(self.fills)
-
-        @property
-        def base_gain(self) -> Decimal:
-            return Fill.total_size(self.fills) - Fill.total_fee(
-                self.fills, Symbol_.base_asset(self.symbol)
+                base_asset_info=base_asset_info,
+                quote_asset_info=quote_asset_info,
             )
 
     @dataclass(frozen=True)
@@ -136,6 +185,16 @@ class Position(ModuleType):
         close_reason: CloseReason
         interest: Decimal  # base
 
+        cost: Decimal
+        base_gain: Decimal
+        base_cost: Decimal
+        gain: Decimal
+        profit: Decimal
+        roi: Decimal
+        annualized_roi: Decimal
+        dust: Decimal
+        duration: Interval
+
         def __post_init__(self) -> None:
             if self.open_time < 0:
                 raise ValueError("Open time cannot be negative")
@@ -146,55 +205,59 @@ class Position(ModuleType):
             # Note that a position can have zero close fills if the position cannot be closed
             # anymore due to exchange filter requirements. Assume funds lost in this case.
 
-        @property
-        def cost(self) -> Decimal:
-            return self.collateral
-
-        @property
-        def base_gain(self) -> Decimal:
-            return self.borrowed
-
-        @property
-        def base_cost(self) -> Decimal:
-            return self.borrowed
-
-        @property
-        def gain(self) -> Decimal:
-            quote_asset = Symbol_.quote_asset(self.symbol)
-            return (
-                Fill.total_quote(self.open_fills)
-                - Fill.total_fee(self.open_fills, quote_asset)
-                + self.collateral
-                - Fill.total_quote(self.close_fills)
-                - Fill.total_fee(self.close_fills, quote_asset)
+        @staticmethod
+        def build(
+            exchange: str,
+            symbol: Symbol,
+            collateral: Decimal,  # quote
+            borrowed: Decimal,  # base
+            open_time: Timestamp,
+            open_fills: list[Fill],
+            close_time: Timestamp,
+            close_fills: list[Fill],
+            close_reason: CloseReason,
+            interest: Decimal,  # base
+            quote_asset_info: AssetInfo,
+        ) -> Position.Short:
+            quote_asset = Symbol_.quote_asset(symbol)
+            cost = collateral
+            gain = round_half_down(
+                Fill.total_quote(open_fills)
+                - Fill.total_quote_fee(open_fills, quote_asset, quote_asset_info)
+                + collateral
+                - Fill.total_quote(close_fills)
+                - Fill.total_quote_fee(close_fills, quote_asset, quote_asset_info),
+                quote_asset_info.precision,
             )
-
-        @property
-        def profit(self) -> Decimal:
-            return self.gain - self.cost
-
-        @property
-        def roi(self) -> Decimal:
+            profit = gain - cost
             # TODO: Because we don't simulate margin call liquidation, ROI can go negative.
             # For now, we simply cap the value to min -1.
-            return max(self.profit / self.cost, Decimal("-1.0"))
+            roi = max(profit / cost, Decimal("-1.0"))
+            duration = close_time - open_time
+            base_gain = borrowed
+            base_cost = borrowed
 
-        @property
-        def annualized_roi(self) -> Decimal:
-            return annualized(self.duration, self.roi)
-
-        # TODO: implement
-        # @property
-        # def dust(self) -> Decimal:
-        #     return (
-        #         Fill.total_size(self.open_fills)
-        #         - Fill.total_fee(self.open_fills)
-        #         - Fill.total_size(self.close_fills)
-        #     )
-
-        @property
-        def duration(self) -> Interval:
-            return self.close_time - self.open_time
+            return Position.Short(
+                exchange=exchange,
+                symbol=symbol,
+                collateral=collateral,
+                borrowed=borrowed,
+                open_time=open_time,
+                open_fills=open_fills,
+                close_time=close_time,
+                close_fills=close_fills,
+                close_reason=close_reason,
+                interest=interest,
+                cost=cost,
+                gain=gain,
+                base_gain=base_gain,
+                base_cost=base_cost,
+                profit=profit,
+                roi=roi,
+                annualized_roi=annualized(duration, roi),
+                dust=base_gain - base_cost,
+                duration=duration,
+            )
 
     @dataclass(frozen=True)
     class OpenShort:
@@ -205,10 +268,42 @@ class Position(ModuleType):
         time: Timestamp
         fills: list[Fill]
 
+        cost: Decimal
+        base_gain: Decimal
+
+        def __post_init__(self) -> None:
+            if self.time < 0:
+                raise ValueError("Time cannot be negative")
+
+        @staticmethod
+        def build(
+            exchange: str,
+            symbol: Symbol,
+            collateral: Decimal,
+            borrowed: Decimal,
+            time: Timestamp,
+            fills: list[Fill],
+        ) -> Position.OpenShort:
+            return Position.OpenShort(
+                exchange=exchange,
+                symbol=symbol,
+                collateral=collateral,
+                borrowed=borrowed,
+                time=time,
+                fills=fills,
+                cost=collateral,
+                base_gain=borrowed,
+            )
+
         def close(
-            self, interest: Decimal, time: Timestamp, fills: list[Fill], reason: CloseReason
+            self,
+            interest: Decimal,
+            time: Timestamp,
+            fills: list[Fill],
+            reason: CloseReason,
+            quote_asset_info: AssetInfo,
         ) -> Position.Short:
-            return Position.Short(
+            return Position.Short.build(
                 exchange=self.exchange,
                 symbol=self.symbol,
                 collateral=self.collateral,
@@ -219,15 +314,8 @@ class Position(ModuleType):
                 close_fills=fills,
                 close_reason=reason,
                 interest=interest,
+                quote_asset_info=quote_asset_info,
             )
-
-        @property
-        def cost(self) -> Decimal:
-            return self.collateral
-
-        @property
-        def base_gain(self) -> Decimal:
-            return self.borrowed
 
     Any = Union[Long, OpenLong, OpenShort, Short]
     Open = Union[OpenLong, OpenShort]

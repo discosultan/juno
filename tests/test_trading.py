@@ -2,13 +2,13 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Fill
+from juno import AssetInfo, Fill
 from juno.statistics import CoreStatistics
 from juno.trading import CloseReason, Position, TradingSummary
 
 
 def test_long_position() -> None:
-    open_pos = Position.OpenLong(
+    open_pos = Position.OpenLong.build(
         exchange="exchange",
         symbol="eth-btc",
         time=0,
@@ -21,6 +21,7 @@ def test_long_position() -> None:
                 fee_asset="eth",
             )
         ],
+        base_asset_info=AssetInfo(),
     )
     pos = open_pos.close(
         time=1,
@@ -34,6 +35,8 @@ def test_long_position() -> None:
             )
         ],
         reason=CloseReason.STRATEGY,
+        base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
 
     assert pos.cost == 12  # 6 * 2
@@ -48,7 +51,7 @@ def test_long_position() -> None:
 
 
 def test_long_position_annualized_roi_overflow() -> None:
-    open_pos = Position.OpenLong(
+    open_pos = Position.OpenLong.build(
         exchange="exchange",
         symbol="eth-btc",
         time=0,
@@ -61,6 +64,7 @@ def test_long_position_annualized_roi_overflow() -> None:
                 fee_asset="eth",
             )
         ],
+        base_asset_info=AssetInfo(),
     )
     pos = open_pos.close(
         time=2,
@@ -74,6 +78,8 @@ def test_long_position_annualized_roi_overflow() -> None:
             )
         ],
         reason=CloseReason.STRATEGY,
+        base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
 
     assert pos.annualized_roi == Decimal("Inf")
@@ -124,13 +130,14 @@ def new_closed_long_position(profit: Decimal) -> Position.Long:
     size = abs(profit)
     open_price = Decimal("2.0")
     close_price = Decimal("3.0") if profit >= 0 else Decimal("1.0")
-    open_pos = Position.OpenLong(
+    open_pos = Position.OpenLong.build(
         exchange="exchange",
         symbol="eth-btc",
         time=0,
         fills=[
             Fill.with_computed_quote(price=open_price, size=size, fee_asset="eth"),
         ],
+        base_asset_info=AssetInfo(),
     )
     return open_pos.close(
         time=1,
@@ -138,4 +145,6 @@ def new_closed_long_position(profit: Decimal) -> Position.Long:
             Fill.with_computed_quote(price=close_price, size=size, fee_asset="btc"),
         ],
         reason=CloseReason.STRATEGY,
+        base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
