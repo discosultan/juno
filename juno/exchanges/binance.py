@@ -60,7 +60,15 @@ from juno import (
 )
 from juno.aiolimiter import AsyncLimiter
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
-from juno.filters import Filters, MinNotional, PercentPrice, PercentPriceBySide, Price, Size
+from juno.filters import (
+    Filters,
+    MinNotional,
+    Notional,
+    PercentPrice,
+    PercentPriceBySide,
+    Price,
+    Size,
+)
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import paginate
 
@@ -282,6 +290,7 @@ class Binance(Exchange):
             percent_price_by_side = None
             lot_size = None
             min_notional = None
+            notional = None
             for f in symbol_info["filters"]:
                 t = f["filterType"]
                 if t == "PRICE_FILTER":
@@ -316,12 +325,20 @@ class Binance(Exchange):
                         apply_to_market=f["applyToMarket"],
                         avg_price_period=f["avgPriceMins"] * Interval_.MIN,
                     )
+                elif t == "NOTIONAL":
+                    notional = Notional(
+                        min_notional=Decimal(f["minNotional"]),
+                        apply_min_to_market=f["applyMinToMarket"],
+                        max_notional=Decimal(f["maxNotional"]),
+                        apply_max_to_market=f["applyMaxToMarket"],
+                        avg_price_period=f["avgPriceMins"] * Interval_.MIN,
+                    )
 
             base_asset = symbol_info["baseAsset"].lower()
             quote_asset = symbol_info["quoteAsset"].lower()
             symbol = f"{base_asset}-{quote_asset}"
 
-            if not all((price, lot_size, min_notional)):
+            if not all((price, lot_size)) or (not notional and not min_notional):
                 raise RuntimeError(f"Not all required filters available for {symbol}")
 
             filters[symbol] = Filters(
@@ -330,6 +347,7 @@ class Binance(Exchange):
                 percent_price_by_side=percent_price_by_side or PercentPriceBySide(),
                 size=lot_size or Size(),
                 min_notional=min_notional or MinNotional(),
+                notional=notional or Notional(),
                 base_precision=symbol_info["baseAssetPrecision"],
                 quote_precision=symbol_info["quoteAssetPrecision"],
                 spot="SPOT" in symbol_info["permissions"],

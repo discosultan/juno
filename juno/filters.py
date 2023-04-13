@@ -127,12 +127,50 @@ class MinNotional:
 
 
 @dataclass(frozen=True)
+class Notional:
+    min_notional: Decimal = Decimal("0.0")
+    apply_min_to_market: bool = False
+    max_notional: Decimal = Decimal("0.0")
+    apply_max_to_market: bool = False
+    avg_price_period: int = 0  # 0 means the last price is used.
+
+    def valid(self, price: Decimal, size: Decimal) -> bool:
+        # For limit order only.
+        quote = price * size
+        return quote >= self.min_notional and quote <= self.max_notional
+
+    def min_size_for_price(self, price: Decimal) -> Decimal:
+        return self.min_notional / price
+
+    def validate_limit(self, price: Decimal, size: Decimal) -> None:
+        if not self.valid(price, size):
+            raise BadOrder(
+                f"Price {price} * size {size} ({price * size}) must be between "
+                f"[{self.min_notional}; {self.max_notional}]"
+            )
+
+    def validate_market(self, avg_price: Decimal, size: Decimal) -> None:
+        quote = avg_price * size
+        if self.apply_min_to_market and quote < self.min_notional:
+            raise BadOrder(
+                f"Price {avg_price} * size {size} ({avg_price * size}) must be higher than "
+                f"equal than {self.min_notional}"
+            )
+        if self.apply_max_to_market and quote > self.max_notional:
+            raise BadOrder(
+                f"Price {avg_price} * size {size} ({avg_price * size}) must be less than "
+                f"equal than {self.max_notional}"
+            )
+
+
+@dataclass(frozen=True)
 class Filters:
     price: Price = field(default_factory=Price)
     percent_price: PercentPrice = field(default_factory=PercentPrice)
     percent_price_by_side: PercentPriceBySide = field(default_factory=PercentPriceBySide)
     size: Size = field(default_factory=Size)
     min_notional: MinNotional = field(default_factory=MinNotional)
+    notional: Notional = field(default_factory=Notional)
 
     base_precision: int = 8
     quote_precision: int = 8
