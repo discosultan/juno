@@ -59,7 +59,8 @@ class KuCoin(Exchange):
     # can_stream_historical_earliest_candle: bool = False
     # can_stream_candles: bool = False
     # can_list_all_tickers: bool = False
-    # can_margin_trade: bool = False
+    # can_margin_borrow: bool = False
+    # can_margin_order_leverage: bool = False
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
     can_get_market_order_result_direct: bool = False
