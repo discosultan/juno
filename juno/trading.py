@@ -11,7 +11,7 @@ from typing import Optional, Sequence, Union
 from juno import AssetInfo, Fill, Interval, Symbol, Symbol_, Timestamp, Timestamp_
 from juno.asyncio import gather_dict
 from juno.components import Chandler
-from juno.math import annualized, round_half_down
+from juno.math import annualized
 
 _log = logging.getLogger(__name__)
 
@@ -29,10 +29,15 @@ class TradingMode(IntEnum):
     LIVE = 2
 
 
-@dataclass(frozen=True)
-class OpenPositionStats:
-    cost: Decimal
-    base_gain: Decimal
+def _calculate_roi(profit: Decimal, cost: Decimal) -> Decimal:
+    # When dividing two decimals, the value may be `Decimal('0')`. For correct
+    # serialization, we always want our decimal values to have at least a single decimal
+    # place. For example, we want to turn `Decimal('0')` to `Decimal('0.0')`.
+    roi = profit / cost
+    roi_dec_places = roi.as_tuple().exponent
+    if isinstance(roi_dec_places, int) and roi_dec_places == 0:
+        roi = roi.quantize(Decimal("0.1"))
+    return roi
 
 
 class Position(ModuleType):
@@ -80,22 +85,18 @@ class Position(ModuleType):
             quote_asset_info: AssetInfo,
         ) -> Position.Long:
             base_asset, quote_asset = Symbol_.assets(symbol)
-            cost = Fill.total_quote(open_fills)
-            gain = round_half_down(
-                Fill.total_quote(close_fills)
-                - Fill.total_quote_fee(close_fills, Symbol_.quote_asset(symbol), quote_asset_info),
-                quote_asset_info.precision,
-            )
+            cost = Fill.cost(open_fills, quote_asset_info.precision)
+            gain = Fill.gain(close_fills, base_asset, quote_asset, quote_asset_info.precision)
             profit = gain - cost
-            roi = profit / cost
+            roi = _calculate_roi(profit, cost)
             duration = close_time - open_time
-            base_gain = round_half_down(
-                Fill.total_size(open_fills)
-                - Fill.total_fee(open_fills, base_asset)
-                - Fill.total_base_fee_for_quote_asset(open_fills, quote_asset, base_asset_info),
+            base_gain = Fill.base_gain(
+                open_fills,
+                base_asset,
+                quote_asset,
                 base_asset_info.precision,
             )
-            base_cost = Fill.total_size(close_fills)
+            base_cost = Fill.base_cost(close_fills, base_asset_info.precision)
 
             return Position.Long(
                 exchange=exchange,
@@ -137,6 +138,7 @@ class Position(ModuleType):
             time: Timestamp,
             fills: list[Fill],
             base_asset_info: AssetInfo,
+            quote_asset_info: AssetInfo,
         ) -> Position.OpenLong:
             base_asset, quote_asset = Symbol_.assets(symbol)
             return Position.OpenLong(
@@ -144,11 +146,12 @@ class Position(ModuleType):
                 symbol=symbol,
                 time=time,
                 fills=fills,
-                cost=Fill.total_quote(fills),
-                base_gain=(
-                    Fill.total_size(fills)
-                    - Fill.total_fee(fills, base_asset)
-                    - Fill.total_base_fee_for_quote_asset(fills, quote_asset, base_asset_info)
+                cost=Fill.cost(fills, quote_asset_info.precision),
+                base_gain=Fill.base_gain(
+                    fills,
+                    base_asset,
+                    quote_asset,
+                    base_asset_info.precision,
                 ),
             )
 
@@ -219,20 +222,20 @@ class Position(ModuleType):
             interest: Decimal,  # base
             quote_asset_info: AssetInfo,
         ) -> Position.Short:
-            quote_asset = Symbol_.quote_asset(symbol)
+            base_asset, quote_asset = Symbol_.assets(symbol)
             cost = collateral
-            gain = round_half_down(
-                Fill.total_quote(open_fills)
-                - Fill.total_quote_fee(open_fills, quote_asset, quote_asset_info)
-                + collateral
-                - Fill.total_quote(close_fills)
-                - Fill.total_quote_fee(close_fills, quote_asset, quote_asset_info),
-                quote_asset_info.precision,
+            gain = (
+                collateral
+                + Fill.gain(open_fills, base_asset, quote_asset, quote_asset_info.precision)
+                - Fill.cost_plus_fee(
+                    close_fills, base_asset, quote_asset, quote_asset_info.precision
+                )
             )
             profit = gain - cost
             # TODO: Because we don't simulate margin call liquidation, ROI can go negative.
             # For now, we simply cap the value to min -1.
-            roi = max(profit / cost, Decimal("-1.0"))
+            roi = max(_calculate_roi(profit, cost), Decimal("-1.0"))
+
             duration = close_time - open_time
             base_gain = borrowed
             base_cost = borrowed

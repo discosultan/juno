@@ -270,6 +270,71 @@ class Fill:
         return sum((f.price * f.size / total_size for f in fills), Decimal("0.0"))
 
     @staticmethod
+    def cost(fills: list[Fill], quote_asset_precision: int) -> Decimal:
+        result = Decimal("0.0")
+        for fill in fills:
+            result += round_half_up(fill.quote, quote_asset_precision)
+        return result
+
+    @staticmethod
+    def cost_plus_fee(
+        fills: list[Fill],
+        base_asset: Asset,
+        quote_asset: Asset,
+        quote_asset_precision: int,
+    ) -> Decimal:
+        result = Decimal("0.0")
+        for fill in fills:
+            fill_gain = fill.quote
+            if fill.fee_asset == quote_asset:
+                fill_gain += fill.fee
+            elif fill.fee_asset == base_asset:
+                fill_gain += fill.fee * fill.price
+            result += round_half_up(fill_gain, quote_asset_precision)
+        return result
+
+    @staticmethod
+    def base_gain(
+        fills: list[Fill],
+        base_asset: Asset,
+        quote_asset: Asset,
+        base_asset_precision: int,
+    ) -> Decimal:
+        result = Decimal("0.0")
+        for fill in fills:
+            fill_gain = fill.size
+            if fill.fee_asset == base_asset:
+                fill_gain -= fill.fee
+            elif fill.fee_asset == quote_asset:
+                fill_gain -= fill.fee / fill.price
+            result += round_half_up(fill_gain, base_asset_precision)
+        return result
+
+    @staticmethod
+    def base_cost(fills: list[Fill], base_asset_precision) -> Decimal:
+        result = Decimal("0.0")
+        for fill in fills:
+            result += round_half_up(fill.size, base_asset_precision)
+        return result
+
+    @staticmethod
+    def gain(
+        fills: list[Fill],
+        base_asset: Asset,
+        quote_asset: Asset,
+        quote_asset_precision: int,
+    ) -> Decimal:
+        result = Decimal("0.0")
+        for fill in fills:
+            fill_gain = fill.quote
+            if fill.fee_asset == quote_asset:
+                fill_gain -= fill.fee
+            elif fill.fee_asset == base_asset:
+                fill_gain -= fill.fee * fill.price
+            result += round_half_up(fill_gain, quote_asset_precision)
+        return result
+
+    @staticmethod
     def total_size(fills: list[Fill]) -> Decimal:
         return sum((f.size for f in fills), Decimal("0.0"))
 
@@ -280,42 +345,6 @@ class Fill:
     @staticmethod
     def total_fee(fills: list[Fill], asset: Asset) -> Decimal:
         return sum((f.fee for f in fills if f.fee_asset == asset), Decimal("0.0"))
-
-    @staticmethod
-    def total_quote_fee(
-        fills: list[Fill],
-        quote_asset: Asset,
-        quote_asset_info: AssetInfo,
-    ) -> Decimal:
-        return sum(
-            (
-                round_half_up(f.fee, quote_asset_info.precision)
-                for f in fills
-                if f.fee_asset == quote_asset
-            ),
-            Decimal("0.0"),
-        )
-
-    @staticmethod
-    def total_base_fee_for_quote_asset2(
-        fills: list[Fill],
-        quote_asset: Asset,
-    ) -> Decimal:
-        result = Decimal("0.0")
-        for fill in (f for f in fills if f.fee_asset == quote_asset):
-            result += fill.fee / fill.price
-        return result
-
-    @staticmethod
-    def total_base_fee_for_quote_asset(
-        fills: list[Fill],
-        quote_asset: Asset,
-        base_asset_info: AssetInfo,
-    ) -> Decimal:
-        result = Decimal("0.0")
-        for fill in (f for f in fills if f.fee_asset == quote_asset):
-            result += round_half_up(fill.fee / fill.price, base_asset_info.precision)
-        return result
 
     @staticmethod
     def all_fees(fills: list[Fill]) -> dict[str, Decimal]:

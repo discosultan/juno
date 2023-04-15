@@ -68,6 +68,7 @@ async def send_test_events(events: Events):
             )
         ],
         base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
     await events.emit("agent", "positions_opened", [open_pos], trading_summary)
     candle = Candle(time=Interval_.DAY, close=Decimal("2.0"), volume=Decimal("10.0"))

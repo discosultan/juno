@@ -188,13 +188,16 @@ class Positioner:
             account="spot",
             test=mode is TradingMode.PAPER,
         )
-        base_asset_info = self._informant.get_asset_info(exchange, Symbol_.base_asset(symbol))
+        base_asset, quote_asset = Symbol_.assets(symbol)
+        base_asset_info = self._informant.get_asset_info(exchange, base_asset)
+        quote_asset_info = self._informant.get_asset_info(exchange, quote_asset)
         open_position = Position.OpenLong.build(
             exchange=exchange,
             symbol=symbol,
             time=res.time,
             fills=res.fills,
             base_asset_info=base_asset_info,
+            quote_asset_info=quote_asset_info,
         )
 
         _log.info(f"opened long position {open_position.symbol} {mode.name}")
@@ -666,7 +669,7 @@ class SimulatedPositioner:
         price: Decimal,
         quote: Decimal,
     ) -> Position.OpenLong:
-        base_asset = Symbol_.base_asset(symbol)
+        base_asset, quote_asset = Symbol_.assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         size = filters.size.round_down(quote / price)
@@ -675,6 +678,7 @@ class SimulatedPositioner:
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
         base_asset_info = self._informant.get_asset_info(exchange, base_asset)
+        quote_asset_info = self._informant.get_asset_info(exchange, quote_asset)
 
         open_position = Position.OpenLong.build(
             exchange=exchange,
@@ -682,6 +686,7 @@ class SimulatedPositioner:
             time=time,
             fills=[Fill(price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset)],
             base_asset_info=base_asset_info,
+            quote_asset_info=quote_asset_info,
         )
         _log.info(f"opened simulated long position {symbol} at {Timestamp_.format(time)}")
         return open_position

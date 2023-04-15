@@ -6,6 +6,7 @@ from typing import AsyncIterable, Literal, NamedTuple, Optional
 
 from juno import (
     Account,
+    AssetInfo,
     BadOrder,
     Fill,
     Filters,
@@ -23,7 +24,7 @@ from juno import (
 from juno.asyncio import Event, cancel
 from juno.common import CancelledReason
 from juno.components import Informant, Orderbook, User
-from juno.math import round_up
+from juno.math import round_half_up, round_up
 
 from .broker import Broker
 
@@ -57,12 +58,16 @@ class _Context:
         self.requested_order: Optional[_ActiveOrder] = None
         self.wait_orderbook_update: bool = False
 
-    def get_add_back(self) -> Decimal:
+    def get_add_back(self, base_asset_info: AssetInfo, quote_asset_info: AssetInfo) -> Decimal:
         assert self.processing_order
         if self.use_quote:
-            return self.processing_order.quote - Fill.total_quote(self.fills_since_last_order)
+            return self.processing_order.quote - Fill.cost(
+                self.fills_since_last_order, quote_asset_info.precision
+            )
         else:
-            return self.processing_order.size - Fill.total_size(self.fills_since_last_order)
+            return self.processing_order.size - round_half_up(
+                Fill.total_size(self.fills_since_last_order), base_asset_info.precision
+            )
 
 
 class _FilledFromTrack(Exception):
@@ -249,6 +254,7 @@ class Limit(Broker):
             # Listens for fill events for an existing Order.
             track_fills_task = asyncio.create_task(
                 self._track_fills(
+                    exchange=exchange,
                     symbol=symbol,
                     stream=stream,
                     side=side,
@@ -309,12 +315,16 @@ class Limit(Broker):
 
     async def _track_fills(
         self,
+        exchange: str,
         symbol: Symbol,
         stream: AsyncIterable[OrderUpdate.Any],
         side: Side,
         ctx: _Context,
     ) -> None:
         _log.info(f"tracking order updates for {symbol}")
+        base_asset, quote_asset = Symbol_.assets(symbol)
+        base_asset_info = self._informant.get_asset_info(exchange, base_asset)
+        quote_asset_info = self._informant.get_asset_info(exchange, quote_asset)
         async for order in stream:
             if not ctx.requested_order:
                 _log.debug(f"skipping {symbol} {side.name} order tracking; no active order")
@@ -364,7 +374,7 @@ class Limit(Broker):
                 assert ctx.processing_order
                 ctx.fills.extend(ctx.fills_since_last_order)
                 ctx.time = order.time
-                ctx.available += ctx.get_add_back()
+                ctx.available += ctx.get_add_back(base_asset_info, quote_asset_info)
                 ctx.cancelled_event.set()
                 _log.info(
                     f"existing {symbol} {side.name} order {ctx.processing_order.client_id} "
@@ -531,8 +541,11 @@ class Limit(Broker):
         prev_order = ctx.requested_order
 
         _, filters = self._informant.get_fees_filters(exchange, symbol)
+        base_asset, quote_asset = Symbol_.assets(symbol)
+        base_asset_info = self._informant.get_asset_info(exchange, base_asset)
+        quote_asset_info = self._informant.get_asset_info(exchange, quote_asset)
 
-        available = ctx.available + ctx.get_add_back()
+        available = ctx.available + ctx.get_add_back(base_asset_info, quote_asset_info)
         size = _get_size_for_price(symbol, side, filters, ensure_size, price, available, ctx)
 
         _log.info(

@@ -22,6 +22,7 @@ def test_long_position() -> None:
             )
         ],
         base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
     pos = open_pos.close(
         time=1,
@@ -65,6 +66,7 @@ def test_long_position_annualized_roi_overflow() -> None:
             )
         ],
         base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
     pos = open_pos.close(
         time=2,
@@ -138,6 +140,7 @@ def new_closed_long_position(profit: Decimal) -> Position.Long:
             Fill.with_computed_quote(price=open_price, size=size, fee_asset="eth"),
         ],
         base_asset_info=AssetInfo(),
+        quote_asset_info=AssetInfo(),
     )
     return open_pos.close(
         time=1,

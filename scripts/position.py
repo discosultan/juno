@@ -41,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     "--use-edit-order-if-possible",
     action="store_true",
-    default=True,
+    default=False,
     help="if set, the broker will try to use edit order instead of cancel order + place order",
 )
 args = parser.parse_args()
