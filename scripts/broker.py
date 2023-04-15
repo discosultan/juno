@@ -35,6 +35,11 @@ parser.add_argument(
     default=False,
 )
 parser.add_argument("--leverage", type=int, default=None)
+parser.add_argument(
+    "--reduce-only",
+    action="store_true",
+    default=None,
+)
 args = parser.parse_args()
 
 
@@ -99,6 +104,7 @@ async def transact_symbol(
                 test=args.test,
                 ensure_size=args.ensure_size,
                 leverage=args.leverage,
+                reduce_only=args.reduce_only,
             )
         else:
             market_fills = book.find_order_bids(
@@ -115,6 +121,7 @@ async def transact_symbol(
                 quote=quote,
                 test=args.test,
                 leverage=args.leverage,
+                reduce_only=args.reduce_only,
             )
 
     logging.info(res)
