@@ -1304,10 +1304,13 @@ class Binance(Exchange):
     async def _request(self, method: str, url: str, **kwargs: Any) -> ClientResponse:
         try:
             async with self._session.request(method=method, url=url, **kwargs) as response:
+                # Even if we don't need to use `content`, we read the entire response so that we
+                # can exit the `ClientResponse` context manager and still access the content
+                # afterwards.
+                content = await response.text()
                 # TODO: If status 50X (502 for example during exchange maintenance), we may
                 # want to wait for a some kind of a successful health check before retrying.
                 if response.status >= 500:
-                    content = await response.text()
                     raise ExchangeException(f"Server error {response.status} {content}")
                 return response
         except (
