@@ -266,6 +266,42 @@ class Kraken(Exchange):
             raise NotImplementedError()
         return result
 
+    # While Kraken has an endpoint for candles, it is only able to return recent data. The `since`
+    # parameter does not work as one would expect. Therefore, we need to construct our own
+    # historical candles through trades.
+    # async def stream_historical_candles(
+    #     self, symbol: Symbol, interval: Interval, start: Timestamp, end: Timestamp
+    # ) -> AsyncIterable[Candle]:
+    #     kraken_start = start // 1000
+    #     kraken_end = end // 1000
+    #     kraken_symbol = _to_http_symbol(symbol)
+    #     kraken_old_symbol = _NEW_SYMBOL_TO_OLD_SYMBOL[kraken_symbol.lower()].upper()
+    #     kraken_interval = interval // 60000
+
+    #     while True:
+    #         if kraken_start > kraken_end:
+    #             break
+
+    #         res = await self._request_private(
+    #             "/0/public/OHLC",
+    #             {
+    #                 "pair": kraken_symbol,
+    #                 "interval": kraken_interval,
+    #                 "since": kraken_start,
+    #             },
+    #         )
+    #         result = res["result"]
+    #         for candle in result[kraken_old_symbol]:
+    #             yield Candle(
+    #                 time=candle[0] * 1000,
+    #                 open=Decimal(candle[1]),
+    #                 high=Decimal(candle[2]),
+    #                 low=Decimal(candle[3]),
+    #                 close=Decimal(candle[4]),
+    #                 volume=Decimal(candle[5]),
+    #             )
+    #         kraken_start += 720 * kraken_interval * 60
+
     @asynccontextmanager
     async def connect_stream_candles(
         self, symbol: Symbol, interval: Interval
@@ -943,6 +979,7 @@ _OLD_SYMBOL_TO_NEW_SYMBOL = {
     "zusdzcad": "usdcad",
     "zusdzjpy": "usdjpy",
 }
+_NEW_SYMBOL_TO_OLD_SYMBOL = {v: k for k, v in _OLD_SYMBOL_TO_NEW_SYMBOL.items()}
 
 _OLD_ASSET_TO_NEW_ASSET = {
     "xxbt": "xbt",
@@ -1031,6 +1068,15 @@ def _from_cancelled_reason(value: str) -> CancelledReason:
 
 
 def _to_http_symbol(symbol: Symbol) -> str:
+    # 1. Go from Juno format to Kraken new format.
+    base, quote = Symbol_.assets(symbol)
+    base = _REVERSE_ASSET_ALIAS_MAP.get(base, base)
+    quote = _REVERSE_ASSET_ALIAS_MAP.get(quote, quote)
+    # 2. Transform to uppercase.
+    return (f"{base}{quote}").upper()
+
+
+def _to_old_symbol(symbol: Symbol) -> str:
     # 1. Go from Juno format to Kraken new format.
     base, quote = Symbol_.assets(symbol)
     base = _REVERSE_ASSET_ALIAS_MAP.get(base, base)
