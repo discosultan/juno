@@ -542,7 +542,7 @@ class Chandler(AsyncContextManager):
                     close=close,
                     volume=volume,
                 )
-                current = next_
+                current = Timestamp_.floor(trade.time, interval)
                 next_ = current + interval
                 open_ = Decimal("0.0")
                 high = Decimal("0.0")

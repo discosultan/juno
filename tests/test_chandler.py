@@ -168,6 +168,48 @@ async def test_stream_candles_construct_from_trades(
     ]
 
 
+async def test_stream_candles_construct_from_trades_with_missing_candle(
+    mocker: MockerFixture, storage: Storage
+) -> None:
+    exchange = mock_exchange(
+        mocker,
+        candle_intervals=[2],
+        can_stream_historical_candles=False,
+        can_stream_candles=False,
+    )
+
+    trades = mock_trades(
+        mocker,
+        trades=[
+            Trade(time=0, price=Decimal("1.0"), size=Decimal("1.0")),
+            Trade(time=4, price=Decimal("4.0"), size=Decimal("1.0")),
+            Trade(time=5, price=Decimal("2.0"), size=Decimal("2.0")),
+        ],
+    )
+    chandler = Chandler(trades=trades, storage=storage, exchanges=[exchange])
+
+    output_candles = await list_async(chandler.stream_candles(exchange.name, "eth-btc", 2, 0, 6))
+
+    assert output_candles == [
+        Candle(
+            time=0,
+            open=Decimal("1.0"),
+            high=Decimal("1.0"),
+            low=Decimal("1.0"),
+            close=Decimal("1.0"),
+            volume=Decimal("1.0"),
+        ),
+        Candle(
+            time=4,
+            open=Decimal("4.0"),
+            high=Decimal("4.0"),
+            low=Decimal("2.0"),
+            close=Decimal("2.0"),
+            volume=Decimal("3.0"),
+        ),
+    ]
+
+
 async def test_stream_candles_cancel_does_not_store_twice(
     mocker: MockerFixture, storage: fakes.Storage
 ) -> None:
