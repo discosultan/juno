@@ -258,6 +258,9 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
         self._queues[state.id] = asyncio.Queue()
         state.running = True
         try:
+            _log.info(
+                f"streaming candles between {Timestamp_.format_span(state.next_, config.end)}"
+            )
             async for candle, candle_meta in self._chandler.stream_concurrent_candles(
                 exchange=config.exchange,
                 entries=(
@@ -268,6 +271,7 @@ class Basic(Trader[BasicConfig, BasicState], StartMixin):
                 end=config.end,
             ):
                 await self._tick(state, candle, candle_meta)
+            _log.info("ran out of candles; finishing")
         except BadOrder:
             _log.exception("bad order; finishing early")
         finally:

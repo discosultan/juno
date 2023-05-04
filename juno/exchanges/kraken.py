@@ -979,7 +979,7 @@ _OLD_SYMBOL_TO_NEW_SYMBOL = {
     "zusdzcad": "usdcad",
     "zusdzjpy": "usdjpy",
 }
-_NEW_SYMBOL_TO_OLD_SYMBOL = {v: k for k, v in _OLD_SYMBOL_TO_NEW_SYMBOL.items()}
+# _NEW_SYMBOL_TO_OLD_SYMBOL = {v: k for k, v in _OLD_SYMBOL_TO_NEW_SYMBOL.items()}
 
 _OLD_ASSET_TO_NEW_ASSET = {
     "xxbt": "xbt",
