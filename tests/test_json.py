@@ -47,5 +47,5 @@ def test_dumps_complicated() -> None:
 )
 def test_loads(input_, expected_output) -> None:
     res = json.loads(input_)
-    assert type(res) == type(expected_output)
+    assert type(res) is type(expected_output)
     assert res == expected_output
