@@ -91,7 +91,7 @@ class Size:
         return (
             size >= self.min
             and (not self.max or size <= self.max)
-            and (not self.step or (size - self.min) % self.step == 0)
+            and (not self.step or size % self.step == 0)
         )
 
     def validate(self, size: Decimal) -> None:
