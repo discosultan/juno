@@ -192,8 +192,8 @@ def _assert(indicator, data: IndicatorData, precision: int) -> None:
                 expected_output = expected_outputs[j][i - offset]
                 # "*" is a special symbol and allows any value.
                 if expected_output != "*":
-                    assert pytest.approx(outputs[j], abs=10**-precision) == Decimal(
-                        expected_output
+                    assert outputs[j] == pytest.approx(
+                        Decimal(expected_output), abs=10**-precision
                     ), (
                         f"Failed at index {i} offset {offset} with inputs {input_} and outputs "
                         f"{outputs}"
