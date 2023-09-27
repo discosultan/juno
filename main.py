@@ -3,9 +3,9 @@ import logging
 import signal
 import sys
 from asyncio import tasks
+from importlib import metadata
 from typing import Any
 
-import pkg_resources
 from mergedeep import merge
 
 import juno
@@ -56,8 +56,8 @@ async def main() -> None:
     )
 
     try:
-        _log.info(f"version: {pkg_resources.get_distribution(juno.__name__)}")
-    except pkg_resources.DistributionNotFound:
+        _log.info(f"version: {metadata.version(juno.__name__)}")
+    except metadata.PackageNotFoundError:
         pass
 
     _log.info(f"log level: {log_level}; format: {log_format}; outputs: {log_outputs}")
