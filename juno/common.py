@@ -79,8 +79,12 @@ class Candle(NamedTuple):
     volume: Decimal = Decimal("0.0")  # Within interval.
 
     @property
-    def midpoint(self) -> Decimal:
+    def mid(self) -> Decimal:
         return (self.open + self.close) / 2
+
+    @property
+    def midpoint(self) -> Decimal:
+        return (self.high + self.low) / 2
 
     @property
     def mean_hlc(self) -> Decimal:
@@ -109,7 +113,7 @@ class Candle(NamedTuple):
         Calculates a Heikin-Ashi candle based on the formula found in
         https://www.investopedia.com/terms/h/heikinashi.asp.
         """
-        open = previous.midpoint
+        open = previous.mid
         close = current.average
         return Candle(
             time=current.time,
@@ -125,7 +129,7 @@ class Candle(NamedTuple):
         #
         # return Candle(
         #     time=current.time,
-        #     open=previous.midpoint,
+        #     open=previous.mid,
         #     high=max(current.high, current.open, current.close),
         #     low=min(current.low, current.open, current.close),
         #     close=current.average,
