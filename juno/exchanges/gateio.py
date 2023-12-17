@@ -129,7 +129,7 @@ class GateIO(Exchange):
     ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         channel = "spot.order_book_update"
 
-        # https://www.gateio.pro/docs/apiv4/ws/index.html#changed-order-book-levels
+        # https://www.gate.io/docs/developers/apiv4/ws/en/#changed-order-book-levels
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
             async for msg in ws:
                 data = json.loads(msg.data)
