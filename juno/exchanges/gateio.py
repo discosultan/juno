@@ -245,7 +245,7 @@ class GateIO(Exchange):
         # accumulated updates.
         track_orders = {}
 
-        # https://www.gateio.pro/docs/apiv4/ws/index.html#client-subscription-7
+        # https://www.gate.io/docs/developers/apiv4/ws/en/#orders-channel
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for msg in ws:
                 data = json.loads(msg.data)
@@ -324,7 +324,7 @@ class GateIO(Exchange):
         assert account == "spot"
         channel = "spot.balances"
 
-        # https://www.gateio.pro/docs/apiv4/ws/index.html#client-subscription-9
+        # https://www.gate.io/docs/developers/apiv4/ws/en/#spot-balance-channel
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[dict[str, Balance]]:
             async for msg in ws:
                 data = json.loads(msg.data)
