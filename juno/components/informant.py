@@ -55,9 +55,9 @@ class Informant:
         self._get_time_ms = get_time_ms
         self._cache_time = cache_time
 
-        self._synced_data: dict[
-            str, dict[type[_Timestamped[Any]], _Timestamped[Any]]
-        ] = defaultdict(dict)
+        self._synced_data: dict[str, dict[type[_Timestamped[Any]], _Timestamped[Any]]] = (
+            defaultdict(dict)
+        )
 
     async def __aenter__(self) -> Informant:
         exchange_info_synced_evt = asyncio.Event()

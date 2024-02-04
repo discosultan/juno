@@ -6,12 +6,16 @@ exclude =
     config
 # B006: Do not use mutable data structures for argument defaults.
 # B008: Do not perform function calls in argument defaults.
+# B036: Found `except BaseException:` without re-raising.
 # E203: Whitespace before ':'. Recommended by `black`.
+# E704: Multiple statements on one line.
 # W503: Line break before binary operator.
 ignore =
     B006
     B008
+    B036
     E203
+    E704
     W503
 inline-quotes = "
 max-line-length = 99

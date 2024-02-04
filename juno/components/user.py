@@ -52,9 +52,9 @@ class User:
         # Balance sync state.
         # Key: (exchange, account)
         self._wallet_sync_tasks: dict[tuple[str, str], asyncio.Task] = {}
-        self._wallet_sync_ctxs: dict[
-            tuple[str, str], dict[str, User.WalletSyncContext]
-        ] = defaultdict(dict)
+        self._wallet_sync_ctxs: dict[tuple[str, str], dict[str, User.WalletSyncContext]] = (
+            defaultdict(dict)
+        )
 
     async def __aenter__(self) -> User:
         _log.info("ready")

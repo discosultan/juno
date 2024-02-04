@@ -16,13 +16,11 @@ yaml.add_constructor("!decimal", _decimal_constructor)
 
 
 @overload
-def dump(data: Any, indent: Optional[int] = None) -> Any:
-    ...
+def dump(data: Any, indent: Optional[int] = None) -> Any: ...
 
 
 @overload
-def dump(data: Any, stream: IO, indent: Optional[int] = None) -> None:
-    ...
+def dump(data: Any, stream: IO, indent: Optional[int] = None) -> None: ...
 
 
 def dump(data, stream=None, indent=None):

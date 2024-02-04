@@ -94,9 +94,7 @@ class BBands(Signal):
             self._trend = (
                 1
                 if obv3.value > 0 and obv5.value > 0
-                else -1
-                if obv3.value < 0 and obv5.value < 0
-                else 0
+                else -1 if obv3.value < 0 and obv5.value < 0 else 0
             )
 
             # Update advice.

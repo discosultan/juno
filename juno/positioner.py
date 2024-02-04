@@ -96,11 +96,17 @@ class Positioner:
 
         result = await asyncio.gather(
             *(
-                self._open_short_position_using_borrow(exchange, symbol, quote, mode)
-                if short and exchange_instance.can_margin_borrow
-                else self._open_short_position_using_leveraged_order(exchange, symbol, quote, mode)
-                if short
-                else self._open_long_position(exchange, symbol, quote, mode)
+                (
+                    self._open_short_position_using_borrow(exchange, symbol, quote, mode)
+                    if short and exchange_instance.can_margin_borrow
+                    else (
+                        self._open_short_position_using_leveraged_order(
+                            exchange, symbol, quote, mode
+                        )
+                        if short
+                        else self._open_long_position(exchange, symbol, quote, mode)
+                    )
+                )
                 for symbol, quote, short in entries
             )
         )
@@ -151,11 +157,16 @@ class Positioner:
 
         result = await asyncio.gather(
             *(
-                self._close_short_position_using_borrow(position, mode, reason)
-                if isinstance(position, Position.OpenShort) and exchange_instance.can_margin_borrow
-                else self._close_short_position_using_leveraged_order(position, mode, reason)
-                if isinstance(position, Position.OpenShort)
-                else self._close_long_position(position, mode, reason)
+                (
+                    self._close_short_position_using_borrow(position, mode, reason)
+                    if isinstance(position, Position.OpenShort)
+                    and exchange_instance.can_margin_borrow
+                    else (
+                        self._close_short_position_using_leveraged_order(position, mode, reason)
+                        if isinstance(position, Position.OpenShort)
+                        else self._close_long_position(position, mode, reason)
+                    )
+                )
                 for position, reason in entries
             )
         )
@@ -643,9 +654,11 @@ class SimulatedPositioner:
         entries: list[tuple[str, Decimal, bool, Timestamp, Decimal]],
     ) -> list[Position.Open]:
         return [
-            self._open_simulated_short_position(exchange, symbol, time, price, quote)
-            if short
-            else self._open_simulated_long_position(exchange, symbol, time, price, quote)
+            (
+                self._open_simulated_short_position(exchange, symbol, time, price, quote)
+                if short
+                else self._open_simulated_long_position(exchange, symbol, time, price, quote)
+            )
             for symbol, quote, short, time, price in entries
         ]
 
@@ -655,9 +668,11 @@ class SimulatedPositioner:
         entries: list[tuple[Position.Open, CloseReason, Timestamp, Decimal]],
     ) -> list[Position.Closed]:
         return [
-            self._close_simulated_short_position(pos, time, price, reason)
-            if isinstance(pos, Position.OpenShort)
-            else self._close_simulated_long_position(pos, time, price, reason)
+            (
+                self._close_simulated_short_position(pos, time, price, reason)
+                if isinstance(pos, Position.OpenShort)
+                else self._close_simulated_long_position(pos, time, price, reason)
+            )
             for pos, reason, time, price in entries
         ]
 

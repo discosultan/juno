@@ -14,6 +14,7 @@ from .atr import Atr
 from .atr2 import Atr2
 from .bbands import Bbands
 from .cci import Cci
+from .cci2 import Cci2
 from .chaikin_oscillator import ChaikinOscillator
 from .chandelier_exit import ChandelierExit
 from .darvas_box import DarvasBox
@@ -50,6 +51,7 @@ __all__ = [
     "Atr2",
     "Bbands",
     "Cci",
+    "Cci2",
     "ChaikinOscillator",
     "ChandelierExit",
     "DarvasBox",

@@ -7,7 +7,7 @@ import aiohttp
 import pytest
 import pytest_asyncio
 from asyncstdlib import zip as zip_async
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf
 
 from juno import (
     BadOrder,
@@ -33,7 +33,7 @@ from juno.inspect import list_concretes_from_module
 from juno.typing import types_match
 
 exchange_type_fixtures = {
-    e: lazy_fixture(e.__name__.lower()) for e in list_concretes_from_module(exchanges, Exchange)
+    e: lf(e.__name__.lower()) for e in list_concretes_from_module(exchanges, Exchange)
 }
 
 

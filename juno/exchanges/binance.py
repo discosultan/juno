@@ -76,7 +76,7 @@ from .exchange import Exchange
 
 _BASE_API_URL = "https://api.binance.com"
 _BASE_WS_URL = "wss://stream.binance.com:9443"
-_BASE_GATEWAY_URL = "https://www.binance.com/gateway-api"
+_BASE_INTERNAL_API_URL = "https://www.binance.com/bapi/margin"
 
 _SEC_NONE = 0  # Endpoint can be accessed freely.
 _SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
@@ -213,11 +213,11 @@ class Binance(Exchange):
                 weight=10,
             ),
             self._list_symbols(isolated=True),
-            self._gateway_request_json(
+            self._internal_request_json(
                 method="GET",
                 url="/v1/friendly/margin/vip/spec/list-all",
             ),
-            self._gateway_request_json(
+            self._internal_request_json(
                 method="GET",
                 url="/v1/public/isolated-margin/pair/vip-level",
             ),
@@ -1293,8 +1293,8 @@ class Binance(Exchange):
 
         return await self._request(method=method, url=_BASE_API_URL + url, **kwargs)
 
-    async def _gateway_request_json(self, method: str, url: str, **kwargs: Any) -> Any:
-        response = await self._request(method, _BASE_GATEWAY_URL + url, **kwargs)
+    async def _internal_request_json(self, method: str, url: str, **kwargs: Any) -> Any:
+        response = await self._request(method, _BASE_INTERNAL_API_URL + url, **kwargs)
 
         await ExchangeException.raise_for_status(response)
         return await response.json()
@@ -1693,6 +1693,7 @@ _KNOWN_QUOTE_ASSETS = [
     "DOT",
     "ETH",
     "EUR",
+    "FDUSD",
     "GBP",
     "GYEN",
     "IDRT",

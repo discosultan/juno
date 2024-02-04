@@ -1001,6 +1001,7 @@ _OLD_ASSET_TO_NEW_ASSET = {
 }
 
 _KNOWN_NEW_QUOTE_ASSETS = [
+    "pyusd",
     "eur",
     "usd",
     "aud",

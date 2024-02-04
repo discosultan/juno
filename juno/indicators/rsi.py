@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Iterable
 
 from .smma import Smma
 
@@ -51,3 +52,10 @@ class Rsi:
 
         self._last_price = price
         return self.value
+
+    @staticmethod
+    def for_period(prices: Iterable[Decimal], period: int) -> Decimal:
+        rsi = Rsi(period)
+        for price in prices:
+            rsi.update(price)
+        return rsi.value

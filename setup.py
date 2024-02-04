@@ -4,7 +4,7 @@ setup(
     name="juno",
     version="0.5.0",
     packages=find_packages(),
-    python_requires=">= 3.11",
+    python_requires=">= 3.12",
     install_requires=[
         "aiohttp",
         "aiolimiter",
@@ -37,7 +37,7 @@ setup(
             "pytest",
             "pytest-aiohttp",
             "pytest-asyncio",
-            "pytest-lazy-fixture",
+            "pytest-lazy-fixtures",
             "pytest-mock",
             "types-pyyaml",
             "types-setuptools",
